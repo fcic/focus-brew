@@ -10,7 +10,7 @@ const robotoSlab = Roboto_Slab({
 });
 
 export const metadata: Metadata = {
-  title: "the coffee",
+  title: "coffee with code",
   description: "A minimalist productivity app",
 };
 
