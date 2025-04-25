@@ -46,6 +46,7 @@ export function Notepad() {
       StarterKit,
       Placeholder.configure({
         placeholder: "Start typing...",
+        emptyEditorClass: "is-editor-empty",
       }),
     ],
     content: selectedNote?.content || "",
@@ -53,6 +54,11 @@ export function Notepad() {
       if (selectedNoteId) {
         updateNoteContent(selectedNoteId, editor.getHTML());
       }
+    },
+    editorProps: {
+      attributes: {
+        class: "outline-none",
+      },
     },
   });
 
@@ -263,11 +269,80 @@ export function Notepad() {
                 </div>
               </div>
 
-              <ScrollArea className="flex-1 p-4">
+              <ScrollArea className="flex-1 p-6">
                 <EditorContent
                   editor={editor}
-                  className="prose dark:prose-invert max-w-none"
+                  className="prose dark:prose-invert max-w-none editor-content"
                 />
+                <style jsx global>{`
+                  .editor-content .ProseMirror {
+                    min-height: 150px;
+                    line-height: 1.6;
+                    padding: 0.5rem 0;
+                  }
+
+                  .editor-content .ProseMirror p {
+                    margin-bottom: 1rem;
+                  }
+
+                  .editor-content .ProseMirror h1 {
+                    font-size: 1.5rem;
+                    margin-top: 1rem;
+                    margin-bottom: 0.75rem;
+                  }
+
+                  .editor-content .ProseMirror h2 {
+                    font-size: 1.25rem;
+                    margin-top: 0.75rem;
+                    margin-bottom: 0.5rem;
+                  }
+
+                  .editor-content .ProseMirror ul,
+                  .editor-content .ProseMirror ol {
+                    padding-left: 1.5rem;
+                    margin-bottom: 1rem;
+                  }
+
+                  .editor-content .ProseMirror li {
+                    margin-bottom: 0.25rem;
+                  }
+
+                  .editor-content .ProseMirror blockquote {
+                    border-left: 3px solid #e5e7eb;
+                    padding-left: 1rem;
+                    margin-left: 0;
+                    margin-right: 0;
+                    font-style: italic;
+                  }
+
+                  .editor-content .ProseMirror code {
+                    background-color: rgba(#616161, 0.1);
+                    color: #616161;
+                  }
+
+                  .editor-content .ProseMirror pre {
+                    background: #0d0d0d;
+                    color: #fff;
+                    font-family: "JetBrainsMono", monospace;
+                    padding: 0.75rem 1rem;
+                    border-radius: 0.5rem;
+                  }
+
+                  .editor-content .ProseMirror pre code {
+                    color: inherit;
+                    padding: 0;
+                    background: none;
+                    font-size: 0.8rem;
+                  }
+
+                  .editor-content .is-editor-empty:first-child::before {
+                    content: attr(data-placeholder);
+                    float: left;
+                    color: #adb5bd;
+                    pointer-events: none;
+                    height: 0;
+                  }
+                `}</style>
               </ScrollArea>
             </>
           ) : (
