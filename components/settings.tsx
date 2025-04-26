@@ -167,6 +167,33 @@ export function Settings({
             </div>
 
             <div>
+              <h3 className="text-lg font-medium mb-4">Temperature Unit</h3>
+              <RadioGroup
+                value={
+                  typeof window !== "undefined"
+                    ? localStorage.getItem("weather_unit") || "C"
+                    : "C"
+                }
+                onValueChange={(value) => {
+                  if (typeof window !== "undefined") {
+                    localStorage.setItem("weather_unit", value);
+                  }
+                  // Optionally, trigger a re-render or notify other components
+                }}
+                className="flex space-x-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="C" id="unit-c" />
+                  <Label htmlFor="unit-c">Celsius (°C)</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="F" id="unit-f" />
+                  <Label htmlFor="unit-f">Fahrenheit (°F)</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div>
               <h3 className="text-lg font-medium mb-4">Font</h3>
               <Select value={font} onValueChange={setFont}>
                 <SelectTrigger className="w-[200px] bg-background/50 border-border/30">

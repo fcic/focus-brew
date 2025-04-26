@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Coffee } from "lucide-react";
+import { Weather } from "@/components/weather";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -84,7 +85,8 @@ export function MenuBar({ openApp }: MenuBarProps) {
         </DropdownMenu>
       </div>
 
-      <div className="flex items-center">
+      <div className="flex items-center space-x-3">
+        <Weather />
         <span className="text-xs">{time}</span>
       </div>
     </motion.div>
