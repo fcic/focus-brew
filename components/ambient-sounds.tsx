@@ -128,10 +128,10 @@ export function AmbientSounds() {
   // Generate sounds from the available categories
   const generateSounds = (): Sound[] => {
     const sounds: Sound[] = [
-      // Nature sounds
+      // Nature
       { id: "nature-campfire", name: "Campfire", icon: getSoundIcon("campfire", "nature"), audioUrl: "/sounds/nature/campfire.mp3", volume: 50, playing: false, category: "nature" },
       { id: "nature-waterfall", name: "Waterfall", icon: getSoundIcon("waterfall", "nature"), audioUrl: "/sounds/nature/waterfall.mp3", volume: 50, playing: false, category: "nature" },
-      { id: "nature-waves", name: "Ocean Waves", icon: getSoundIcon("waves", "nature"), audioUrl: "/sounds/nature/waves.mp3", volume: 50, playing: false, category: "nature" },
+      { id: "nature-waves", name: "Waves", icon: getSoundIcon("waves", "nature"), audioUrl: "/sounds/nature/waves.mp3", volume: 50, playing: false, category: "nature" },
       { id: "nature-river", name: "River", icon: getSoundIcon("river", "nature"), audioUrl: "/sounds/nature/river.mp3", volume: 50, playing: false, category: "nature" },
       { id: "nature-jungle", name: "Jungle", icon: getSoundIcon("jungle", "nature"), audioUrl: "/sounds/nature/jungle.mp3", volume: 50, playing: false, category: "nature" },
       { id: "nature-wind", name: "Wind", icon: getSoundIcon("wind", "nature"), audioUrl: "/sounds/nature/wind.mp3", volume: 50, playing: false, category: "nature" },
@@ -180,7 +180,10 @@ export function AmbientSounds() {
       { id: "places-crowded-bar", name: "Crowded Bar", icon: getSoundIcon("crowded bar", "places"), audioUrl: "/sounds/places/crowded-bar.mp3", volume: 50, playing: false, category: "places" },
       { id: "places-laboratory", name: "Laboratory", icon: getSoundIcon("laboratory", "places"), audioUrl: "/sounds/places/laboratory.mp3", volume: 50, playing: false, category: "places" },
       { id: "places-laundry-room", name: "Laundry Room", icon: getSoundIcon("laundry room", "places"), audioUrl: "/sounds/places/laundry-room.mp3", volume: 50, playing: false, category: "places" },
+      { id: "places-library", name: "Library", icon: getSoundIcon("library", "places"), audioUrl: "/sounds/places/library.mp3", volume: 50, playing: false, category: "places" },
       { id: "places-night-village", name: "Night Village", icon: getSoundIcon("night village", "places"), audioUrl: "/sounds/places/night-village.mp3", volume: 50, playing: false, category: "places" },
+      { id: "places-office", name: "Office", icon: getSoundIcon("office", "places"), audioUrl: "/sounds/places/office.mp3", volume: 50, playing: false, category: "places" },
+      { id: "places-restaurant", name: "Restaurant", icon: getSoundIcon("restaurant", "places"), audioUrl: "/sounds/places/restaurant.mp3", volume: 50, playing: false, category: "places" },
       { id: "places-subway-station", name: "Subway Station", icon: getSoundIcon("subway station", "places"), audioUrl: "/sounds/places/subway-station.mp3", volume: 50, playing: false, category: "places" },
       { id: "places-supermarket", name: "Supermarket", icon: getSoundIcon("supermarket", "places"), audioUrl: "/sounds/places/supermarket.mp3", volume: 50, playing: false, category: "places" },
       { id: "places-temple", name: "Temple", icon: getSoundIcon("temple", "places"), audioUrl: "/sounds/places/temple.mp3", volume: 50, playing: false, category: "places" },
@@ -231,7 +234,7 @@ export function AmbientSounds() {
       { id: "transport-submarine", name: "Submarine", icon: getSoundIcon("submarine", "transport"), audioUrl: "/sounds/transport/submarine.mp3", volume: 50, playing: false, category: "transport" },
       { id: "transport-train", name: "Train", icon: getSoundIcon("train", "transport"), audioUrl: "/sounds/transport/train.mp3", volume: 50, playing: false, category: "transport" },
 
-      // Alarm (sem categoria)
+      // Alarme (sem categoria)
       { id: "alarm", name: "Alarm", icon: getSoundIcon("alarm", "things"), audioUrl: "/sounds/alarm.mp3", volume: 50, playing: false, category: "things" },
     ];
     return sounds;
