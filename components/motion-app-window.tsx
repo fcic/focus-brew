@@ -112,7 +112,7 @@ export function MotionAppWindow({
   return (
     <MotionCard
       ref={windowRef}
-      className="absolute shadow-xl rounded-xl overflow-hidden border border-border/30 bg-background/90 backdrop-blur-md relative"
+      className="absolute shadow-xl rounded-xl overflow-hidden border border-border/30 bg-background/90 backdrop-blur-md"
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
