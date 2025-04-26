@@ -76,6 +76,7 @@ export function MenuBar({ openApp }: MenuBarProps) {
                 <DropdownMenuItem key="pomodoro" onClick={() => openApp("pomodoro")}>Focus Timer</DropdownMenuItem>
                 <DropdownMenuItem key="notepad" onClick={() => openApp("notepad")}>Notes</DropdownMenuItem>
                 <DropdownMenuItem key="ambient" onClick={() => openApp("ambient")}>Ambient Sounds</DropdownMenuItem>
+                <DropdownMenuItem key="youtube" onClick={() => openApp("youtube")}>YouTube Player</DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSeparator />

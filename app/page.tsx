@@ -13,6 +13,7 @@ import { useLocalStorage } from "@/hooks/use-local-storage";
 import { AmbientSounds } from "@/components/ambient-sounds";
 import { Notepad } from "@/components/notepad";
 import KanbanBoard from "@/components/kanban/KanbanBoard";
+import YouTubePlayer from "@/components/youtube-player";
 
 export default function Home() {
   const [activeApps, setActiveApps] = useState<string[]>([]);
@@ -52,6 +53,8 @@ export default function Home() {
         return "Notes";
       case "ambient":
         return "Ambient Sounds";
+      case "youtube":
+        return "YouTube Player";
       case "settings":
         return "Settings";
       default:
@@ -86,6 +89,7 @@ export default function Home() {
               {appId === "pomodoro" && <PomodoroTimer />}
               {appId === "notepad" && <Notepad />}
               {appId === "ambient" && <AmbientSounds />}
+              {appId === "youtube" && <YouTubePlayer />}
               {appId === "settings" && (
                 <Settings
                   wallpaper={wallpaper}

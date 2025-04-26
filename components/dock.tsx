@@ -27,6 +27,7 @@ export function Dock({ openApp, activeApps }: DockProps) {
     },
     { id: "notepad", name: "Notes", icon: <FileText className="h-6 w-6" /> },
     { id: "ambient", name: "Ambient Sounds", icon: <Music className="h-6 w-6" /> },
+    { id: "youtube", name: "YouTube Player", icon: <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="5" width="20" height="14" rx="3"/><polygon points="10 9 15 12 10 15 10 9"/></svg> },
     {
       id: "settings",
       name: "Settings",
