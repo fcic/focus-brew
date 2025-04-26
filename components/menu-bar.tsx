@@ -16,6 +16,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { motion } from "framer-motion";
+import { ExchangeRate } from "@/components/exchange-rate";
 
 interface MenuBarProps {
   openApp: (appId: string) => void;
@@ -87,6 +88,8 @@ export function MenuBar({ openApp }: MenuBarProps) {
       </div>
 
       <div className="flex items-center space-x-3">
+      <ExchangeRate />
+
         <Weather />
         <span className="text-xs">{time}</span>
       </div>
