@@ -1,10 +1,27 @@
 import React from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { ChevronsUpDown, Check } from "lucide-react";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command";
+import { ChevronsUpDown, Check, ArrowRightLeftIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -56,7 +73,9 @@ export function SettingsAppearanceTab({
     <>
       <div className="mb-10">
         <h2 className="text-xl font-bold mb-1">Theme</h2>
-        <p className="text-muted-foreground text-xs mb-4">Switch between light, dark, or system theme.</p>
+        <p className="text-muted-foreground text-xs mb-4">
+          Switch between light, dark, or system theme.
+        </p>
         <RadioGroup
           value={theme}
           onValueChange={(value) => {
@@ -81,9 +100,15 @@ export function SettingsAppearanceTab({
       </div>
       <div className="mb-10">
         <h2 className="text-xl font-bold mb-1">Temperature Unit</h2>
-        <p className="text-muted-foreground text-xs mb-4">Choose Celsius or Fahrenheit for weather display.</p>
+        <p className="text-muted-foreground text-xs mb-4">
+          Choose Celsius or Fahrenheit for weather display.
+        </p>
         <RadioGroup
-          value={typeof window !== "undefined" ? localStorage.getItem("weather_unit") || "C" : "C"}
+          value={
+            typeof window !== "undefined"
+              ? localStorage.getItem("weather_unit") || "C"
+              : "C"
+          }
           onValueChange={(value) => {
             if (typeof window !== "undefined") {
               localStorage.setItem("weather_unit", value);
@@ -107,28 +132,10 @@ export function SettingsAppearanceTab({
         </RadioGroup>
       </div>
       <div className="mb-10">
-        <h2 className="text-xl font-bold mb-1">Font</h2>
-        <p className="text-muted-foreground text-xs mb-4">Select your preferred font for the UI.</p>
-        <Select value={font} onValueChange={setFont}>
-          <SelectTrigger className="w-[200px] bg-background/50 border-border/30">
-            <SelectValue placeholder="Select font" />
-          </SelectTrigger>
-          <SelectContent className="bg-background/90 backdrop-blur-md border-border/30">
-            <SelectItem value="font-satoshi">Satoshi (Default)</SelectItem>
-            <SelectItem value="font-sans">Nunito</SelectItem>
-            <SelectItem value="font-serif">Roboto Slab</SelectItem>
-            <SelectItem value="font-mono">Monospace</SelectItem>
-            <SelectItem value="font-general-sans">General Sans</SelectItem>
-            <SelectItem value="font-geist">Geist</SelectItem>
-            <SelectItem value="font-chillax">Chillax</SelectItem>
-            <SelectItem value="font-sentient">Sentient</SelectItem>
-            <SelectItem value="font-gambetta">Gambetta</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="mb-10">
         <h2 className="text-xl font-bold mb-1">Currency</h2>
-        <p className="text-muted-foreground text-xs mb-4">Choose which currencies to show in the top bar.</p>
+        <p className="text-muted-foreground text-xs mb-4">
+          Choose which currencies to show in the top bar.
+        </p>
         <div className="flex gap-2 items-center">
           {/* Base currency combobox */}
           <Popover open={openBase} onOpenChange={setOpenBase}>
@@ -147,7 +154,12 @@ export function SettingsAppearanceTab({
             </PopoverTrigger>
             <PopoverContent className="w-32 p-0">
               <Command>
-                <CommandInput value={baseSearch} onValueChange={setBaseSearch} placeholder="Search..." className="h-7 text-xs px-2" />
+                <CommandInput
+                  value={baseSearch}
+                  onValueChange={setBaseSearch}
+                  placeholder="Search..."
+                  className="h-7 text-xs px-2"
+                />
                 <CommandList>
                   <CommandEmpty>No currency found.</CommandEmpty>
                   <CommandGroup>
@@ -160,7 +172,12 @@ export function SettingsAppearanceTab({
                           setOpenBase(false);
                         }}
                       >
-                        <Check className={cn("mr-2 h-3 w-3", base === cur ? "opacity-100" : "opacity-0")} />
+                        <Check
+                          className={cn(
+                            "mr-2 h-3 w-3",
+                            base === cur ? "opacity-100" : "opacity-0"
+                          )}
+                        />
                         {cur.toUpperCase()}
                       </CommandItem>
                     ))}
@@ -169,7 +186,7 @@ export function SettingsAppearanceTab({
               </Command>
             </PopoverContent>
           </Popover>
-          <span>:</span>
+          <ArrowRightLeftIcon className="h-4 w-4" />
           {/* Target currency combobox */}
           <Popover open={openTarget} onOpenChange={setOpenTarget}>
             <PopoverTrigger asChild>
@@ -187,7 +204,12 @@ export function SettingsAppearanceTab({
             </PopoverTrigger>
             <PopoverContent className="w-32 p-0">
               <Command>
-                <CommandInput value={targetSearch} onValueChange={setTargetSearch} placeholder="Search..." className="h-7 text-xs px-2" />
+                <CommandInput
+                  value={targetSearch}
+                  onValueChange={setTargetSearch}
+                  placeholder="Search..."
+                  className="h-7 text-xs px-2"
+                />
                 <CommandList>
                   <CommandEmpty>No currency found.</CommandEmpty>
                   <CommandGroup>
@@ -200,7 +222,12 @@ export function SettingsAppearanceTab({
                           setOpenTarget(false);
                         }}
                       >
-                        <Check className={cn("mr-2 h-3 w-3", target === cur ? "opacity-100" : "opacity-0")} />
+                        <Check
+                          className={cn(
+                            "mr-2 h-3 w-3",
+                            target === cur ? "opacity-100" : "opacity-0"
+                          )}
+                        />
                         {cur.toUpperCase()}
                       </CommandItem>
                     ))}
@@ -210,6 +237,28 @@ export function SettingsAppearanceTab({
             </PopoverContent>
           </Popover>
         </div>
+      </div>
+      <div>
+        <h2 className="text-xl font-bold mb-1">Font</h2>
+        <p className="text-muted-foreground text-xs mb-4">
+          Select your preferred font for the UI.
+        </p>
+        <Select value={font} onValueChange={setFont}>
+          <SelectTrigger className="w-[200px] bg-background/50 border-border/30">
+            <SelectValue placeholder="Select font" />
+          </SelectTrigger>
+          <SelectContent className="bg-background/90 backdrop-blur-md border-border/30">
+            <SelectItem value="font-satoshi">Satoshi (Default)</SelectItem>
+            <SelectItem value="font-sans">Nunito</SelectItem>
+            <SelectItem value="font-serif">Roboto Slab</SelectItem>
+            <SelectItem value="font-mono">Monospace</SelectItem>
+            <SelectItem value="font-general-sans">General Sans</SelectItem>
+            <SelectItem value="font-geist">Geist</SelectItem>
+            <SelectItem value="font-chillax">Chillax</SelectItem>
+            <SelectItem value="font-sentient">Sentient</SelectItem>
+            <SelectItem value="font-gambetta">Gambetta</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </>
   );

@@ -8,7 +8,12 @@ import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
 import { SettingsWallpaperTab } from "./settings/SettingsWallpaperTab";
 import { SettingsAppearanceTab } from "./settings/SettingsAppearanceTab";
 import { SettingsAboutTab } from "./settings/SettingsAboutTab";
@@ -23,7 +28,18 @@ interface SettingsProps {
 }
 
 const COMMON_CURRENCIES = [
-  "usd", "eur", "gbp", "jpy", "cny", "aud", "cad", "chf", "sek", "nzd", "brl", "inr"
+  "usd",
+  "eur",
+  "gbp",
+  "jpy",
+  "cny",
+  "aud",
+  "cad",
+  "chf",
+  "sek",
+  "nzd",
+  "brl",
+  "inr",
 ];
 
 export function Settings({
@@ -82,10 +98,14 @@ export function Settings({
 
   // Currency state for settings
   const [base, setBase] = useState(() =>
-    typeof window !== "undefined" ? localStorage.getItem("currency_base") || "usd" : "usd"
+    typeof window !== "undefined"
+      ? localStorage.getItem("currency_base") || "usd"
+      : "usd"
   );
   const [target, setTarget] = useState(() =>
-    typeof window !== "undefined" ? localStorage.getItem("currency_target") || "brl" : "brl"
+    typeof window !== "undefined"
+      ? localStorage.getItem("currency_target") || "brl"
+      : "brl"
   );
   const [currencies, setCurrencies] = useState(COMMON_CURRENCIES);
   const [openBase, setOpenBase] = useState(false);
@@ -93,16 +113,21 @@ export function Settings({
   const [baseSearch, setBaseSearch] = useState("");
   const [targetSearch, setTargetSearch] = useState("");
   const filteredBase = baseSearch
-    ? currencies.filter((cur) => cur.toLowerCase().includes(baseSearch.toLowerCase()))
+    ? currencies.filter((cur) =>
+        cur.toLowerCase().includes(baseSearch.toLowerCase())
+      )
     : currencies;
   const filteredTarget = targetSearch
-    ? currencies.filter((cur) => cur.toLowerCase().includes(targetSearch.toLowerCase()))
+    ? currencies.filter((cur) =>
+        cur.toLowerCase().includes(targetSearch.toLowerCase())
+      )
     : currencies;
   useEffect(() => {
     // Fetch all available currencies for dropdown
     const fetchCurrencies = async () => {
       try {
-        const url = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json";
+        const url =
+          "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json";
         const res = await fetch(url);
         if (!res.ok) throw new Error();
         const data = await res.json();
@@ -118,13 +143,17 @@ export function Settings({
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("currency_base", base);
-      window.dispatchEvent(new CustomEvent("currency_changed", { detail: { base, target } }));
+      window.dispatchEvent(
+        new CustomEvent("currency_changed", { detail: { base, target } })
+      );
     }
   }, [base]);
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("currency_target", target);
-      window.dispatchEvent(new CustomEvent("currency_changed", { detail: { base, target } }));
+      window.dispatchEvent(
+        new CustomEvent("currency_changed", { detail: { base, target } })
+      );
     }
   }, [target]);
 
@@ -134,7 +163,8 @@ export function Settings({
       if (typeof e.detail === "string") setTab(e.detail);
     };
     window.addEventListener("open-settings-tab", handler as EventListener);
-    return () => window.removeEventListener("open-settings-tab", handler as EventListener);
+    return () =>
+      window.removeEventListener("open-settings-tab", handler as EventListener);
   }, []);
 
   return (
@@ -144,21 +174,28 @@ export function Settings({
         <div className="absolute bottom-2 right-2 z-10">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="icon" variant="destructive" onClick={() => {
-                if (typeof window !== "undefined") {
-                  localStorage.clear();
-                  window.location.reload();
-                }
-              }} aria-label="Resetar todas as configurações">
+              <Button
+                size="icon"
+                variant="destructive"
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    localStorage.clear();
+                    window.location.reload();
+                  }
+                }}
+                aria-label="Reset all settings"
+              >
                 <RotateCcwIcon className="w-5 h-5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="left">
-              Resetar todas as configurações
-            </TooltipContent>
+            <TooltipContent side="left">Reset all settings</TooltipContent>
           </Tooltip>
         </div>
-        <Tabs value={tab} onValueChange={setTab} className="flex flex-col h-full">
+        <Tabs
+          value={tab}
+          onValueChange={setTab}
+          className="flex flex-col h-full"
+        >
           <TabsList className="grid grid-cols-3 bg-muted/30 backdrop-blur-sm">
             <TabsTrigger
               value="wallpaper"
