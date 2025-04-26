@@ -12,6 +12,7 @@ import { MenuBar } from "@/components/menu-bar";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { AmbientSounds } from "@/components/ambient-sounds";
 import { Notepad } from "@/components/notepad";
+import KanbanBoard from "@/components/kanban/KanbanBoard";
 
 export default function Home() {
   const [activeApps, setActiveApps] = useState<string[]>([]);
@@ -43,6 +44,8 @@ export default function Home() {
     switch (appId) {
       case "todo":
         return "Tasks";
+      case "kanban":
+        return "Kanban";
       case "pomodoro":
         return "Focus Timer";
       case "notepad":
@@ -79,6 +82,7 @@ export default function Home() {
               zIndex={activeApps.indexOf(appId)}
             >
               {appId === "todo" && <TodoApp />}
+              {appId === "kanban" && <KanbanBoard />}
               {appId === "pomodoro" && <PomodoroTimer />}
               {appId === "notepad" && <Notepad />}
               {appId === "ambient" && <AmbientSounds />}

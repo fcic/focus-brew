@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckSquare, Clock, FileText, Music, Settings } from "lucide-react";
+import { CheckSquare, Clock, FileText, Music, Settings, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -19,6 +19,7 @@ interface DockProps {
 export function Dock({ openApp, activeApps }: DockProps) {
   const apps = [
     { id: "todo", name: "Tasks", icon: <CheckSquare className="h-6 w-6" /> },
+    { id: "kanban", name: "Kanban", icon: <Square className="h-6 w-6" /> },
     {
       id: "pomodoro",
       name: "Focus Timer",

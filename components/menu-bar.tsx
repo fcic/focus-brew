@@ -72,6 +72,9 @@ export function MenuBar({ openApp }: MenuBarProps) {
             <DropdownMenuItem onClick={() => openApp("todo")}>
               Tasks
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openApp("kanban")}>
+              Kanban
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => openApp("pomodoro")}>
               Focus Timer
             </DropdownMenuItem>

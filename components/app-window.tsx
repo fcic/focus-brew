@@ -25,11 +25,12 @@ export function AppWindow({
   onFocus,
   zIndex,
 }: AppWindowProps) {
+  const defaultWidth = id === "kanban" ? 1000 : 700;
   const [position, setPosition] = useState({
     x: 50 + zIndex * 20,
     y: 50 + zIndex * 20,
   });
-  const [size, setSize] = useState({ width: 650, height: 450 });
+  const [size, setSize] = useState({ width: defaultWidth, height: 450 });
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeDirection, setResizeDirection] = useState<string | null>(null);
