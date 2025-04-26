@@ -45,8 +45,8 @@ export default function Home() {
         defaultHeight = 600;
       }
       if (appId === "ambient") {
-        defaultWidth = 800;
-        defaultHeight = 6700;
+        defaultWidth = 750;
+        defaultHeight = 700;
       }
       setWindows([
         ...windows,
