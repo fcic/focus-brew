@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Plus, Trash2, CheckCircle2, Circle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,14 @@ interface TodoAppProps {}
 export function TodoApp({}: TodoAppProps) {
   const [todos, setTodos] = useLocalStorage<Todo[]>("todos", []);
   const [newTodo, setNewTodo] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when component mounts
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
 
   const addTodo = () => {
     if (newTodo.trim()) {
@@ -56,6 +64,7 @@ export function TodoApp({}: TodoAppProps) {
           }}
         >
           <Input
+            ref={inputRef}
             placeholder="Add a new task..."
             value={newTodo}
             onChange={(e) => setNewTodo(e.target.value)}

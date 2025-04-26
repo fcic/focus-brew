@@ -38,6 +38,13 @@ export function Settings({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedWallpaper, setSelectedWallpaper] = useState(wallpaper);
   const { setTheme: setSystemTheme } = useTheme();
+  const [customWallpapers, setCustomWallpapers] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("custom_wallpapers");
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
 
   const wallpapers = [
     "/wallpapers/default.png",
@@ -52,6 +59,19 @@ export function Settings({
       const reader = new FileReader();
       reader.onload = (event) => {
         const result = event.target?.result as string;
+        // Add to custom wallpapers list
+        const updatedWallpapers = [...customWallpapers, result];
+        setCustomWallpapers(updatedWallpapers);
+
+        // Save to localStorage
+        if (typeof window !== "undefined") {
+          localStorage.setItem(
+            "custom_wallpapers",
+            JSON.stringify(updatedWallpapers)
+          );
+        }
+
+        // Set as current wallpaper
         setSelectedWallpaper(result);
         setWallpaper(result);
       };
@@ -88,6 +108,7 @@ export function Settings({
             <div>
               <h3 className="text-lg font-medium mb-4">Choose Wallpaper</h3>
               <div className="grid grid-cols-2 gap-4">
+                {/* Default wallpapers */}
                 {wallpapers.map((wp) => (
                   <div
                     key={wp}
@@ -104,6 +125,33 @@ export function Settings({
                     <img
                       src={wp || "/placeholder.svg"}
                       alt="Wallpaper"
+                      className="w-full h-32 object-cover"
+                    />
+                    {selectedWallpaper === wp && (
+                      <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1">
+                        <Check className="h-4 w-4" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Custom uploaded wallpapers */}
+                {customWallpapers.map((wp, index) => (
+                  <div
+                    key={`custom-${index}`}
+                    className={`relative cursor-pointer rounded-lg overflow-hidden border-2 ${
+                      selectedWallpaper === wp
+                        ? "border-primary"
+                        : "border-transparent"
+                    }`}
+                    onClick={() => {
+                      setSelectedWallpaper(wp);
+                      setWallpaper(wp);
+                    }}
+                  >
+                    <img
+                      src={wp || "/placeholder.svg"}
+                      alt={`Custom Wallpaper ${index + 1}`}
                       className="w-full h-32 object-cover"
                     />
                     {selectedWallpaper === wp && (
@@ -177,8 +225,13 @@ export function Settings({
                 onValueChange={(value) => {
                   if (typeof window !== "undefined") {
                     localStorage.setItem("weather_unit", value);
+                    // Dispatch a custom event to notify the weather component
+                    window.dispatchEvent(
+                      new CustomEvent("temperature_unit_changed", {
+                        detail: value,
+                      })
+                    );
                   }
-                  // Optionally, trigger a re-render or notify other components
                 }}
                 className="flex space-x-4"
               >

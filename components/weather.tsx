@@ -46,6 +46,24 @@ export function Weather() {
     }
   }, []);
 
+  // Listen for temperature unit changes from settings
+  useEffect(() => {
+    const handleUnitChange = (event: CustomEvent) => {
+      setUnit(event.detail);
+    };
+
+    window.addEventListener(
+      "temperature_unit_changed",
+      handleUnitChange as EventListener
+    );
+    return () => {
+      window.removeEventListener(
+        "temperature_unit_changed",
+        handleUnitChange as EventListener
+      );
+    };
+  }, []);
+
   useEffect(() => {
     const fetchWeather = async () => {
       try {

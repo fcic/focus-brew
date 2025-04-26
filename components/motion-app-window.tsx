@@ -1,41 +1,61 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState, useRef, useEffect } from "react"
-import { X, Minus, Square } from "lucide-react"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { motion } from "framer-motion"
+import type React from "react";
+import { useState, useRef, useEffect } from "react";
+import { X, Minus, Square } from "lucide-react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
 
-const MotionCard = motion(Card)
+const MotionCard = motion(Card);
 
 interface AppWindowProps {
-  id: string
-  title: string
-  children: React.ReactNode
-  onClose: () => void
-  onFocus: () => void
-  zIndex: number
+  id: string;
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+  onFocus: () => void;
+  zIndex: number;
 }
 
-export function MotionAppWindow({ id, title, children, onClose, onFocus, zIndex }: AppWindowProps) {
-  const [position, setPosition] = useState({ x: 50 + zIndex * 20, y: 50 + zIndex * 20 })
-  const [size, setSize] = useState({ width: 650, height: 450 })
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
-  const windowRef = useRef<HTMLDivElement>(null)
+export function MotionAppWindow({
+  id,
+  title,
+  children,
+  onClose,
+  onFocus,
+  zIndex,
+}: AppWindowProps) {
+  const [position, setPosition] = useState({
+    x: 50 + zIndex * 20,
+    y: 50 + zIndex * 20,
+  });
+  const [size, setSize] = useState({ width: 650, height: 450 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeDirection, setResizeDirection] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const windowRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (windowRef.current) {
-      const rect = windowRef.current.getBoundingClientRect()
+      const rect = windowRef.current.getBoundingClientRect();
       setDragOffset({
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
-      })
-      setIsDragging(true)
-      onFocus()
+      });
+      setIsDragging(true);
+      onFocus();
     }
-  }
+  };
+
+  const startResize = (direction: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizing(true);
+    setResizeDirection(direction);
+    onFocus();
+  };
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -43,29 +63,54 @@ export function MotionAppWindow({ id, title, children, onClose, onFocus, zIndex 
         setPosition({
           x: e.clientX - dragOffset.x,
           y: e.clientY - dragOffset.y,
-        })
+        });
+      } else if (isResizing && windowRef.current) {
+        const rect = windowRef.current.getBoundingClientRect();
+
+        switch (resizeDirection) {
+          case "right":
+            setSize({
+              width: Math.max(300, e.clientX - rect.left),
+              height: size.height,
+            });
+            break;
+          case "bottom":
+            setSize({
+              width: size.width,
+              height: Math.max(200, e.clientY - rect.top),
+            });
+            break;
+          case "corner":
+            setSize({
+              width: Math.max(300, e.clientX - rect.left),
+              height: Math.max(200, e.clientY - rect.top),
+            });
+            break;
+        }
       }
-    }
+    };
 
     const handleMouseUp = () => {
-      setIsDragging(false)
-    }
+      setIsDragging(false);
+      setIsResizing(false);
+      setResizeDirection(null);
+    };
 
-    if (isDragging) {
-      document.addEventListener("mousemove", handleMouseMove)
-      document.addEventListener("mouseup", handleMouseUp)
+    if (isDragging || isResizing) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
     }
 
     return () => {
-      document.removeEventListener("mousemove", handleMouseMove)
-      document.removeEventListener("mouseup", handleMouseUp)
-    }
-  }, [isDragging, dragOffset])
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging, isResizing, dragOffset, resizeDirection, size]);
 
   return (
     <MotionCard
       ref={windowRef}
-      className="absolute shadow-xl rounded-xl overflow-hidden border border-border/30 bg-background/90 backdrop-blur-md"
+      className="absolute shadow-xl rounded-xl overflow-hidden border border-border/30 bg-background/90 backdrop-blur-md relative"
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
@@ -90,8 +135,8 @@ export function MotionAppWindow({ id, title, children, onClose, onFocus, zIndex 
               variant="ghost"
               className="h-3 w-3 rounded-full bg-red-500 hover:bg-red-600 group"
               onClick={(e) => {
-                e.stopPropagation()
-                onClose()
+                e.stopPropagation();
+                onClose();
               }}
             >
               <X className="h-2 w-2 text-red-800 opacity-0 group-hover:opacity-100" />
@@ -105,17 +150,46 @@ export function MotionAppWindow({ id, title, children, onClose, onFocus, zIndex 
               <Minus className="h-2 w-2 text-yellow-800 opacity-0 group-hover:opacity-100" />
               <span className="sr-only">Minimize</span>
             </Button>
-            <Button size="icon" variant="ghost" className="h-3 w-3 rounded-full bg-green-500 hover:bg-green-600 group">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-3 w-3 rounded-full bg-green-500 hover:bg-green-600 group"
+            >
               <Square className="h-2 w-2 text-green-800 opacity-0 group-hover:opacity-100" />
               <span className="sr-only">Maximize</span>
             </Button>
           </div>
-          <span className="text-xs font-medium text-center w-full">{title}</span>
+          <span className="text-xs font-medium text-center w-full">
+            {title}
+          </span>
         </div>
       </CardHeader>
-      <CardContent className="p-0 overflow-auto" style={{ height: "calc(100% - 36px)" }}>
+      <CardContent
+        className="p-0 overflow-auto"
+        style={{ height: "calc(100% - 36px)" }}
+      >
         {children}
       </CardContent>
+
+      {/* Resize handles */}
+      <div
+        className="absolute bottom-0 right-0 w-4 h-full cursor-ew-resize"
+        onMouseDown={(e) => startResize("right", e)}
+      />
+      <div
+        className="absolute bottom-0 right-0 h-4 w-full cursor-ns-resize"
+        onMouseDown={(e) => startResize("bottom", e)}
+      />
+      <div
+        className="absolute bottom-0 right-0 w-8 h-8 cursor-nwse-resize"
+        onMouseDown={(e) => startResize("corner", e)}
+        style={{
+          background: "transparent",
+          zIndex: 20,
+        }}
+      >
+        {/* Removed ArrowsOut icon as it does not exist in lucide-react */}
+      </div>
     </MotionCard>
-  )
+  );
 }

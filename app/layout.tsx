@@ -27,7 +27,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${nunito.variable} ${robotoSlab.variable} font-sans`}>
+      <head>
+        <link rel="icon" href="/icon.png" type="image/png" />
+      </head>
+      <body
+        className={`${nunito.variable} ${robotoSlab.variable} font-satoshi`}
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

@@ -19,8 +19,8 @@ export default function Home() {
     "wallpaper",
     "/wallpapers/default.png"
   );
-  const [font, setFont] = useLocalStorage("font", "font-sans");
-  const [theme, setTheme] = useLocalStorage("theme", "light");
+  const [font, setFont] = useLocalStorage("font", "font-satoshi");
+  const [theme, setTheme] = useLocalStorage("theme", "dark");
 
   const openApp = (appId: string) => {
     if (!activeApps.includes(appId)) {
