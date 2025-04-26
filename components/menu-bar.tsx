@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { MoonIcon, SunIcon, Coffee } from "lucide-react";
-import { useTheme } from "next-themes";
+import { Coffee } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -17,7 +16,6 @@ interface MenuBarProps {
 }
 
 export function MenuBar({ openApp }: MenuBarProps) {
-  const { setTheme } = useTheme();
   const [time, setTime] = useState(
     new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
   );
@@ -86,32 +84,8 @@ export function MenuBar({ openApp }: MenuBarProps) {
         </DropdownMenu>
       </div>
 
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center">
         <span className="text-xs">{time}</span>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-5 w-5">
-              <SunIcon className="h-3.5 w-3.5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-              <MoonIcon className="absolute h-3.5 w-3.5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-              <span className="sr-only">Toggle theme</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-zinc-200/30 dark:border-zinc-800/30"
-          >
-            <DropdownMenuItem onClick={() => setTheme("light")}>
-              Light
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setTheme("dark")}>
-              Dark
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setTheme("system")}>
-              System
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </motion.div>
   );

@@ -38,7 +38,8 @@ export function Dock({ openApp, activeApps }: DockProps) {
       initial={{ y: 20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ delay: 0.3, duration: 0.5 }}
-      className="fixed bottom-6 left-1/2 transform -translate-x-1/2 flex items-center justify-center"
+      className="fixed bottom-6 left-0 right-0 mx-auto flex items-center justify-center"
+      style={{ width: "fit-content" }}
     >
       <motion.div
         className="bg-background/60 backdrop-blur-xl border border-border/30 rounded-2xl p-2 flex items-center space-x-1 shadow-lg"

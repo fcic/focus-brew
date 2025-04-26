@@ -4,6 +4,7 @@ import type React from "react";
 
 import { useState, useRef } from "react";
 import { Upload, Check } from "lucide-react";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -36,6 +37,7 @@ export function Settings({
 }: SettingsProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedWallpaper, setSelectedWallpaper] = useState(wallpaper);
+  const { setTheme: setSystemTheme } = useTheme();
 
   const wallpapers = [
     "/wallpapers/default.png",
@@ -143,7 +145,10 @@ export function Settings({
               <h3 className="text-lg font-medium mb-4">Theme</h3>
               <RadioGroup
                 value={theme}
-                onValueChange={setTheme}
+                onValueChange={(value) => {
+                  setTheme(value);
+                  setSystemTheme(value);
+                }}
                 className="flex space-x-4"
               >
                 <div className="flex items-center space-x-2">
