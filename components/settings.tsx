@@ -3,7 +3,7 @@
 import type React from "react";
 
 import { useState, useRef } from "react";
-import { Upload, Check } from "lucide-react";
+import { Upload, Check, Trash2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -159,6 +159,28 @@ export function Settings({
                         <Check className="h-4 w-4" />
                       </div>
                     )}
+                    {/* Delete button using shadcn/ui Button */}
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="destructive"
+                      className="absolute bottom-2 right-2 h-6 w-6 min-w-0 p-0"
+                      onClick={e => {
+                        e.stopPropagation();
+                        const updated = customWallpapers.filter((_, i) => i !== index);
+                        setCustomWallpapers(updated);
+                        if (typeof window !== "undefined") {
+                          localStorage.setItem("custom_wallpapers", JSON.stringify(updated));
+                        }
+                        if (selectedWallpaper === wp) {
+                          setSelectedWallpaper("/wallpapers/default.png");
+                          setWallpaper("/wallpapers/default.png");
+                        }
+                      }}
+                      aria-label="Delete wallpaper"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -253,10 +275,10 @@ export function Settings({
                   <SelectValue placeholder="Select font" />
                 </SelectTrigger>
                 <SelectContent className="bg-background/90 backdrop-blur-md border-border/30">
-                  <SelectItem value="font-sans">Nunito (Default)</SelectItem>
+                  <SelectItem value="font-satoshi">Satoshi (Default)</SelectItem>
+                  <SelectItem value="font-sans">Nunito</SelectItem>
                   <SelectItem value="font-serif">Roboto Slab</SelectItem>
                   <SelectItem value="font-mono">Monospace</SelectItem>
-                  <SelectItem value="font-satoshi">Satoshi</SelectItem>
                   <SelectItem value="font-general-sans">
                     General Sans
                   </SelectItem>

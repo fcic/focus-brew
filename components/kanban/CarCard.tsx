@@ -3,6 +3,7 @@ import { KanbanCard } from "./KanbanBoard";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface CarCardProps {
   card: KanbanCard;
@@ -33,7 +34,9 @@ const CarCard: React.FC<CarCardProps> = ({ card, onDelete }) => {
       style={style}
       {...attributes}
       {...listeners}
-      className="bg-background rounded-lg shadow border border-border/20 hover:bg-accent/40 transition-colors duration-150 p-3 flex flex-col gap-1 group focus-within:ring-2 focus-within:ring-primary/40"
+      className={`bg-background rounded-lg border transition-colors duration-150 p-3 flex flex-col gap-1 group 
+      ${isDragging ? 'border-accent' : 'border-border'}`
+      }
       tabIndex={0}
     >
       <div className="flex items-center gap-2 mb-1">
@@ -47,15 +50,17 @@ const CarCard: React.FC<CarCardProps> = ({ card, onDelete }) => {
       )}
       {onDelete && (
         <div className="flex justify-end mt-2">
-          <button
+          <Button
             type="button"
+            variant="destructive"
+            size="icon"
             onPointerDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); onDelete(); }}
-            className="bg-zinc-800/80 hover:bg-red-600 text-zinc-300 hover:text-white rounded-full p-1 shadow focus:outline-none focus:ring-2 focus:ring-red-400 z-20"
             aria-label="Delete card"
+            className="z-20 h-6 w-6 min-w-0 p-0"
           >
             <Trash2 className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
       )}
     </div>
