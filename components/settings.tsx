@@ -171,7 +171,7 @@ export function Settings({
     <TooltipProvider>
       <div className="h-full relative">
         {/* Botão de reset no canto superior direito */}
-        <div className="absolute bottom-2 right-2 z-10">
+        <div className="absolute top-[50px] right-5 z-10">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -231,7 +231,7 @@ export function Settings({
                 wallpapers={wallpapers}
               />
             </TabsContent>
-            <TabsContent value="appearance" className="space-y-10 p-8">
+            <TabsContent value="appearance" className="space-y-10 p-4">
               <SettingsAppearanceTab
                 font={font}
                 setFont={setFont}
