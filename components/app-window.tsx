@@ -15,6 +15,9 @@ interface AppWindowProps {
   onClose: () => void;
   onFocus: () => void;
   zIndex: number;
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  onUpdate: (position: { x: number; y: number }, size: { width: number; height: number }) => void;
 }
 
 export function AppWindow({
@@ -24,19 +27,25 @@ export function AppWindow({
   onClose,
   onFocus,
   zIndex,
+  position,
+  size,
+  onUpdate,
 }: AppWindowProps) {
-  const defaultWidth = id === "kanban" ? 1000 : id === "youtube" ? 480 : id === "ambient-sounds" ? 800 : 700;
-  const defaultHeight = id === "youtube" ? 600 : id === "ambient-sounds" ? 600 : 450;
-  const [position, setPosition] = useState({
-    x: 50 + zIndex * 20,
-    y: 50 + zIndex * 20,
-  });
-  const [size, setSize] = useState({ width: defaultWidth, height: defaultHeight });
+  const [internalPosition, setInternalPosition] = useState(position);
+  const [internalSize, setInternalSize] = useState(size);
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeDirection, setResizeDirection] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const windowRef = useRef<HTMLDivElement>(null);
+
+  // Sync internal state with props
+  useEffect(() => {
+    setInternalPosition(position);
+  }, [position.x, position.y]);
+  useEffect(() => {
+    setInternalSize(size);
+  }, [size.width, size.height]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (windowRef.current) {
@@ -61,33 +70,35 @@ export function AppWindow({
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging) {
-        setPosition({
+        const newPos = {
           x: e.clientX - dragOffset.x,
           y: e.clientY - dragOffset.y,
-        });
+        };
+        setInternalPosition(newPos);
       } else if (isResizing && windowRef.current) {
         const rect = windowRef.current.getBoundingClientRect();
-
+        let newSize = { ...internalSize };
         switch (resizeDirection) {
           case "right":
-            setSize({
+            newSize = {
               width: Math.max(300, e.clientX - rect.left),
-              height: size.height,
-            });
+              height: internalSize.height,
+            };
             break;
           case "bottom":
-            setSize({
-              width: size.width,
+            newSize = {
+              width: internalSize.width,
               height: Math.max(200, e.clientY - rect.top),
-            });
+            };
             break;
           case "corner":
-            setSize({
+            newSize = {
               width: Math.max(300, e.clientX - rect.left),
               height: Math.max(200, e.clientY - rect.top),
-            });
+            };
             break;
         }
+        setInternalSize(newSize);
       }
     };
 
@@ -95,6 +106,8 @@ export function AppWindow({
       setIsDragging(false);
       setIsResizing(false);
       setResizeDirection(null);
+      // Notify parent of new position/size
+      onUpdate(internalPosition, internalSize);
     };
 
     if (isDragging || isResizing) {
@@ -106,7 +119,8 @@ export function AppWindow({
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDragging, isResizing, dragOffset, resizeDirection, size]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDragging, isResizing, dragOffset, resizeDirection, internalSize, internalPosition]);
 
   return (
     <motion.div
@@ -116,10 +130,10 @@ export function AppWindow({
       transition={{ duration: 0.2 }}
       style={{
         position: "absolute",
-        left: `${position.x}px`,
-        top: `${position.y}px`,
-        width: `${size.width}px`,
-        height: `${size.height}px`,
+        left: `${internalPosition.x}px`,
+        top: `${internalPosition.y}px`,
+        width: `${internalSize.width}px`,
+        height: `${internalSize.height}px`,
         zIndex: zIndex + 10,
       }}
     >
