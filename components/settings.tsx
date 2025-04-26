@@ -225,7 +225,7 @@ export function Settings({
                   <Button
                     variant="outline"
                     onClick={() => fileInputRef.current?.click()}
-                    className="bg-background/50 border-border/30"
+                    className="bg-background/50"
                   >
                     <Upload className="h-4 w-4 mr-2" />
                     Upload Image

@@ -33,8 +33,8 @@ export function PomodoroTimer({}: PomodoroTimerProps) {
       }, 1000);
     } else if (time === 0) {
       setIsActive(false);
-      // Play notification sound
-      const audio = new Audio("/sounds/notification.mp3");
+      // Always play alarm sound when timer finishes
+      const audio = new Audio("/sounds/alarm.mp3");
       audio.volume = volume / 100;
       audio.play();
     }
@@ -42,7 +42,7 @@ export function PomodoroTimer({}: PomodoroTimerProps) {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isActive, time, volume]);
+  }, [isActive, time, volume, mode]);
 
   const toggleTimer = () => {
     setIsActive(!isActive);
