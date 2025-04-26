@@ -46,8 +46,8 @@ export function Settings({
   });
 
   const wallpapers = [
-    "/wallpapers/default.png",
-    "/wallpapers/1.jpg",
+    "/wallpapers/default.jpg",
+    "/wallpapers/1.png",
     // "/wallpapers/ocean.jpg",
     // "/wallpapers/city.jpg",
   ];

@@ -27,7 +27,7 @@ export default function Home() {
   );
   const [wallpaper, setWallpaper] = useLocalStorage(
     "wallpaper",
-    "/wallpapers/default.png"
+    "/wallpapers/default.jpg"
   );
   const [font, setFont] = useLocalStorage("font", "font-satoshi");
   const [theme, setTheme] = useLocalStorage("theme", "dark");
