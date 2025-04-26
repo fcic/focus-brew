@@ -25,8 +25,8 @@ export function AppWindow({
   onFocus,
   zIndex,
 }: AppWindowProps) {
-  const defaultWidth = id === "kanban" ? 1000 : id === "youtube" ? 480 : 700;
-  const defaultHeight = id === "youtube" ? 600 : 450;
+  const defaultWidth = id === "kanban" ? 1000 : id === "youtube" ? 480 : id === "ambient-sounds" ? 800 : 700;
+  const defaultHeight = id === "youtube" ? 600 : id === "ambient-sounds" ? 600 : 450;
   const [position, setPosition] = useState({
     x: 50 + zIndex * 20,
     y: 50 + zIndex * 20,

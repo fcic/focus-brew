@@ -26,11 +26,13 @@ export function MotionAppWindow({
   onFocus,
   zIndex,
 }: AppWindowProps) {
+  const defaultWidth = id === "kanban" ? 1000 : id === "youtube" ? 480 : id === "ambient-sounds" ? 800 : 700;
+  const defaultHeight = id === "youtube" ? 600 : id === "ambient-sounds" ? 600 : 450;
   const [position, setPosition] = useState({
     x: 50 + zIndex * 20,
     y: 50 + zIndex * 20,
   });
-  const [size, setSize] = useState({ width: 650, height: 450 });
+  const [size, setSize] = useState({ width: defaultWidth, height: defaultHeight });
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeDirection, setResizeDirection] = useState<string | null>(null);

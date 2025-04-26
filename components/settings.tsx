@@ -49,7 +49,7 @@ export function Settings({
 
   const wallpapers = [
     "/wallpapers/default.png",
-    // "/wallpapers/forest.jpg",
+    "/wallpapers/2.jpg",
     // "/wallpapers/ocean.jpg",
     // "/wallpapers/city.jpg",
   ];

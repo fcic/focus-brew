@@ -474,7 +474,7 @@ export function AmbientSounds() {
               className="h-8"
             >
               <Save className="h-4 w-4 mr-1" />
-              Save Mix
+
             </Button>
           </div>
         </TabsContent>
