@@ -26,7 +26,7 @@ export function Dock({ openApp, activeApps }: DockProps) {
       icon: <Clock className="h-6 w-6" />,
     },
     { id: "notepad", name: "Notes", icon: <FileText className="h-6 w-6" /> },
-    { id: "ambient", name: "Ambient", icon: <Music className="h-6 w-6" /> },
+    { id: "ambient", name: "Ambient Sounds", icon: <Music className="h-6 w-6" /> },
     {
       id: "settings",
       name: "Settings",
@@ -48,30 +48,38 @@ export function Dock({ openApp, activeApps }: DockProps) {
         transition={{ duration: 0.2 }}
       >
         {apps.map((app) => (
-          <motion.div
-            key={app.id}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            className="relative"
-          >
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-12 w-12 rounded-xl"
-              onClick={() => openApp(app.id)}
-            >
-              {app.icon}
-              <span className="sr-only">{app.name}</span>
-            </Button>
-            {activeApps.includes(app.id) && (
-              <motion.div
-                className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-primary"
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                exit={{ scale: 0 }}
-              />
-            )}
-          </motion.div>
+          <TooltipProvider key={app.id} delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <motion.div
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  className="relative"
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-12 w-12 rounded-xl"
+                    onClick={() => openApp(app.id)}
+                  >
+                    {app.icon}
+                    <span className="sr-only">{app.name}</span>
+                  </Button>
+                  {activeApps.includes(app.id) && (
+                    <motion.div
+                      className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-primary"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                    />
+                  )}
+                </motion.div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="bg-background/80 backdrop-blur-md border-border/30">
+                <span>{app.name}</span>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         ))}
       </motion.div>
     </motion.div>

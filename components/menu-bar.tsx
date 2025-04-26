@@ -9,6 +9,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { motion } from "framer-motion";
 
@@ -35,6 +40,17 @@ export function MenuBar({ openApp }: MenuBarProps) {
     return () => clearInterval(timer);
   }, []);
 
+  // Add a helper to open settings in a specific tab
+  const openSettingsTab = (tab: string) => {
+    // Use a custom event to communicate tab to Settings
+    openApp("settings");
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("open-settings-tab", { detail: tab })
+      );
+    }, 50);
+  };
+
   return (
     <motion.div
       initial={{ y: -10, opacity: 0 }}
@@ -49,41 +65,22 @@ export function MenuBar({ openApp }: MenuBarProps) {
               <Coffee className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            className="bg-background/80 backdrop-blur-md border-border/30 transition-colors duration-300"
-          >
-            <DropdownMenuItem onClick={() => openApp("settings")}>
-              Settings
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-5 px-2 text-xs">
-              Apps
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            className="bg-background/80 backdrop-blur-md border-border/30 transition-colors duration-300"
-          >
-            <DropdownMenuItem onClick={() => openApp("todo")}>
-              Tasks
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openApp("kanban")}>
-              Kanban
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openApp("pomodoro")}>
-              Focus Timer
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openApp("notepad")}>
-              Notes
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openApp("ambient")}>
-              Ambient
-            </DropdownMenuItem>
+          <DropdownMenuContent align="start">
+            <DropdownMenuLabel className="hidden" />
+          
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Apps</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem key="todo" onClick={() => openApp("todo")}>Tasks</DropdownMenuItem>
+                <DropdownMenuItem key="kanban" onClick={() => openApp("kanban")}>Kanban</DropdownMenuItem>
+                <DropdownMenuItem key="pomodoro" onClick={() => openApp("pomodoro")}>Focus Timer</DropdownMenuItem>
+                <DropdownMenuItem key="notepad" onClick={() => openApp("notepad")}>Notes</DropdownMenuItem>
+                <DropdownMenuItem key="ambient" onClick={() => openApp("ambient")}>Ambient Sounds</DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => openApp("settings")}>Settings</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openSettingsTab("about")}>About</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

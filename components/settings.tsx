@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Upload, Check, Trash2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -79,9 +79,20 @@ export function Settings({
     }
   };
 
+  const [tab, setTab] = useState("wallpaper");
+
+  // Listen for custom event to open a specific tab
+  useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      if (typeof e.detail === "string") setTab(e.detail);
+    };
+    window.addEventListener("open-settings-tab", handler as EventListener);
+    return () => window.removeEventListener("open-settings-tab", handler as EventListener);
+  }, []);
+
   return (
     <div className="h-full">
-      <Tabs defaultValue="wallpaper" className="h-full">
+      <Tabs value={tab} onValueChange={setTab} className="flex flex-col h-full">
         <TabsList className="grid grid-cols-3 bg-muted/30 backdrop-blur-sm">
           <TabsTrigger
             value="wallpaper"
@@ -293,10 +304,21 @@ export function Settings({
 
           <TabsContent value="about" className="p-6">
             <div className="space-y-4">
-              <h3 className="text-lg font-medium">About The Coffee App</h3>
+              <h3 className="text-lg font-medium">About Coffee with Code</h3>
               <p className="text-muted-foreground">
-                A minimalist productivity app inspired by The Coffee design
-                system. Built with Next.js 15, Tailwind CSS, and shadcn/ui.
+                Coffee with Code is your all-in-one minimalist productivity suite, crafted for creators and thinkers who love a calm, focused workspace. Enjoy a beautiful desktop with customizable wallpapers and fonts, a distraction-free menu bar, and a dock for quick access to your favorite tools.
+              </p>
+              <ul className="list-disc pl-5 text-muted-foreground text-sm space-y-1">
+                <li>Tasks: Organize your todos and stay on top of your day.</li>
+                <li>Kanban: Visualize your workflow and manage projects with drag-and-drop boards.</li>
+                <li>Focus Timer: Boost your productivity with a Pomodoro-style timer.</li>
+                <li>Notes: Jot down quick notes or ideas in a clean notepad.</li>
+                <li>Ambient Sounds: Mix and play relaxing background sounds for deep work or relaxation.</li>
+                <li>Weather: Check the current weather right from your menu bar.</li>
+                <li>Settings: Personalize your experience with themes, wallpapers, and more.</li>
+              </ul>
+              <p className="text-muted-foreground">
+                Built with Next.js 15, Tailwind CSS, shadcn/ui, and a touch of Vibe Coding for a smooth, delightful experience. Open source, privacy-friendly, and designed for macOS vibes.
               </p>
               <p className="text-muted-foreground">Version 1.0.0</p>
             </div>

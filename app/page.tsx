@@ -51,7 +51,7 @@ export default function Home() {
       case "notepad":
         return "Notes";
       case "ambient":
-        return "Ambient";
+        return "Ambient Sounds";
       case "settings":
         return "Settings";
       default:
