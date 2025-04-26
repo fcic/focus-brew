@@ -419,15 +419,6 @@ export function AmbientSounds() {
                                     {sound.name}
                                   </span>
                                 </div>
-                                <div
-                                  className={`px-2 py-1 rounded-md text-xs font-medium ${
-                                    sound.playing
-                                      ? "bg-primary text-primary-foreground"
-                                      : "bg-muted text-muted-foreground border border-border"
-                                  }`}
-                                >
-                                  {sound.playing ? "Playing" : "Play"}
-                                </div>
                               </div>
 
                               <div className="flex items-center gap-2 mt-3">

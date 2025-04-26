@@ -17,9 +17,9 @@ export default function Home() {
   const [activeApps, setActiveApps] = useState<string[]>([]);
   const [wallpaper, setWallpaper] = useLocalStorage(
     "wallpaper",
-    "/wallpapers/default.jpg"
+    "/wallpapers/default.png"
   );
-  const [font, setFont] = useLocalStorage("font", "roboto-slab");
+  const [font, setFont] = useLocalStorage("font", "font-sans");
   const [theme, setTheme] = useLocalStorage("theme", "light");
 
   const openApp = (appId: string) => {

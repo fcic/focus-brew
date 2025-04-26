@@ -1,4 +1,4 @@
-import type { Config } from "tailwindcss"
+import type { Config } from "tailwindcss";
 
 const config = {
   darkMode: ["class"],
@@ -20,7 +20,14 @@ const config = {
     },
     extend: {
       fontFamily: {
-        serif: ["var(--font-roboto-slab)", "serif"],
+        sans: ["Satoshi", "ui-sans-serif", "system-ui", "sans-serif"],
+        serif: ["var(--font-roboto-slab)", "Roboto Slab", "serif"],
+        satoshi: ["Satoshi", "sans-serif"],
+        "general-sans": ["General Sans", "sans-serif"],
+        geist: ["Geist", "sans-serif"],
+        chillax: ["Chillax", "sans-serif"],
+        sentient: ["Sentient", "sans-serif"],
+        gambetta: ["Gambetta", "serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -107,6 +114,6 @@ const config = {
     },
   },
   plugins: [require("tailwindcss-animate")],
-} satisfies Config
+} satisfies Config;
 
-export default config
+export default config;

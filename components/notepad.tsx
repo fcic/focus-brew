@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Plus,
   Trash,
@@ -128,55 +128,64 @@ export function Notepad() {
       <div className="flex flex-1 overflow-hidden">
         <div className="w-1/3 border-r border-zinc-200 dark:border-zinc-800">
           <ScrollArea className="h-full">
-            {filteredNotes.length === 0 ? (
-              <div className="p-4 text-center text-zinc-500">
-                No notes yet. Create one to get started!
-              </div>
-            ) : (
-              <div className="p-2">
-                {filteredNotes.map((note) => (
-                  <motion.div
-                    key={`note-item-${note.id}`} // Ensure unique key by adding prefix
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Card
-                      className={`mb-2 cursor-pointer transition-all hover:shadow-md ${
-                        selectedNoteId === note.id
-                          ? "border-zinc-400 dark:border-zinc-600"
-                          : ""
-                      }`}
-                      onClick={() => setSelectedNoteId(note.id)}
+            <AnimatePresence>
+              {filteredNotes.length === 0 ? (
+                <motion.div
+                  key="empty-notes"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="p-4 text-center text-zinc-500"
+                >
+                  No notes yet. Create one to get started!
+                </motion.div>
+              ) : (
+                <div className="p-2">
+                  {filteredNotes.map((note) => (
+                    <motion.div
+                      key={`note-item-${note.id}`}
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                      transition={{ duration: 0.2 }}
                     >
-                      <CardContent className="p-3">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="font-medium truncate">
-                              {note.title}
-                            </h3>
-                            <p className="text-xs text-zinc-500 mt-1">
-                              {new Date(note.updatedAt).toLocaleDateString()}
-                            </p>
+                      <Card
+                        className={`mb-2 cursor-pointer transition-all hover:shadow-md ${
+                          selectedNoteId === note.id
+                            ? "border-zinc-400 dark:border-zinc-600"
+                            : ""
+                        }`}
+                        onClick={() => setSelectedNoteId(note.id)}
+                      >
+                        <CardContent className="p-3">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-medium truncate">
+                                {note.title}
+                              </h3>
+                              <p className="text-xs text-zinc-500 mt-1">
+                                {new Date(note.updatedAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteNote(note.id);
+                              }}
+                              className="h-6 w-6 p-0"
+                            >
+                              <Trash className="h-3.5 w-3.5" />
+                            </Button>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteNote(note.id);
-                            }}
-                            className="h-6 w-6 p-0"
-                          >
-                            <Trash className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-            )}
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </AnimatePresence>
           </ScrollArea>
         </div>
 

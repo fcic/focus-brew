@@ -68,17 +68,42 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
+  /* Font classes */
+  .font-sans {
+    font-family: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  }
+
   .font-serif {
     font-family: var(--font-roboto-slab), serif;
   }
 
-  .mono {
+  .font-mono {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
       "Liberation Mono", "Courier New", monospace;
   }
 
-  .serif {
-    font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  .font-satoshi {
+    font-family: "Satoshi", var(--font-nunito), sans-serif;
+  }
+
+  .font-general-sans {
+    font-family: "General Sans", var(--font-nunito), sans-serif;
+  }
+
+  .font-geist {
+    font-family: "Geist", var(--font-nunito), sans-serif;
+  }
+
+  .font-chillax {
+    font-family: "Chillax", var(--font-nunito), sans-serif;
+  }
+
+  .font-sentient {
+    font-family: "Sentient", var(--font-nunito), sans-serif;
+  }
+
+  .font-gambetta {
+    font-family: "Gambetta", var(--font-nunito), serif;
   }
 }
 

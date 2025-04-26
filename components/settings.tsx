@@ -38,8 +38,7 @@ export function Settings({
   const [selectedWallpaper, setSelectedWallpaper] = useState(wallpaper);
 
   const wallpapers = [
-    "/wallpapers/default.jpg",
-    // "/wallpapers/mountains.jpg",
+    "/wallpapers/default.png",
     // "/wallpapers/forest.jpg",
     // "/wallpapers/ocean.jpg",
     // "/wallpapers/city.jpg",
@@ -169,9 +168,17 @@ export function Settings({
                   <SelectValue placeholder="Select font" />
                 </SelectTrigger>
                 <SelectContent className="bg-background/90 backdrop-blur-md border-border/30">
-                  <SelectItem value="roboto-slab">Roboto Slab</SelectItem>
-                  <SelectItem value="mono">Monospace</SelectItem>
-                  <SelectItem value="serif">Serif</SelectItem>
+                  <SelectItem value="font-sans">Nunito (Default)</SelectItem>
+                  <SelectItem value="font-serif">Roboto Slab</SelectItem>
+                  <SelectItem value="font-mono">Monospace</SelectItem>
+                  <SelectItem value="font-satoshi">Satoshi</SelectItem>
+                  <SelectItem value="font-general-sans">
+                    General Sans
+                  </SelectItem>
+                  <SelectItem value="font-geist">Geist</SelectItem>
+                  <SelectItem value="font-chillax">Chillax</SelectItem>
+                  <SelectItem value="font-sentient">Sentient</SelectItem>
+                  <SelectItem value="font-gambetta">Gambetta</SelectItem>
                 </SelectContent>
               </Select>
             </div>

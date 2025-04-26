@@ -1,8 +1,14 @@
 import type React from "react";
 import type { Metadata } from "next/dist/lib/metadata/types/metadata-interface";
-import { Roboto_Slab } from "next/font/google";
+import { Nunito, Roboto_Slab } from "next/font/google";
 import "./globals.css";
+import "./fonts.css";
 import { ThemeProvider } from "@/components/theme-provider";
+
+const nunito = Nunito({
+  subsets: ["latin"],
+  variable: "--font-nunito",
+});
 
 const robotoSlab = Roboto_Slab({
   subsets: ["latin"],
@@ -21,7 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${robotoSlab.variable} font-serif`}>
+      <body className={`${nunito.variable} ${robotoSlab.variable} font-sans`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

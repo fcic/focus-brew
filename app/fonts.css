@@ -1,0 +1,49 @@
+/* Custom Font Declarations */
+
+/* Satoshi */
+@font-face {
+  font-family: "Satoshi";
+  src: url("/fonts/Satoshi-Regular.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* General Sans */
+@font-face {
+  font-family: "General Sans";
+  src: url("/fonts/GeneralSans-Regular.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Geist - From Google Fonts */
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@300..900&display=swap");
+
+/* Chillax */
+@font-face {
+  font-family: "Chillax";
+  src: url("/fonts/Chillax-Regular.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Sentient */
+@font-face {
+  font-family: "Sentient";
+  src: url("/fonts/Sentient-Regular.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Gambetta */
+@font-face {
+  font-family: "Gambetta";
+  src: url("/fonts/Gambetta-Regular.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}

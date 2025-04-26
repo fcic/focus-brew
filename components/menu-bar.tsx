@@ -52,7 +52,7 @@ export function MenuBar({ openApp }: MenuBarProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="start"
-            className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-zinc-200/30 dark:border-zinc-800/30"
+            className="bg-background/80 backdrop-blur-md border-border/30 transition-colors duration-300"
           >
             <DropdownMenuItem onClick={() => openApp("settings")}>
               Settings
@@ -68,7 +68,7 @@ export function MenuBar({ openApp }: MenuBarProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="start"
-            className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-zinc-200/30 dark:border-zinc-800/30"
+            className="bg-background/80 backdrop-blur-md border-border/30 transition-colors duration-300"
           >
             <DropdownMenuItem onClick={() => openApp("todo")}>
               Tasks
