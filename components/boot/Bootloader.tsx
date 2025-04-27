@@ -80,7 +80,7 @@ export const Bootloader = ({
         <div className="relative w-32 h-32 mb-8">
           <Image
             src="/icon.png"
-            alt="Coffee with Code"
+            alt="FocusBrew"
             fill
             style={{ objectFit: "contain" }}
             priority
@@ -112,7 +112,7 @@ export const Bootloader = ({
             ease: "easeInOut",
           }}
         >
-          Coffee with Code
+          FocusBrew
         </motion.p>
       </motion.div>
     </motion.div>

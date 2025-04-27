@@ -1,0 +1,6 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Sitemap location (add when you have a sitemap)
+# Sitemap: https://focusbrew.vercel.app/sitemap.xml 
