@@ -1,118 +1,228 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Euro, ChevronsUpDown, Check } from "lucide-react";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import { Loader2Icon, AlertCircleIcon } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "./ui/tooltip";
 
-const DEFAULT_BASE = "usd";
-const DEFAULT_TARGET = "brl";
-const COMMON_CURRENCIES = [
-  "usd", "eur", "gbp", "jpy", "cny", "aud", "cad", "chf", "sek", "nzd", "brl", "inr"
-];
+// Types
+type Currency = string;
 
 interface ExchangeData {
-  [currency: string]: number;
+  [currency: Currency]: {
+    [currency: Currency]: number;
+  };
 }
 
+interface CurrencyChangeEvent extends CustomEvent {
+  detail: {
+    base: Currency;
+    target: Currency;
+  };
+}
+
+// Constants
+const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const ERROR_RETRY_DELAY = 5000; // 5 seconds
+
+const DEFAULT_CURRENCIES = {
+  base: "usd",
+  target: "brl",
+} as const;
+
+const COMMON_CURRENCIES = [
+  "usd",
+  "eur",
+  "gbp",
+  "jpy",
+  "cny",
+  "aud",
+  "cad",
+  "chf",
+  "sek",
+  "nzd",
+  "brl",
+  "inr",
+] as const;
+
+const API_ENDPOINTS = {
+  currencies:
+    "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json",
+  rates: (base: Currency) =>
+    `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${base}.json`,
+  fallbackRates: (base: Currency) =>
+    `https://latest.currency-api.pages.dev/v1/currencies/${base}.json`,
+} as const;
+
 export function ExchangeRate() {
+  // State
   const [rate, setRate] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currencies, setCurrencies] = useState<string[]>(COMMON_CURRENCIES);
-  const [openBase, setOpenBase] = useState(false);
-  const [openTarget, setOpenTarget] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [mounted, setMounted] = useState(false);
 
-  // Remove shared search state, use local search for each combobox
-  const [baseSearch, setBaseSearch] = useState("");
-  const [targetSearch, setTargetSearch] = useState("");
-
-  // Filtered lists for each combobox
-  const filteredBase = baseSearch
-    ? currencies.filter((cur) => cur.toLowerCase().includes(baseSearch.toLowerCase()))
-    : currencies;
-  const filteredTarget = targetSearch
-    ? currencies.filter((cur) => cur.toLowerCase().includes(targetSearch.toLowerCase()))
-    : currencies;
-
-  const getLabel = (cur: string) => cur.toUpperCase();
-
-  // Read base/target from localStorage and listen for changes
-  const [base, setBase] = useState(() =>
-    typeof window !== "undefined" ? localStorage.getItem("currency_base") || "usd" : "usd"
+  // Local Storage
+  const [base, setBase] = useLocalStorage<Currency>(
+    "currency_base",
+    DEFAULT_CURRENCIES.base
   );
-  const [target, setTarget] = useState(() =>
-    typeof window !== "undefined" ? localStorage.getItem("currency_target") || "brl" : "brl"
+  const [target, setTarget] = useLocalStorage<Currency>(
+    "currency_target",
+    DEFAULT_CURRENCIES.target
   );
-  useEffect(() => {
-    const handler = (e: CustomEvent) => {
-      if (e.detail?.base) setBase(e.detail.base);
-      if (e.detail?.target) setTarget(e.detail.target);
-    };
-    window.addEventListener("currency_changed", handler as EventListener);
-    return () => window.removeEventListener("currency_changed", handler as EventListener);
-  }, []);
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setBase(localStorage.getItem("currency_base") || "usd");
-      setTarget(localStorage.getItem("currency_target") || "brl");
-    }
-  }, []);
 
-  useEffect(() => {
-    // Fetch all available currencies for dropdown
-    const fetchCurrencies = async () => {
-      try {
-        const url = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json";
-        const res = await fetch(url);
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        setCurrencies(Object.keys(data));
-      } catch {
-        // fallback to common
-        setCurrencies(COMMON_CURRENCIES);
+  // Fetch exchange rate data
+  const fetchRate = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Try primary endpoint
+      let res = await fetch(API_ENDPOINTS.rates(base));
+      if (!res.ok) throw new Error("Primary API failed");
+
+      const data: ExchangeData = await res.json();
+      const newRate = data[base]?.[target];
+
+      if (newRate === undefined) {
+        throw new Error(`Invalid currency pair: ${base}/${target}`);
       }
-    };
-    fetchCurrencies();
-  }, []);
 
-  useEffect(() => {
-    const fetchRate = async () => {
-      setLoading(true);
-      setError(null);
-      // Try primary endpoint first
-      let url = `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${base}.json`;
-      let fallbackUrl = `https://latest.currency-api.pages.dev/v1/currencies/${base}.json`;
+      setRate(newRate);
+      setLastUpdated(new Date());
+      setRetryCount(0);
+    } catch (primaryError) {
       try {
-        let res = await fetch(url);
-        if (!res.ok) throw new Error("Primary API failed");
-        let data = await res.json();
-        setRate(data[base]?.[target] ?? null);
-      } catch {
-        // Try fallback
-        try {
-          let res = await fetch(fallbackUrl);
-          if (!res.ok) throw new Error("Fallback API failed");
-          let data = await res.json();
-          setRate(data[base]?.[target] ?? null);
-        } catch {
-          setError("Could not load exchange rate");
+        // Try fallback endpoint
+        let res = await fetch(API_ENDPOINTS.fallbackRates(base));
+        if (!res.ok) throw new Error("Fallback API failed");
+
+        const data: ExchangeData = await res.json();
+        const newRate = data[base]?.[target];
+
+        if (newRate === undefined) {
+          throw new Error(`Invalid currency pair: ${base}/${target}`);
         }
-      } finally {
-        setLoading(false);
+
+        setRate(newRate);
+        setLastUpdated(new Date());
+        setRetryCount(0);
+      } catch (fallbackError) {
+        const errorMessage =
+          retryCount >= 3
+            ? "Could not load exchange rate after multiple attempts"
+            : "Could not load exchange rate, retrying...";
+        setError(errorMessage);
+        setRetryCount((prev) => prev + 1);
+
+        // Auto-retry if under retry limit
+        if (retryCount < 3) {
+          setTimeout(fetchRate, ERROR_RETRY_DELAY);
+        }
+
+        console.error("Exchange rate error:", fallbackError);
       }
+    } finally {
+      setLoading(false);
+    }
+  }, [base, target, retryCount]);
+
+  // Listen for currency changes from settings
+  useEffect(() => {
+    const handleCurrencyChange = (event: CurrencyChangeEvent) => {
+      const { base: newBase, target: newTarget } = event.detail;
+      setBase(newBase);
+      setTarget(newTarget);
     };
+
+    window.addEventListener(
+      "currency_changed",
+      handleCurrencyChange as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "currency_changed",
+        handleCurrencyChange as EventListener
+      );
+    };
+  }, [setBase, setTarget]);
+
+  // Listen for refresh events from menu bar
+  useEffect(() => {
+    const handleRefresh = () => {
+      fetchRate();
+    };
+
+    window.addEventListener("refresh_exchange", handleRefresh);
+
+    return () => {
+      window.removeEventListener("refresh_exchange", handleRefresh);
+    };
+  }, [fetchRate]);
+
+  // Auto-refresh effect
+  useEffect(() => {
+    setMounted(true);
     fetchRate();
-    const interval = setInterval(fetchRate, 30 * 60 * 1000);
+    const interval = setInterval(fetchRate, REFRESH_INTERVAL);
     return () => clearInterval(interval);
-  }, [base, target]);
+  }, [fetchRate]);
+
+  // Format display rate
+  const formattedRate = useMemo(() => {
+    if (!rate) return "--";
+    return rate.toFixed(2);
+  }, [rate]);
+
+  // Get time since last update
+  const timeSinceUpdate = useMemo(() => {
+    if (!lastUpdated || !mounted) return null;
+    const minutes = Math.floor((Date.now() - lastUpdated.getTime()) / 60000);
+    return minutes < 1 ? "Just now" : `${minutes}m ago`;
+  }, [lastUpdated, mounted]);
+
+  // Don't render anything until mounted to prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="flex items-center gap-2 text-xs">
+        <span>
+          1 {base.toUpperCase()} = -- {target.toUpperCase()}
+        </span>
+        <Loader2Icon className="w-3 h-3 animate-spin text-zinc-400" />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex items-center space-x-2 text-xs">
-      <span>
-        {loading ? "--" : rate ? `${base.toUpperCase()}: ${rate.toFixed(2)}` : "--"}
-      </span>
-    </div>
+    <TooltipProvider>
+      <div className="flex items-center gap-2 text-xs">
+        <span>
+          1 {base.toUpperCase()} = {formattedRate} {target.toUpperCase()}
+        </span>
+
+        {loading ? (
+          <Loader2Icon className="w-3 h-3 animate-spin text-zinc-400" />
+        ) : error ? (
+          <Tooltip>
+            <TooltipTrigger>
+              <AlertCircleIcon className="w-3 h-3 text-red-400" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{error}</p>
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
+      </div>
+    </TooltipProvider>
   );
 }

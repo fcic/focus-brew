@@ -1,26 +1,161 @@
-import React from "react";
+"use client";
+
+import { motion } from "framer-motion";
+import { Github, Twitter } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+
+const features = [
+  {
+    title: "Ambient Sounds",
+    description:
+      "Mix and play relaxing background sounds for deep work or relaxation.",
+    icon: "🎵",
+  },
+  {
+    title: "Dock",
+    description: "Quick access to your favorite tools.",
+    icon: "🚀",
+  },
+  {
+    title: "Exchange",
+    description: "View live currency exchange rates in your menu bar.",
+    icon: "💱",
+  },
+  {
+    title: "Focus Timer",
+    description: "Boost your productivity with a Pomodoro-style timer.",
+    icon: "⏱️",
+  },
+  {
+    title: "Kanban",
+    description:
+      "Visualize your workflow and manage projects with drag-and-drop boards.",
+    icon: "📋",
+  },
+  {
+    title: "Notes",
+    description: "Jot down quick notes or ideas in a clean notepad.",
+    icon: "📝",
+  },
+  {
+    title: "Settings",
+    description:
+      "Personalize your experience with themes, wallpapers, and more.",
+    icon: "⚙️",
+  },
+  {
+    title: "Tasks",
+    description: "Organize your todos and stay on top of your day.",
+    icon: "✅",
+  },
+  {
+    title: "Weather",
+    description: "Check the current weather right from your menu bar.",
+    icon: "🌤️",
+  },
+];
+
+const technologies = [
+  "Next.js 15",
+  "React",
+  "TypeScript",
+  "Tailwind CSS",
+  "shadcn/ui",
+  "Framer Motion",
+];
 
 export function SettingsAboutTab() {
   return (
-    <div className="mb-8">
-      <h2 className="text-xl font-bold mb-2">About Coffee with Code</h2>
-      <p className="text-muted-foreground mt-2 mb-4">Coffee with Code is your all-in-one minimalist productivity suite, crafted for creators and thinkers who love a calm, focused workspace. Enjoy a beautiful desktop with customizable wallpapers and fonts, a distraction-free menu bar, and a dock for quick access to your favorite tools.</p>
-      <div className="space-y-4">
-        <ul className="list-disc pl-5 text-muted-foreground text-sm space-y-1">
-          <li>Ambient Sounds: Mix and play relaxing background sounds for deep work or relaxation.</li>
-          <li>Dock: Quick access to your favorite tools.</li>
-          <li>Exchange: View live currency exchange rates in your menu bar.</li>
-          <li>Focus Timer: Boost your productivity with a Pomodoro-style timer.</li>
-          <li>Kanban: Visualize your workflow and manage projects with drag-and-drop boards.</li>
-          <li>Notes: Jot down quick notes or ideas in a clean notepad.</li>
-          <li>Settings: Personalize your experience with themes, wallpapers, and more.</li>
-          <li>Tasks: Organize your todos and stay on top of your day.</li>
-          <li>Weather: Check the current weather right from your menu bar.</li>
-        </ul>
-        <p className="text-muted-foreground">
-          Built with Next.js 15, Tailwind CSS, shadcn/ui, and a touch of Vibe Coding for a smooth, delightful experience. Open source, privacy-friendly, and designed for macOS vibes.
+    <div className="space-y-8 pb-8">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="space-y-4"
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Coffee with Code</h2>
+            <p className="text-muted-foreground">Version 1.0.0</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-2">
+              <Github className="h-4 w-4" />
+              GitHub
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2">
+              <Twitter className="h-4 w-4" />
+              Twitter
+            </Button>
+          </div>
+        </div>
+        <p className="text-muted-foreground leading-relaxed">
+          Your all-in-one minimalist productivity suite, crafted for creators
+          and thinkers who love a calm, focused workspace. Enjoy a beautiful
+          desktop with customizable wallpapers and fonts, a distraction-free
+          menu bar, and a dock for quick access to your favorite tools.
         </p>
-      </div>
+      </motion.div>
+
+      <Separator />
+
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
+        className="space-y-4"
+      >
+        <h3 className="text-lg font-semibold">Features</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {features.map((feature, index) => (
+            <motion.div
+              key={feature.title}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 * index, duration: 0.5 }}
+              className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-muted/30 hover:bg-muted/50 transition-colors"
+            >
+              <div className="text-2xl">{feature.icon}</div>
+              <div>
+                <h4 className="font-medium">{feature.title}</h4>
+                <p className="text-sm text-muted-foreground">
+                  {feature.description}
+                </p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </motion.div>
+
+      <Separator />
+
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.4, duration: 0.5 }}
+        className="space-y-4"
+      >
+        <h3 className="text-lg font-semibold">Built with</h3>
+        <div className="flex flex-wrap gap-2">
+          {technologies.map((tech, index) => (
+            <motion.div
+              key={tech}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.1 * index, duration: 0.3 }}
+            >
+              <Badge variant="secondary" className="text-sm">
+                {tech}
+              </Badge>
+            </motion.div>
+          ))}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Open source, privacy-friendly, and designed for macOS vibes.
+        </p>
+      </motion.div>
     </div>
   );
 }

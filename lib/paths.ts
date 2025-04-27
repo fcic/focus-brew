@@ -252,6 +252,12 @@ export const soundPaths: SoundPath[] = [
     category: "places",
   },
   {
+    id: "places-cafe",
+    name: "Cafe",
+    audioUrl: "/sounds/places/cafe.mp3",
+    category: "places",
+  },
+  {
     id: "places-carousel",
     name: "Carousel",
     audioUrl: "/sounds/places/carousel.mp3",

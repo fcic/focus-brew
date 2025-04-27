@@ -1,163 +1,251 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Play, Pause, RotateCcw } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Slider } from "@/components/ui/slider";
-import { Progress } from "@/components/ui/progress";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import { Button } from "./ui/button";
+import { Slider } from "./ui/slider";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "./ui/tooltip";
+import { Pause, Play, RotateCcw, Volume2 } from "lucide-react";
 
-interface PomodoroTimerProps {}
+type TimerMode = "pomodoro" | "shortBreak" | "longBreak";
 
-export function PomodoroTimer({}: PomodoroTimerProps) {
-  const [mode, setMode] = useState("pomodoro");
-  const [isActive, setIsActive] = useState(false);
-  const [time, setTime] = useState(25 * 60); // 25 minutes in seconds
-  const [volume, setVolume] = useState(50);
-  const [initialTime, setInitialTime] = useState(25 * 60);
+interface TimerSettings {
+  pomodoro: number;
+  shortBreak: number;
+  longBreak: number;
+  volume: number;
+}
 
-  // Timer durations in minutes
-  const durations = {
-    pomodoro: 25,
-    shortBreak: 5,
-    longBreak: 15,
-  };
+const DEFAULT_SETTINGS: TimerSettings = {
+  pomodoro: 25 * 60, // 25 minutes
+  shortBreak: 5 * 60, // 5 minutes
+  longBreak: 15 * 60, // 15 minutes
+  volume: 50,
+};
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+const SPRING_ANIMATION = {
+  type: "spring",
+  stiffness: 700,
+  damping: 30,
+} as const;
 
-    if (isActive && time > 0) {
-      interval = setInterval(() => {
-        setTime((time) => time - 1);
-      }, 1000);
-    } else if (time === 0) {
-      setIsActive(false);
-      // Always play alarm sound when timer finishes
-      const audio = new Audio("/sounds/alarm.mp3");
-      audio.volume = volume / 100;
-      audio.play();
-    }
+export function PomodoroTimer() {
+  // Settings state
+  const [settings, setSettings] = useLocalStorage<TimerSettings>(
+    "pomodoro-settings",
+    DEFAULT_SETTINGS
+  );
 
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isActive, time, volume, mode]);
+  // Timer state
+  const [mode, setMode] = useState<TimerMode>("pomodoro");
+  const [timeLeft, setTimeLeft] = useState(settings.pomodoro);
+  const [isRunning, setIsRunning] = useState(false);
+  const [completedPomodoros, setCompletedPomodoros] = useState(0);
 
-  const toggleTimer = () => {
-    setIsActive(!isActive);
-  };
+  // Audio setup
+  const alarmSound = useMemo(() => new Audio("/sounds/alarm.mp3"), []);
+  alarmSound.volume = settings.volume / 100;
 
-  const resetTimer = () => {
-    setIsActive(false);
-    setTime(initialTime);
-  };
+  // Calculate progress percentage
+  const progress = useMemo(() => {
+    const total = settings[mode];
+    return ((total - timeLeft) / total) * 100;
+  }, [timeLeft, settings, mode]);
 
-  const changeMode = (newMode: string) => {
-    setIsActive(false);
-    setMode(newMode);
-    const newTime = durations[newMode as keyof typeof durations] * 60;
-    setTime(newTime);
-    setInitialTime(newTime);
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs
+  // Format time as MM:SS
+  const formattedTime = useMemo(() => {
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    return `${minutes.toString().padStart(2, "0")}:${seconds
       .toString()
       .padStart(2, "0")}`;
-  };
+  }, [timeLeft]);
 
-  const progress = ((initialTime - time) / initialTime) * 100;
+  // Timer controls
+  const handleStartTimer = useCallback(() => setIsRunning(true), []);
+  const handlePauseTimer = useCallback(() => setIsRunning(false), []);
+  const handleResetTimer = useCallback(() => {
+    setIsRunning(false);
+    setTimeLeft(settings[mode]);
+  }, [settings, mode]);
+
+  const handleSwitchMode = useCallback(
+    (newMode: TimerMode) => {
+      setMode(newMode);
+      setIsRunning(false);
+      setTimeLeft(settings[newMode]);
+    },
+    [settings]
+  );
+
+  // Handle volume change
+  const handleVolumeChange = useCallback(
+    (value: number[]) => {
+      const newVolume = value[0];
+      setSettings((prev) => ({ ...prev, volume: newVolume }));
+      alarmSound.volume = newVolume / 100;
+    },
+    [alarmSound, setSettings]
+  );
+
+  // Timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (isRunning && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft((time) => time - 1);
+      }, 1000);
+    } else if (timeLeft === 0) {
+      setIsRunning(false);
+      alarmSound.play();
+
+      if (mode === "pomodoro") {
+        setCompletedPomodoros((count) => count + 1);
+        const nextMode =
+          completedPomodoros % 4 === 3 ? "longBreak" : "shortBreak";
+        handleSwitchMode(nextMode);
+      } else {
+        handleSwitchMode("pomodoro");
+      }
+    }
+
+    return () => clearInterval(interval);
+  }, [
+    isRunning,
+    timeLeft,
+    mode,
+    completedPomodoros,
+    alarmSound,
+    handleSwitchMode,
+  ]);
+
+  // Add keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
+
+      switch (e.code) {
+        case "Space":
+          e.preventDefault();
+          isRunning ? handlePauseTimer() : handleStartTimer();
+          break;
+        case "KeyR":
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            handleResetTimer();
+          }
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isRunning, handleStartTimer, handlePauseTimer, handleResetTimer]);
 
   return (
-    <div className="h-full flex flex-col items-center justify-center space-y-8 p-6">
-      <Tabs
-        defaultValue="pomodoro"
-        className="w-full"
-        onValueChange={changeMode}
-      >
-        <TabsList className="grid grid-cols-3 bg-zinc-100/30 dark:bg-zinc-800/30 backdrop-blur-sm">
-          <TabsTrigger
-            value="pomodoro"
-            className="data-[state=active]:bg-white/70 dark:data-[state=active]:bg-zinc-700/70"
-          >
-            Focus
-          </TabsTrigger>
-          <TabsTrigger
-            value="shortBreak"
-            className="data-[state=active]:bg-white/70 dark:data-[state=active]:bg-zinc-700/70"
-          >
-            Short Break
-          </TabsTrigger>
-          <TabsTrigger
-            value="longBreak"
-            className="data-[state=active]:bg-white/70 dark:data-[state=active]:bg-zinc-700/70"
-          >
-            Long Break
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      <div className="w-full max-w-xs">
-        <Progress
-          value={progress}
-          className="h-1.5 bg-zinc-200/30 dark:bg-zinc-700/30"
-        />
-      </div>
-
-      <motion.div
-        className="text-7xl font-light tracking-tighter"
-        key={time}
-        initial={{ opacity: 0.8, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: "spring", stiffness: 500, damping: 30 }}
-      >
-        {formatTime(time)}
-      </motion.div>
-
-      <div className="flex space-x-4">
-        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+    <div className="flex flex-col items-center gap-6 p-6" role="timer">
+      {/* Mode selection */}
+      <div className="flex gap-2">
+        {(["pomodoro", "shortBreak", "longBreak"] as const).map((timerMode) => (
           <Button
-            variant="outline"
-            size="lg"
-            onClick={toggleTimer}
-            className="w-24 rounded-full bg-white/50 dark:bg-zinc-800/50 border-zinc-300/30 dark:border-zinc-700/30 backdrop-blur-sm"
-          >
-            {isActive ? (
-              <Pause className="h-5 w-5 mr-2" />
-            ) : (
-              <Play className="h-5 w-5 mr-2" />
+            key={timerMode}
+            variant={mode === timerMode ? "default" : "outline"}
+            onClick={() => handleSwitchMode(timerMode)}
+            className={cn(
+              "capitalize transition-colors",
+              mode === timerMode && "font-medium"
             )}
-            {isActive ? "Pause" : "Start"}
-          </Button>
-        </motion.div>
-        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={resetTimer}
-            className="rounded-full"
+            aria-label={`Switch to ${timerMode
+              .replace(/([A-Z])/g, " $1")
+              .trim()} mode`}
           >
-            <RotateCcw className="h-5 w-5" />
+            {timerMode.replace(/([A-Z])/g, " $1").trim()}
           </Button>
-        </motion.div>
+        ))}
       </div>
 
-      <div className="w-full max-w-xs space-y-2">
-        <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400">
-          <span>Volume</span>
-          <span>{volume}%</span>
-        </div>
-        <Slider
-          value={[volume]}
-          min={0}
-          max={100}
-          step={1}
-          onValueChange={(value) => setVolume(value[0])}
-          className="bg-zinc-200/30 dark:bg-zinc-700/30"
+      {/* Timer display */}
+      <div
+        className="relative flex h-48 w-48 items-center justify-center rounded-full border-4 border-border"
+        role="progressbar"
+        aria-valuenow={progress}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <motion.div
+          className="absolute inset-1 rounded-full bg-primary/20"
+          style={{
+            scaleX: progress / 100,
+            scaleY: progress / 100,
+            transformOrigin: "center",
+          }}
+          animate={{ scale: progress / 100 }}
+          transition={SPRING_ANIMATION}
         />
+        <span className="relative text-4xl font-bold tabular-nums">
+          {formattedTime}
+        </span>
+      </div>
+
+      {/* Timer controls */}
+      <div className="flex gap-2">
+        <Button
+          variant={isRunning ? "outline" : "default"}
+          onClick={isRunning ? handlePauseTimer : handleStartTimer}
+          className="min-w-[80px]"
+          aria-label={isRunning ? "Pause timer" : "Start timer"}
+        >
+          {isRunning ? (
+            <Pause className="h-4 w-4 mr-2" />
+          ) : (
+            <Play className="h-4 w-4 mr-2" />
+          )}
+          {isRunning ? "Pause" : "Start"}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={handleResetTimer}
+          className="min-w-[80px]"
+          aria-label="Reset timer"
+        >
+          <RotateCcw className="h-4 w-4 mr-2" />
+          Reset
+        </Button>
+      </div>
+
+      {/* Volume control */}
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-4 w-48">
+              <Volume2 className="h-4 w-4 text-muted-foreground" />
+              <Slider
+                value={[settings.volume]}
+                onValueChange={handleVolumeChange}
+                max={100}
+                step={1}
+                className="flex-1"
+                aria-label="Alarm volume"
+              />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Alarm Volume: {settings.volume}%</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      {/* Session counter */}
+      <div className="text-sm text-muted-foreground">
+        Completed Pomodoros: {completedPomodoros}
       </div>
     </div>
   );

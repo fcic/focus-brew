@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,11 +18,16 @@ import {
   ListOrdered,
   Quote,
   Code,
+  Search,
+  Save,
+  Undo,
+  Redo,
 } from "lucide-react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Toggle } from "@/components/ui/toggle";
+import { cn } from "@/lib/utils";
 
 interface Note {
   id: string;
@@ -32,10 +37,14 @@ interface Note {
   updatedAt: number;
 }
 
+const AUTOSAVE_DELAY = 1000; // 1 second
+
 export function Notepad() {
   const [notes, setNotes] = useLocalStorage<Note[]>("notes", []);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | null>(null);
 
   const selectedNote = selectedNoteId
     ? notes.find((note) => note.id === selectedNoteId)
@@ -43,7 +52,12 @@ export function Notepad() {
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        history: {
+          depth: 100,
+          newGroupDelay: 500,
+        },
+      }),
       Placeholder.configure({
         placeholder: "Start typing...",
         emptyEditorClass: "is-editor-empty",
@@ -52,12 +66,17 @@ export function Notepad() {
     content: selectedNote?.content || "",
     onUpdate: ({ editor }) => {
       if (selectedNoteId) {
-        updateNoteContent(selectedNoteId, editor.getHTML());
+        setSaveStatus("saving");
+        const timeoutId = setTimeout(() => {
+          updateNoteContent(selectedNoteId, editor.getHTML());
+          setSaveStatus("saved");
+        }, AUTOSAVE_DELAY);
+        return () => clearTimeout(timeoutId);
       }
     },
     editorProps: {
       attributes: {
-        class: "outline-none",
+        class: "outline-none min-h-[150px] p-4",
       },
     },
   });
@@ -68,16 +87,53 @@ export function Notepad() {
     }
   }, [selectedNoteId, editor, selectedNote]);
 
+  // Add keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey) {
+        switch (e.key.toLowerCase()) {
+          case "f":
+            e.preventDefault();
+            setIsSearching(true);
+            break;
+          case "s":
+            e.preventDefault();
+            if (selectedNoteId && editor) {
+              updateNoteContent(selectedNoteId, editor.getHTML());
+              setSaveStatus("saved");
+            }
+            break;
+          case "n":
+            e.preventDefault();
+            createNewNote();
+            break;
+          case "z":
+            if (e.shiftKey) {
+              e.preventDefault();
+              editor?.commands.redo();
+            } else {
+              e.preventDefault();
+              editor?.commands.undo();
+            }
+            break;
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [editor, selectedNoteId]);
+
   const filteredNotes = notes.filter(
     (note) =>
       note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       note.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const createNewNote = () => {
+  const createNewNote = useCallback(() => {
     const newNote: Note = {
-      id: Date.now().toString(), // Ensure unique ID by using timestamp
-      title: "Untitled Note",
+      id: Date.now().toString(),
+      title: "",
       content: "",
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -85,48 +141,113 @@ export function Notepad() {
 
     setNotes([...notes, newNote]);
     setSelectedNoteId(newNote.id);
-  };
+    setSaveStatus(null);
 
-  const updateNoteTitle = (id: string, title: string) => {
-    setNotes((prevNotes) =>
-      prevNotes.map((note) =>
-        note.id === id ? { ...note, title, updatedAt: Date.now() } : note
-      )
-    );
-  };
+    // Add a slight delay to ensure the DOM has updated before focusing
+    setTimeout(() => {
+      const titleInput = document.querySelector(
+        'input[placeholder="Note title"]'
+      ) as HTMLInputElement;
+      if (titleInput) titleInput.focus();
+    }, 100);
+  }, [notes, setNotes]);
 
-  const updateNoteContent = (id: string, content: string) => {
-    setNotes((prevNotes) =>
-      prevNotes.map((note) =>
-        note.id === id ? { ...note, content, updatedAt: Date.now() } : note
-      )
-    );
-  };
+  const updateNoteTitle = useCallback(
+    (id: string, title: string) => {
+      setSaveStatus("saving");
+      setNotes((prevNotes) =>
+        prevNotes.map((note) =>
+          note.id === id ? { ...note, title, updatedAt: Date.now() } : note
+        )
+      );
+      setTimeout(() => setSaveStatus("saved"), AUTOSAVE_DELAY);
+    },
+    [setNotes]
+  );
 
-  const deleteNote = (id: string) => {
-    setNotes(notes.filter((note) => note.id !== id));
-    if (selectedNoteId === id) {
-      setSelectedNoteId(null);
-    }
-  };
+  const updateNoteContent = useCallback(
+    (id: string, content: string) => {
+      setNotes((prevNotes) =>
+        prevNotes.map((note) =>
+          note.id === id ? { ...note, content, updatedAt: Date.now() } : note
+        )
+      );
+    },
+    [setNotes]
+  );
+
+  const deleteNote = useCallback(
+    (id: string) => {
+      if (window.confirm("Are you sure you want to delete this note?")) {
+        setNotes(notes.filter((note) => note.id !== id));
+        if (selectedNoteId === id) {
+          setSelectedNoteId(null);
+        }
+      }
+    },
+    [notes, selectedNoteId, setNotes]
+  );
 
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
-        <Input
-          placeholder="Search notes..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-[200px]"
-        />
-        <Button onClick={createNewNote} size="sm">
-          <Plus className="h-4 w-4 mr-1" />
-          New Note
-        </Button>
+        <div className="flex items-center gap-2 flex-1 max-w-[300px]">
+          <div className="relative flex-1">
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search notes... (⌘F)"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8"
+              onFocus={() => setIsSearching(true)}
+              onBlur={() => setIsSearching(false)}
+            />
+          </div>
+          <Button onClick={createNewNote} size="sm" className="shrink-0">
+            <Plus className="h-4 w-4 mr-1" />
+            New (⌘N)
+          </Button>
+        </div>
+        {selectedNote && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              {saveStatus === "saving"
+                ? "Saving..."
+                : saveStatus === "saved"
+                ? "Saved"
+                : ""}
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => editor?.commands.undo()}
+                disabled={!editor?.can().undo()}
+              >
+                <Undo className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => editor?.commands.redo()}
+                disabled={!editor?.can().redo()}
+              >
+                <Redo className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="w-1/3 border-r border-zinc-200 dark:border-zinc-800">
+        <motion.div
+          className="w-1/3 border-r border-zinc-200 dark:border-zinc-800"
+          animate={{
+            width:
+              isSearching || filteredNotes.length > 0 ? "33.333333%" : "0%",
+          }}
+          transition={{ duration: 0.2 }}
+        >
           <ScrollArea className="h-full">
             <AnimatePresence>
               {filteredNotes.length === 0 ? (
@@ -137,10 +258,12 @@ export function Notepad() {
                   exit={{ opacity: 0 }}
                   className="p-4 text-center text-zinc-500"
                 >
-                  No notes yet. Create one to get started!
+                  {searchQuery
+                    ? "No matching notes found"
+                    : "No notes yet. Create one to get started!"}
                 </motion.div>
               ) : (
-                <div className="p-2">
+                <div className="p-2 space-y-2">
                   {filteredNotes.map((note) => (
                     <motion.div
                       key={`note-item-${note.id}`}
@@ -150,22 +273,41 @@ export function Notepad() {
                       transition={{ duration: 0.2 }}
                     >
                       <Card
-                        className={`mb-2 cursor-pointer transition-all hover:shadow-md ${
-                          selectedNoteId === note.id
-                            ? "border-zinc-400 dark:border-zinc-600"
-                            : ""
-                        }`}
+                        className={cn(
+                          "cursor-pointer transition-all hover:shadow-md",
+                          selectedNoteId === note.id &&
+                            "border-primary/50 shadow-md"
+                        )}
                         onClick={() => setSelectedNoteId(note.id)}
                       >
                         <CardContent className="p-3">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h3 className="font-medium truncate">
-                                {note.title}
+                          <div className="flex justify-between items-start gap-2">
+                            <div className="min-w-0 flex-1">
+                              <h3 className="font-medium truncate mb-1">
+                                {note.title || "Untitled Note"}
                               </h3>
-                              <p className="text-xs text-zinc-500 mt-1">
-                                {new Date(note.updatedAt).toLocaleDateString()}
-                              </p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span>
+                                  {new Date(note.updatedAt).toLocaleDateString(
+                                    undefined,
+                                    {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "numeric",
+                                    }
+                                  )}
+                                </span>
+                                <span>•</span>
+                                <span>
+                                  {new Date(note.updatedAt).toLocaleTimeString(
+                                    undefined,
+                                    {
+                                      hour: "numeric",
+                                      minute: "2-digit",
+                                    }
+                                  )}
+                                </span>
+                              </div>
                             </div>
                             <Button
                               variant="ghost"
@@ -174,7 +316,7 @@ export function Notepad() {
                                 e.stopPropagation();
                                 deleteNote(note.id);
                               }}
-                              className="h-6 w-6 p-0"
+                              className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
                             >
                               <Trash className="h-3.5 w-3.5" />
                             </Button>
@@ -187,9 +329,9 @@ export function Notepad() {
               )}
             </AnimatePresence>
           </ScrollArea>
-        </div>
+        </motion.div>
 
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0">
           {selectedNote ? (
             <>
               <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
@@ -199,16 +341,17 @@ export function Notepad() {
                     updateNoteTitle(selectedNote.id, e.target.value)
                   }
                   placeholder="Note title"
-                  className="font-medium"
+                  className="font-medium mb-3"
                 />
 
-                <div className="flex items-center gap-1 mt-2">
+                <div className="flex items-center gap-1">
                   <Toggle
                     size="sm"
                     pressed={editor?.isActive("bold")}
                     onPressedChange={() =>
                       editor?.chain().focus().toggleBold().run()
                     }
+                    className="data-[state=on]:bg-primary/20"
                   >
                     <Bold className="h-3.5 w-3.5" />
                   </Toggle>
@@ -218,6 +361,7 @@ export function Notepad() {
                     onPressedChange={() =>
                       editor?.chain().focus().toggleItalic().run()
                     }
+                    className="data-[state=on]:bg-primary/20"
                   >
                     <Italic className="h-3.5 w-3.5" />
                   </Toggle>
@@ -227,6 +371,7 @@ export function Notepad() {
                     onPressedChange={() =>
                       editor?.chain().focus().toggleHeading({ level: 1 }).run()
                     }
+                    className="data-[state=on]:bg-primary/20"
                   >
                     <Heading1 className="h-3.5 w-3.5" />
                   </Toggle>
@@ -236,6 +381,7 @@ export function Notepad() {
                     onPressedChange={() =>
                       editor?.chain().focus().toggleHeading({ level: 2 }).run()
                     }
+                    className="data-[state=on]:bg-primary/20"
                   >
                     <Heading2 className="h-3.5 w-3.5" />
                   </Toggle>
@@ -245,6 +391,7 @@ export function Notepad() {
                     onPressedChange={() =>
                       editor?.chain().focus().toggleBulletList().run()
                     }
+                    className="data-[state=on]:bg-primary/20"
                   >
                     <List className="h-3.5 w-3.5" />
                   </Toggle>
@@ -254,6 +401,7 @@ export function Notepad() {
                     onPressedChange={() =>
                       editor?.chain().focus().toggleOrderedList().run()
                     }
+                    className="data-[state=on]:bg-primary/20"
                   >
                     <ListOrdered className="h-3.5 w-3.5" />
                   </Toggle>
@@ -263,6 +411,7 @@ export function Notepad() {
                     onPressedChange={() =>
                       editor?.chain().focus().toggleBlockquote().run()
                     }
+                    className="data-[state=on]:bg-primary/20"
                   >
                     <Quote className="h-3.5 w-3.5" />
                   </Toggle>
@@ -272,13 +421,14 @@ export function Notepad() {
                     onPressedChange={() =>
                       editor?.chain().focus().toggleCodeBlock().run()
                     }
+                    className="data-[state=on]:bg-primary/20"
                   >
                     <Code className="h-3.5 w-3.5" />
                   </Toggle>
                 </div>
               </div>
 
-              <ScrollArea className="flex-1 p-6">
+              <ScrollArea className="flex-1">
                 <EditorContent
                   editor={editor}
                   className="prose dark:prose-invert max-w-none editor-content"
@@ -287,7 +437,7 @@ export function Notepad() {
                   .editor-content .ProseMirror {
                     min-height: 150px;
                     line-height: 1.6;
-                    padding: 0.5rem 0;
+                    padding: 1rem;
                   }
 
                   .editor-content .ProseMirror p {
@@ -295,15 +445,17 @@ export function Notepad() {
                   }
 
                   .editor-content .ProseMirror h1 {
-                    font-size: 1.5rem;
-                    margin-top: 1rem;
-                    margin-bottom: 0.75rem;
+                    font-size: 1.75rem;
+                    margin-top: 1.5rem;
+                    margin-bottom: 1rem;
+                    font-weight: 600;
                   }
 
                   .editor-content .ProseMirror h2 {
-                    font-size: 1.25rem;
-                    margin-top: 0.75rem;
-                    margin-bottom: 0.5rem;
+                    font-size: 1.5rem;
+                    margin-top: 1.25rem;
+                    margin-bottom: 0.75rem;
+                    font-weight: 600;
                   }
 
                   .editor-content .ProseMirror ul,
@@ -317,46 +469,66 @@ export function Notepad() {
                   }
 
                   .editor-content .ProseMirror blockquote {
-                    border-left: 3px solid #e5e7eb;
+                    border-left: 3px solid var(--primary);
                     padding-left: 1rem;
-                    margin-left: 0;
-                    margin-right: 0;
+                    margin: 1.5rem 0;
                     font-style: italic;
+                    color: var(--muted-foreground);
                   }
 
                   .editor-content .ProseMirror code {
-                    background-color: rgba(#616161, 0.1);
-                    color: #616161;
+                    background-color: var(--muted);
+                    color: var(--foreground);
+                    padding: 0.2em 0.4em;
+                    border-radius: 0.25rem;
+                    font-size: 0.875em;
                   }
 
                   .editor-content .ProseMirror pre {
-                    background: #0d0d0d;
-                    color: #fff;
+                    background: var(--muted);
+                    color: var(--foreground);
                     font-family: "JetBrainsMono", monospace;
                     padding: 0.75rem 1rem;
                     border-radius: 0.5rem;
+                    margin: 1rem 0;
                   }
 
                   .editor-content .ProseMirror pre code {
                     color: inherit;
                     padding: 0;
                     background: none;
-                    font-size: 0.8rem;
+                    font-size: 0.875rem;
                   }
 
                   .editor-content .is-editor-empty:first-child::before {
                     content: attr(data-placeholder);
                     float: left;
-                    color: #adb5bd;
+                    color: var(--muted-foreground);
                     pointer-events: none;
                     height: 0;
+                  }
+
+                  .editor-content
+                    .ProseMirror
+                    p.is-editor-empty:first-child::before {
+                    color: var(--muted-foreground);
+                    content: attr(data-placeholder);
+                    float: left;
+                    height: 0;
+                    pointer-events: none;
                   }
                 `}</style>
               </ScrollArea>
             </>
           ) : (
-            <div className="h-full flex items-center justify-center text-zinc-500">
-              Select a note or create a new one
+            <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-4">
+              <div className="text-center">
+                <p className="mb-2">Select a note or create a new one</p>
+                <p className="text-sm">
+                  Press <kbd className="px-2 py-1 bg-muted rounded">⌘N</kbd> to
+                  create a new note
+                </p>
+              </div>
             </div>
           )}
         </div>

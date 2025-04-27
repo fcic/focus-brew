@@ -1,9 +1,9 @@
-import type React from "react";
-import type { Metadata } from "next/dist/lib/metadata/types/metadata-interface";
+import { type ReactNode } from "react";
+import { type Metadata } from "next";
 import { Nunito, Roboto_Slab } from "next/font/google";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 import "./fonts.css";
-import { ThemeProvider } from "@/components/theme-provider";
 
 const nunito = Nunito({
   subsets: ["latin"],
@@ -18,20 +18,20 @@ const robotoSlab = Roboto_Slab({
 export const metadata: Metadata = {
   title: "coffee with code",
   description: "A minimalist productivity app",
+  icons: {
+    icon: "/icon.png",
+  },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+interface RootLayoutProps {
+  children: ReactNode;
+}
+
+export default function RootLayout({ children }: Readonly<RootLayoutProps>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="icon" href="/icon.png" type="image/png" />
-      </head>
       <body
-        className={`${nunito.variable} ${robotoSlab.variable} font-satoshi`}
+        className={`${nunito.variable} ${robotoSlab.variable} font-satoshi antialiased`}
       >
         <ThemeProvider
           attribute="class"

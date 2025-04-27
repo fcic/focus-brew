@@ -1,250 +1,468 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
-import YouTube, { YouTubeProps } from "react-youtube";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card } from "@/components/ui/card";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import YouTube, { YouTubeEvent, YouTubeProps } from "react-youtube";
 import {
-  Volume2,
-  VolumeX,
   SkipBack,
+  SkipForward,
   Play,
   Pause,
-  SkipForward,
+  Volume2,
+  VolumeX,
   Video,
-  Pencil,
+  Edit2,
   Trash2,
   Check,
   X,
 } from "lucide-react";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Card } from "./ui/card";
+import { ScrollArea } from "./ui/scroll-area";
+import { Slider } from "./ui/slider";
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/use-toast";
 
+// Types
 interface PlaylistItem {
   id: string;
   url: string;
   title: string;
+  addedAt: number; // Timestamp when added
 }
 
-function extractYouTubeId(url: string): string | null {
-  const regExp =
-    /^.*(?:youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-  const match = url.match(regExp);
-  return match && match[1].length === 11 ? match[1] : null;
+interface PlayerState {
+  progress: number;
+  duration: number;
+  volume: number;
+  isMuted: boolean;
+  showVideo: boolean;
+  playing: boolean;
+  editingTitle: string;
+  error: string | null;
+  loading: boolean;
 }
 
-export default function YouTubeAudioPlayer() {
-  const [playlist, setPlaylist] = useState<PlaylistItem[]>([]);
-  const [currentIdx, setCurrentIdx] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [showVideo, setShowVideo] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(70);
-  const [isMuted, setIsMuted] = useState(false);
-  const [input, setInput] = useState("");
+// Constants
+const DEFAULT_VOLUME = 50;
+const PROGRESS_UPDATE_INTERVAL = 1000;
+const DEFAULT_PLAYLIST: PlaylistItem[] = [
+  {
+    id: "jfKfPfyJRdk",
+    url: "https://www.youtube.com/watch?v=jfKfPfyJRdk",
+    title: "lofi hip hop radio - beats to relax/study to",
+    addedAt: Date.now(),
+  },
+];
+
+// Utility functions
+const extractYouTubeId = (url: string): string | null => {
+  if (!url) return null;
+
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/]+)/,
+    /^[a-zA-Z0-9_-]{11}$/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+};
+
+const formatTime = (seconds: number): string => {
+  if (!seconds || isNaN(seconds)) return "0:00";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60)
+    .toString()
+    .padStart(2, "0");
+  return h > 0 ? `${h}:${m.toString().padStart(2, "0")}:${s}` : `${m}:${s}`;
+};
+
+// Components
+const PlaylistItemComponent: React.FC<{
+  item: PlaylistItem;
+  index: number;
+  isPlaying: boolean;
+  isEditing: boolean;
+  editingTitle: string;
+  onPlay: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onSave: (title: string) => void;
+  onCancel: () => void;
+  onTitleChange: (title: string) => void;
+}> = ({
+  item,
+  index,
+  isPlaying,
+  isEditing,
+  editingTitle,
+  onPlay,
+  onEdit,
+  onDelete,
+  onSave,
+  onCancel,
+  onTitleChange,
+}) => (
+  <li
+    className={cn(
+      "flex items-center gap-2 rounded p-1",
+      isPlaying && "bg-muted/50 font-bold"
+    )}
+  >
+    <Button size="sm" variant="ghost" onClick={onPlay}>
+      {index + 1}
+    </Button>
+    <div className="flex items-center flex-1 min-w-0 justify-between">
+      {isEditing ? (
+        <div className="flex items-center gap-1 flex-1 min-w-0">
+          <Input
+            value={editingTitle}
+            onChange={(e) => onTitleChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onSave(editingTitle);
+              if (e.key === "Escape") onCancel();
+            }}
+            className="flex-1"
+            autoFocus
+          />
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => onSave(editingTitle)}
+          >
+            <Check className="h-4 w-4" />
+          </Button>
+          <Button size="icon" variant="ghost" onClick={onCancel}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : (
+        <>
+          <span className="truncate flex-1">{item.title}</span>
+          <div className="flex gap-1">
+            <Button size="icon" variant="ghost" onClick={onEdit}>
+              <Edit2 className="h-4 w-4" />
+            </Button>
+            <Button size="icon" variant="ghost" onClick={onDelete}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  </li>
+);
+
+export function YouTubePlayer() {
+  const { toast } = useToast();
+  const [playlist, setPlaylist] = useLocalStorage<PlaylistItem[]>(
+    "youtube-playlist",
+    DEFAULT_PLAYLIST
+  );
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [editingTitle, setEditingTitle] = useState("");
+  const [newUrl, setNewUrl] = useState("");
+  const [playerState, setPlayerState] = useState<PlayerState>({
+    progress: 0,
+    duration: 0,
+    volume: DEFAULT_VOLUME,
+    isMuted: false,
+    showVideo: true,
+    playing: false,
+    editingTitle: "",
+    error: null,
+    loading: false,
+  });
+
   const playerRef = useRef<any>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const progressInterval = useRef<NodeJS.Timeout | undefined>(undefined);
 
-  const current = playlist[currentIdx];
+  const handlePlayerReady = useCallback(
+    (event: YouTubeEvent) => {
+      playerRef.current = event.target;
+      playerRef.current.setVolume(playerState.volume);
+      if (playerState.isMuted) {
+        playerRef.current.mute();
+      }
+      // Set initial duration when player is ready
+      const duration = playerRef.current.getDuration();
+      setPlayerState((prev) => ({ ...prev, duration }));
+    },
+    [playerState.volume, playerState.isMuted]
+  );
 
-  // Fetch video title for display
-  useEffect(() => {
-    if (!current) return;
-    fetch(
-      `https://noembed.com/embed?url=https://www.youtube.com/watch?v=${current.id}`
-    )
-      .then((res) => res.json())
-      .then((data) => {
-        setPlaylist((pl) =>
-          pl.map((item, idx) =>
-            idx === currentIdx
-              ? { ...item, title: data.title || item.title }
-              : item
-          )
-        );
+  const handleNext = useCallback(() => {
+    const nextIndex = (currentIndex + 1) % playlist.length;
+    setCurrentIndex(nextIndex);
+  }, [currentIndex, playlist.length]);
+
+  const onStateChange = useCallback(
+    (event: YouTubeEvent) => {
+      if (!event) return;
+      const isPlaying = event.data === 1;
+
+      // Update duration when video starts playing
+      if (isPlaying) {
+        const duration = playerRef.current.getDuration();
+        setPlayerState((prev) => ({
+          ...prev,
+          playing: isPlaying,
+          duration,
+          progress: playerRef.current.getCurrentTime(),
+        }));
+      } else {
+        setPlayerState((prev) => ({ ...prev, playing: isPlaying }));
+      }
+
+      if (event.data === 0) {
+        handleNext();
+      }
+    },
+    [handleNext]
+  );
+
+  const handleAdd = useCallback(() => {
+    const id = extractYouTubeId(newUrl);
+    if (!id) {
+      toast({
+        title: "Invalid URL",
+        description: "Please enter a valid YouTube URL or video ID",
+        variant: "destructive",
       });
-  }, [currentIdx, current?.id]);
+      return;
+    }
 
-  // Set default video if playlist is empty on mount
-  useEffect(() => {
-    if (playlist.length === 0) {
-      setPlaylist([
-        {
-          id: "lTRiuFIWV54",
-          url: "https://youtu.be/lTRiuFIWV54?t=20",
-          title: "lofi hip hop radio - beats to relax/study to",
-        },
-      ]);
-      setCurrentIdx(0);
-      setPlaying(true);
-      setProgress(20); // Start at 20 seconds
+    setPlayerState((prev) => ({ ...prev, loading: true, error: null }));
+
+    // Validate video before adding
+    fetch(
+      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json`
+    )
+      .then((response) => {
+        if (!response.ok) throw new Error("Video not found or not embeddable");
+        return response.json();
+      })
+      .then((data) => {
+        setPlaylist((prev) => [
+          ...prev,
+          {
+            id,
+            url: newUrl,
+            title: data.title,
+            addedAt: Date.now(),
+          },
+        ]);
+        setNewUrl("");
+        toast({
+          title: "Video added",
+          description: "The video has been added to your playlist",
+        });
+      })
+      .catch((error) => {
+        toast({
+          title: "Error adding video",
+          description: error.message,
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        setPlayerState((prev) => ({ ...prev, loading: false }));
+      });
+  }, [newUrl, setPlaylist, toast]);
+
+  const handleRemove = useCallback(
+    (idx: number) => {
+      setPlaylist((prev) => prev.filter((_, i) => i !== idx));
+      if (idx === currentIndex && idx === playlist.length - 1) {
+        setCurrentIndex(Math.max(0, idx - 1));
+      }
+    },
+    [currentIndex, playlist.length, setPlaylist, setCurrentIndex]
+  );
+
+  const handlePrev = useCallback(() => {
+    setCurrentIndex((idx) => (idx - 1 + playlist.length) % playlist.length);
+  }, [playlist.length, setCurrentIndex]);
+
+  const handleSeek = useCallback((val: number[]) => {
+    if (playerRef.current) {
+      playerRef.current.seekTo(val[0]);
+      setPlayerState((prev) => ({ ...prev, progress: val[0] }));
     }
   }, []);
 
-  // Seek to 20s on first load or when switching to default video
-  useEffect(() => {
-    if (
-      playlist.length > 0 &&
-      playlist[currentIdx]?.id === "lTRiuFIWV54" &&
-      playerRef.current &&
-      progress < 20
-    ) {
-      playerRef.current.seekTo(20, true);
-      setProgress(20);
-    } else if (
-      playlist.length > 0 &&
-      playlist[currentIdx]?.id !== "lTRiuFIWV54" &&
-      playerRef.current &&
-      progress !== 0
-    ) {
-      playerRef.current.seekTo(0, true);
-      setProgress(0);
+  const handleVolume = useCallback((val: number[]) => {
+    if (playerRef.current) {
+      playerRef.current.setVolume(val[0]);
+      setPlayerState((prev) => ({
+        ...prev,
+        volume: val[0],
+        isMuted: val[0] === 0,
+      }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIdx, playlist.length]);
-
-  // Progress sync
-  const onPlayerReady: YouTubeProps["onReady"] = (event) => {
-    playerRef.current = event.target;
-    setDuration(event.target.getDuration());
-    setVolume(event.target.getVolume());
-    // Always seek to 20s if default video
-    if (playlist.length > 0 && playlist[currentIdx]?.id === "lTRiuFIWV54") {
-      event.target.seekTo(20, true);
-      setProgress(20);
-    } else if (
-      playlist.length > 0 &&
-      playlist[currentIdx]?.id !== "lTRiuFIWV54"
-    ) {
-      event.target.seekTo(0, true);
-      setProgress(0);
-    }
-    if (!playing) event.target.pauseVideo();
-    else event.target.playVideo();
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => {
-      setProgress(event.target.getCurrentTime());
-      setDuration(event.target.getDuration());
-    }, 500);
-  };
-
-  const onStateChange: YouTubeProps["onStateChange"] = (event) => {
-    if (event.data === 0) handleNext(); // Ended
-    if (event.data === 2) setPlaying(false); // Paused
-    if (event.data === 1) setPlaying(true); // Playing
-  };
-
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
   }, []);
 
-  const handleAdd = () => {
-    const id = extractYouTubeId(input);
-    if (id && !playlist.some((item) => item.id === id)) {
-      setPlaylist([...playlist, { id, url: input, title: "YouTube Video" }]);
-      if (playlist.length === 0) setCurrentIdx(0);
-      setInput("");
+  const toggleMute = useCallback(() => {
+    if (playerRef.current) {
+      const newMuted = !playerState.isMuted;
+      playerRef.current.setVolume(newMuted ? 0 : playerState.volume);
+      setPlayerState((prev) => ({ ...prev, isMuted: newMuted }));
     }
-  };
+  }, [playerState.isMuted, playerState.volume]);
 
-  const handleRemove = (idx: number) => {
-    const newList = playlist.filter((_, i) => i !== idx);
-    setPlaylist(newList);
-    if (currentIdx >= newList.length)
-      setCurrentIdx(Math.max(0, newList.length - 1));
-  };
+  const handleEditTitle = useCallback(
+    (idx: number) => {
+      setEditingIndex(idx);
+      setPlayerState((prev) => ({
+        ...prev,
+        editingTitle: playlist[idx].title,
+      }));
+    },
+    [playlist]
+  );
 
-  const handleNext = () => {
-    if (playlist.length > 0) setCurrentIdx((currentIdx + 1) % playlist.length);
-  };
-
-  const handlePrev = () => {
-    if (playlist.length > 0)
-      setCurrentIdx((currentIdx - 1 + playlist.length) % playlist.length);
-  };
-
-  const handleSeek = (val: number[]) => {
-    setProgress(val[0]);
-    if (playerRef.current) playerRef.current.seekTo(val[0], true);
-  };
-
-  const handleVolume = (val: number[]) => {
-    setVolume(val[0]);
-    setIsMuted(val[0] === 0);
-    if (playerRef.current) playerRef.current.setVolume(val[0]);
-  };
-
-  const toggleMute = () => {
-    setIsMuted((m) => {
-      if (playerRef.current) playerRef.current.setVolume(m ? volume : 0);
-      return !m;
-    });
-  };
-
-  const handleEditTitle = (idx: number) => {
-    setEditingIndex(idx);
-    setEditingTitle(playlist[idx].title);
-  };
-
-  const saveEditedTitle = () => {
+  const saveEditedTitle = useCallback(() => {
     if (editingIndex === null) return;
-    setPlaylist((pl) =>
-      pl.map((item, idx) =>
+
+    setPlaylist((prev) =>
+      prev.map((item, idx) =>
         idx === editingIndex
-          ? { ...item, title: editingTitle.trim() || item.title }
+          ? { ...item, title: playerState.editingTitle || item.title }
           : item
       )
     );
     setEditingIndex(null);
-    setEditingTitle("");
-  };
+  }, [editingIndex, playerState.editingTitle, setPlaylist]);
 
-  const cancelEditing = () => {
-    setEditingIndex(null);
-    setEditingTitle("");
-  };
-
-  const handleResetAll = () => {
+  const handleResetAll = useCallback(() => {
     localStorage.clear();
-    setPlaylist([
-      {
-        id: "lTRiuFIWV54",
-        url: "https://youtu.be/lTRiuFIWV54?t=20",
-        title: "lofi hip hop radio - beats to relax/study to",
-      },
-    ]);
-    setCurrentIdx(0);
-    setPlaying(true);
-    setProgress(20);
-    setDuration(0);
-    setVolume(70);
-    setIsMuted(false);
-    setInput("");
+    setPlaylist(DEFAULT_PLAYLIST);
+    setCurrentIndex(0);
+    setPlayerState({
+      progress: 20,
+      duration: 0,
+      volume: DEFAULT_VOLUME,
+      isMuted: false,
+      showVideo: true,
+      playing: false,
+      editingTitle: "",
+      error: null,
+      loading: false,
+    });
+    setNewUrl("");
     setEditingIndex(null);
-    setEditingTitle("");
-    setShowVideo(false);
-  };
+  }, [setPlaylist, setCurrentIndex]);
 
-  function formatTime(sec: number) {
-    if (!sec || isNaN(sec)) return "0:00";
-    const h = Math.floor(sec / 3600);
-    const m = Math.floor((sec % 3600) / 60);
-    const s = Math.floor(sec % 60)
-      .toString()
-      .padStart(2, "0");
-    return h > 0 ? `${h}:${m.toString().padStart(2, "0")}:${s}` : `${m}:${s}`;
-  }
+  // Add keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
 
-  // Only one YouTube player instance, always in the DOM
-  // Use CSS to hide/show video
-  const playerStyle: React.CSSProperties = showVideo
-    ? { display: "block", width: "100%" }
+      switch (e.code) {
+        case "Space":
+          e.preventDefault();
+          setPlayerState((prev) => {
+            const newPlaying = !prev.playing;
+            if (playerRef.current) {
+              if (newPlaying) playerRef.current.playVideo();
+              else playerRef.current.pauseVideo();
+            }
+            return { ...prev, playing: newPlaying };
+          });
+          break;
+        case "ArrowLeft":
+          if (e.altKey) handlePrev();
+          else if (playerRef.current) {
+            const currentTime = playerRef.current.getCurrentTime();
+            playerRef.current.seekTo(Math.max(0, currentTime - 10));
+          }
+          break;
+        case "ArrowRight":
+          if (e.altKey) handleNext();
+          else if (playerRef.current) {
+            const currentTime = playerRef.current.getCurrentTime();
+            playerRef.current.seekTo(currentTime + 10);
+          }
+          break;
+        case "KeyM":
+          toggleMute();
+          break;
+        case "KeyV":
+          setPlayerState((prev) => ({ ...prev, showVideo: !prev.showVideo }));
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, [handleNext, handlePrev, toggleMute]);
+
+  // Add error handling for player errors
+  const handleError = useCallback(
+    (event: YouTubeEvent) => {
+      const errorMessages: { [key: number]: string } = {
+        2: "Invalid video ID",
+        5: "HTML5 player error",
+        100: "Video not found",
+        101: "Video cannot be played in embedded players",
+        150: "Video cannot be played in embedded players",
+      };
+
+      const errorCode = event.data;
+      const errorMessage =
+        errorMessages[errorCode] || "An error occurred playing the video";
+
+      setPlayerState((prev) => ({
+        ...prev,
+        error: errorMessage,
+        playing: false,
+      }));
+      toast({
+        title: "Playback Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+    [toast]
+  );
+
+  // Update progress more frequently for smoother tracking
+  useEffect(() => {
+    let progressTimer: number;
+
+    if (playerState.playing && playerRef.current) {
+      progressTimer = window.setInterval(() => {
+        const currentTime = playerRef.current.getCurrentTime();
+        const duration = playerRef.current.getDuration();
+
+        setPlayerState((prev) => ({
+          ...prev,
+          progress: currentTime,
+          duration: duration || prev.duration,
+        }));
+      }, 250); // Update every 250ms for smoother progress
+    }
+
+    return () => {
+      if (progressTimer) {
+        window.clearInterval(progressTimer);
+      }
+    };
+  }, [playerState.playing]);
+
+  // Improved player style with better aspect ratio handling
+  const playerStyle: React.CSSProperties = playerState.showVideo
+    ? {
+        display: "block",
+        width: "100%",
+        aspectRatio: "16/9",
+        backgroundColor: "#000",
+      }
     : {
         position: "absolute",
         left: "-9999px",
@@ -255,199 +473,256 @@ export default function YouTubeAudioPlayer() {
       };
 
   return (
-    <Card className="max-w-md mx-auto p-4 space-y-4 h-full flex flex-col">
-      {/* Player */}
-      <div className="flex flex-col gap-2 items-center">
-        <Slider
-          value={[progress]}
-          max={duration || 100}
-          min={0}
-          step={1}
-          onValueChange={handleSeek}
-          className="w-full"
-        />
-        <div className="flex justify-between w-full text-xs text-muted-foreground">
-          <span>{formatTime(progress)}</span>
-          <span>{formatTime(duration)}</span>
-        </div>
-        <div className="flex items-center gap-4 justify-center mt-2">
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={handlePrev}
-            disabled={playlist.length < 2}
-          >
-            <SkipBack />
-          </Button>
-          <Button
-            size="icon"
-            variant="default"
-            onClick={() => {
-              setPlaying((p) => {
-                if (playerRef.current) {
-                  if (p) playerRef.current.pauseVideo();
-                  else playerRef.current.playVideo();
-                }
-                return !p;
-              });
-            }}
-            disabled={!current}
-          >
-            {playing ? <Pause /> : <Play />}
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={handleNext}
-            disabled={playlist.length < 2}
-          >
-            <SkipForward />
-          </Button>
-        </div>
-        <div className="flex items-center gap-2 w-full mt-2">
-          <Button variant="ghost" size="icon" onClick={toggleMute}>
-            {isMuted ? <VolumeX /> : <Volume2 />}
-          </Button>
-          <Slider
-            value={[isMuted ? 0 : volume]}
-            max={100}
-            min={0}
-            step={1}
-            onValueChange={handleVolume}
-            className="flex-1"
-          />
-          <span className="text-xs">{isMuted ? 0 : volume}%</span>
-        </div>
-        <Button
-          variant="outline"
-          className="mt-2"
-          onClick={() => setShowVideo((v) => !v)}
-          disabled={!current}
-        >
-          <Video className="mr-2 h-4 w-4" />
-          {showVideo ? "Hide Video" : "Show Video"}
-        </Button>
-        {/* YouTube Player - always in DOM, visibility toggled by CSS */}
-        {current && (
-          <div
-            style={playerStyle}
-            className="aspect-video w-full rounded overflow-hidden mt-2"
-          >
+    <Card className="max-w-4xl mx-auto bg-zinc-950/90 backdrop-blur-sm border-zinc-800/50 p-4 space-y-4 h-full flex flex-col">
+      {/* YouTube Player */}
+      {playlist[currentIndex] && (
+        <div className="relative rounded-lg overflow-hidden bg-black">
+          <div style={playerStyle} className="relative w-full">
             <YouTube
-              videoId={current.id}
+              videoId={playlist[currentIndex].id}
               opts={{
                 width: "100%",
-                height: "315",
+                height: "100%",
                 playerVars: {
                   autoplay: 1,
                   controls: 0,
                   modestbranding: 1,
                   rel: 0,
+                  showinfo: 0,
+                  iv_load_policy: 3,
                 },
               }}
-              onReady={onPlayerReady}
+              onReady={handlePlayerReady}
               onStateChange={onStateChange}
+              onError={handleError}
+              className="absolute inset-0 w-full h-full"
             />
           </div>
-        )}
-      </div>
-      <div className="flex gap-2 mt-4">
-        <Input
-          placeholder="Enter YouTube URL"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              handleAdd();
-              // Start playing the newly added video
-              setTimeout(() => setPlaying(true), 0);
-            }
-          }}
-          className="flex-1 min-w-0"
-        />
-        <Button
-          onClick={() => {
-            handleAdd();
-            setTimeout(() => setPlaying(true), 0);
-          }}
-          disabled={!extractYouTubeId(input)}
-        >
-          Add
-        </Button>
-      </div>
-      {/* Playlist */}
-      <div className="flex-1 flex flex-col">
-        <div className="font-semibold mb-2">Playlist</div>
-        <ScrollArea className="max-h-40 w-full rounded-md border">
-          <ul className="space-y-1 p-1">
-            {playlist.map((item, idx) => (
-              <li
-                key={item.id}
-                className={`flex items-center gap-2 rounded ${
-                  idx === currentIdx ? "bg-muted/50 font-bold" : ""
-                }`}
-              >
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setCurrentIdx(idx)}
-                >
-                  {idx + 1}
-                </Button>
-                <div className="flex items-center flex-1 min-w-0 justify-between">
-                  {editingIndex === idx ? (
-                    <div className="flex items-center gap-1 flex-1 min-w-0">
-                      <Input
-                        value={editingTitle}
-                        onChange={(e) => setEditingTitle(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") saveEditedTitle();
-                          if (e.key === "Escape") cancelEditing();
-                        }}
-                        className="p-1 text-sm"
-                        autoFocus
-                      />
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={saveEditedTitle}
-                      >
-                        <Check className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={cancelEditing}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <span className="truncate flex-1 min-w-0 max-w-[120px]">
-                      {item.title}
-                    </span>
-                  )}
-                  <div className="flex-shrink-0 flex gap-1 ml-2">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleEditTitle(idx)}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="destructive"
-                      onClick={() => handleRemove(idx)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
+          {/* Overlay for errors and loading */}
+          {(playerState.error || playerState.loading) && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+              {playerState.error ? (
+                <div className="text-red-400 text-center p-4">
+                  <span className="block text-lg mb-2">⚠️</span>
+                  {playerState.error}
                 </div>
-              </li>
+              ) : (
+                <div className="text-zinc-400 text-center">
+                  <div className="animate-spin w-8 h-8 border-2 border-zinc-600 border-t-zinc-200 rounded-full mb-2" />
+                  <span className="text-sm">Loading...</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Progress and Controls Container */}
+      <div className="space-y-4 bg-zinc-900/50 p-4 rounded-lg border border-zinc-800/50">
+        {/* Title and Time */}
+        <div className="flex justify-between items-center text-sm">
+          <div className="font-medium text-zinc-200 truncate pr-4">
+            {playlist[currentIndex]?.title || "No track selected"}
+          </div>
+          <div className="text-zinc-400 flex items-center space-x-2 text-xs">
+            <span>{formatTime(playerState.progress)}</span>
+            <span>/</span>
+            <span>{formatTime(playerState.duration)}</span>
+          </div>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="relative group">
+          <Slider
+            value={[playerState.progress]}
+            max={playerState.duration || 100}
+            min={0}
+            step={0.1}
+            onValueChange={handleSeek}
+            className="w-full"
+          />
+          <div className="absolute -bottom-4 left-0 w-full opacity-0 group-hover:opacity-100 transition-opacity text-xs text-center">
+            <div className="bg-zinc-800 text-zinc-300 px-2 py-1 rounded inline-block">
+              {formatTime(playerState.progress)}
+            </div>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="flex items-center justify-between">
+          {/* Left Controls */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleMute}
+              className="hover:bg-zinc-800"
+            >
+              {playerState.isMuted ? (
+                <VolumeX className="w-4 h-4" />
+              ) : (
+                <Volume2 className="w-4 h-4" />
+              )}
+            </Button>
+            <div className="w-24">
+              <Slider
+                value={[playerState.isMuted ? 0 : playerState.volume]}
+                max={100}
+                min={0}
+                step={1}
+                onValueChange={handleVolume}
+                className="w-full"
+              />
+            </div>
+          </div>
+
+          {/* Center Controls */}
+          <div className="flex items-center gap-2">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={handlePrev}
+              disabled={playlist.length < 2}
+              className="hover:bg-zinc-800"
+            >
+              <SkipBack className="w-4 h-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="default"
+              onClick={() => {
+                setPlayerState((prev) => {
+                  const newPlaying = !prev.playing;
+                  if (playerRef.current) {
+                    if (newPlaying) playerRef.current.playVideo();
+                    else playerRef.current.pauseVideo();
+                  }
+                  return { ...prev, playing: newPlaying };
+                });
+              }}
+              disabled={!playlist[currentIndex]}
+              className="bg-zinc-200 hover:bg-zinc-300 text-zinc-900"
+            >
+              {playerState.playing ? (
+                <Pause className="w-5 h-5" />
+              ) : (
+                <Play className="w-5 h-5 ml-0.5" />
+              )}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={handleNext}
+              disabled={playlist.length < 2}
+              className="hover:bg-zinc-800"
+            >
+              <SkipForward className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* Right Controls */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                setPlayerState((prev) => ({
+                  ...prev,
+                  showVideo: !prev.showVideo,
+                }))
+              }
+              disabled={!playlist[currentIndex]}
+              className="hover:bg-zinc-800"
+            >
+              <Video className="w-4 h-4 mr-2" />
+              {playerState.showVideo ? "Hide" : "Show"}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Playlist Section */}
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-semibold text-zinc-200">Playlist</h3>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleResetAll}
+            className="text-xs hover:bg-zinc-800"
+          >
+            Reset All
+          </Button>
+        </div>
+
+        {/* URL Input */}
+        <div className="flex gap-2 mb-4">
+          <Input
+            placeholder="Enter YouTube URL or video ID"
+            value={newUrl}
+            onChange={(e) => setNewUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (
+                e.key === "Enter" &&
+                !playerState.loading &&
+                extractYouTubeId(newUrl)
+              ) {
+                handleAdd();
+              }
+            }}
+            className="flex-1 min-w-0 bg-zinc-900/50 border-zinc-800/50"
+            disabled={playerState.loading}
+          />
+          <Button
+            onClick={handleAdd}
+            disabled={!extractYouTubeId(newUrl) || playerState.loading}
+            className="bg-zinc-800 hover:bg-zinc-700"
+          >
+            {playerState.loading ? (
+              <>
+                <div className="animate-spin w-4 h-4 border-2 border-zinc-600 border-t-zinc-200 rounded-full mr-2" />
+                Adding...
+              </>
+            ) : (
+              "Add"
+            )}
+          </Button>
+        </div>
+
+        {/* Playlist */}
+        <ScrollArea className="flex-1 w-full rounded-md border border-zinc-800/50 bg-zinc-900/50">
+          <ul className="space-y-1 p-2">
+            {playlist.map((item, idx) => (
+              <PlaylistItemComponent
+                key={item.id}
+                item={item}
+                index={idx}
+                isPlaying={idx === currentIndex}
+                isEditing={editingIndex === idx}
+                editingTitle={playerState.editingTitle}
+                onPlay={() => setCurrentIndex(idx)}
+                onEdit={() => handleEditTitle(idx)}
+                onDelete={() => handleRemove(idx)}
+                onSave={saveEditedTitle}
+                onCancel={() => {
+                  setEditingIndex(null);
+                }}
+                onTitleChange={(title) =>
+                  setPlayerState((prev) => ({ ...prev, editingTitle: title }))
+                }
+              />
             ))}
           </ul>
         </ScrollArea>
+
+        {/* Keyboard Shortcuts */}
+        <div className="mt-4 text-xs text-zinc-500 grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div>Space: Play/Pause</div>
+          <div>←/→: Seek 10s</div>
+          <div>Alt+←/→: Prev/Next</div>
+          <div>M: Mute</div>
+          <div>V: Toggle Video</div>
+        </div>
       </div>
     </Card>
   );
