@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/command";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useState, useEffect } from "react";
 
 interface Props {
   font: string;
@@ -105,6 +106,27 @@ export function SettingsAppearanceTab({
   filteredBase,
   filteredTarget,
 }: Props) {
+  // Add state to track temperature unit
+  const [temperatureUnit, setTemperatureUnit] = useState(() => {
+    // Initialize from localStorage if available
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("weather_unit") || "C";
+    }
+    return "C";
+  });
+
+  // Effect to handle changes to temperature unit
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("weather_unit", temperatureUnit);
+      window.dispatchEvent(
+        new CustomEvent("temperature_unit_changed", {
+          detail: temperatureUnit,
+        })
+      );
+    }
+  }, [temperatureUnit]);
+
   return (
     <div className="space-y-6">
       <motion.div
@@ -175,21 +197,8 @@ export function SettingsAppearanceTab({
               </div>
             </div>
             <RadioGroup
-              value={
-                typeof window !== "undefined"
-                  ? localStorage.getItem("weather_unit") || "C"
-                  : "C"
-              }
-              onValueChange={(value) => {
-                if (typeof window !== "undefined") {
-                  localStorage.setItem("weather_unit", value);
-                  window.dispatchEvent(
-                    new CustomEvent("temperature_unit_changed", {
-                      detail: value,
-                    })
-                  );
-                }
-              }}
+              value={temperatureUnit}
+              onValueChange={setTemperatureUnit}
               className="flex flex-wrap gap-2"
             >
               {temperatureUnits.map((unit) => (
@@ -197,9 +206,7 @@ export function SettingsAppearanceTab({
                   key={unit.value}
                   className={cn(
                     "flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-colors",
-                    (typeof window !== "undefined"
-                      ? localStorage.getItem("weather_unit")
-                      : "C") === unit.value
+                    temperatureUnit === unit.value
                       ? "bg-primary/10 text-primary"
                       : "hover:bg-muted"
                   )}

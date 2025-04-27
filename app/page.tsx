@@ -1,22 +1,62 @@
 "use client";
 
 import { type AppWindow as AppWindowType } from "@/types/window";
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import {
+  useState,
+  useMemo,
+  useEffect,
+  useCallback,
+  useRef,
+  lazy,
+  Suspense,
+} from "react";
 import { AnimatePresence } from "framer-motion";
 import { Desktop } from "@/components/desktop";
 import { AppWindow } from "@/components/app-window";
-import { TodoApp } from "@/components/todo-app";
-import { PomodoroTimer } from "@/components/pomodoro-timer";
-import { Settings } from "@/components/settings";
-import { Dock } from "@/components/dock";
-import { MenuBar } from "@/components/menu-bar";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { AmbientSounds } from "@/components/ambient-sounds";
-import { Notepad } from "@/components/notepad";
-import KanbanBoard from "@/components/kanban/KanbanBoard";
-import { YouTubePlayer } from "@/components/youtube-player";
 import { type SettingsTab } from "@/lib/constants";
 import { toast } from "@/components/ui/use-toast";
+import { Bootloader } from "@/components/boot/Bootloader";
+
+// Lazy load components
+const TodoApp = lazy(() =>
+  import("@/components/todo-app").then((mod) => ({ default: mod.TodoApp }))
+);
+const PomodoroTimer = lazy(() =>
+  import("@/components/pomodoro-timer").then((mod) => ({
+    default: mod.PomodoroTimer,
+  }))
+);
+const Settings = lazy(() =>
+  import("@/components/settings").then((mod) => ({ default: mod.Settings }))
+);
+const Dock = lazy(() =>
+  import("@/components/dock").then((mod) => ({ default: mod.Dock }))
+);
+const MenuBar = lazy(() =>
+  import("@/components/menu-bar").then((mod) => ({ default: mod.MenuBar }))
+);
+const AmbientSounds = lazy(() =>
+  import("@/components/ambient-sounds").then((mod) => ({
+    default: mod.AmbientSounds,
+  }))
+);
+const Notepad = lazy(() =>
+  import("@/components/notepad").then((mod) => ({ default: mod.Notepad }))
+);
+const KanbanBoard = lazy(() => import("@/components/kanban/KanbanBoard"));
+const YouTubePlayer = lazy(() =>
+  import("@/components/youtube-player").then((mod) => ({
+    default: mod.YouTubePlayer,
+  }))
+);
+
+// Simplified loading fallback
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center w-full h-full opacity-70">
+    Loading...
+  </div>
+);
 
 const DEFAULT_WINDOW_SIZES = {
   default: { width: 700, height: 500 },
@@ -140,6 +180,7 @@ export default function Home() {
   );
   const [font, setFont] = useLocalStorage("font", "font-satoshi");
   const [theme, setTheme] = useLocalStorage("theme", "dark");
+  const [isBooting, setIsBooting] = useState(true);
 
   const {
     windows,
@@ -155,27 +196,53 @@ export default function Home() {
     (appId: AppId) => {
       switch (appId) {
         case "todo":
-          return <TodoApp />;
+          return (
+            <Suspense fallback={<LoadingFallback />}>
+              <TodoApp />
+            </Suspense>
+          );
         case "kanban":
-          return <KanbanBoard />;
+          return (
+            <Suspense fallback={<LoadingFallback />}>
+              <KanbanBoard />
+            </Suspense>
+          );
         case "pomodoro":
-          return <PomodoroTimer />;
+          return (
+            <Suspense fallback={<LoadingFallback />}>
+              <PomodoroTimer />
+            </Suspense>
+          );
         case "notepad":
-          return <Notepad />;
+          return (
+            <Suspense fallback={<LoadingFallback />}>
+              <Notepad />
+            </Suspense>
+          );
         case "ambient":
-          return <AmbientSounds />;
+          return (
+            <Suspense fallback={<LoadingFallback />}>
+              <AmbientSounds />
+            </Suspense>
+          );
         case "youtube":
-          return <YouTubePlayer />;
+          return (
+            <Suspense fallback={<LoadingFallback />}>
+              <YouTubePlayer />
+            </Suspense>
+          );
         case "settings":
           return (
-            <Settings
-              wallpaper={wallpaper}
-              setWallpaper={setWallpaper}
-              font={font}
-              setFont={setFont}
-              theme={theme}
-              setTheme={setTheme}
-            />
+            <Suspense fallback={<LoadingFallback />}>
+              <Settings
+                wallpaper={wallpaper}
+                setWallpaper={setWallpaper}
+                font={font}
+                setFont={setFont}
+                theme={theme}
+                setTheme={setTheme}
+              />
+            </Suspense>
           );
         default:
           return null;
@@ -257,29 +324,46 @@ export default function Home() {
     [openApp]
   );
 
-  return (
-    <main
-      className={`h-screen w-screen overflow-hidden relative ${font}`}
+  // Render desktop content
+  const desktopContent = (
+    <div
+      className={`${font} h-screen overflow-hidden`}
       style={{
         backgroundImage: `url(${wallpaper})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
       }}
     >
-      <MenuBar
-        openApp={handleOpenApp}
-        openSettingsTab={handleOpenSettingsTab}
-      />
-
       <Desktop>
-        <AnimatePresence mode="popLayout">{windowElements}</AnimatePresence>
+        <AnimatePresence>{windowElements}</AnimatePresence>
       </Desktop>
+      <Suspense fallback={null}>
+        <MenuBar
+          openApp={handleOpenApp}
+          openSettingsTab={handleOpenSettingsTab}
+        />
+      </Suspense>
+      <Suspense fallback={null}>
+        <Dock
+          openApp={handleOpenApp}
+          openSettings={handleOpenSettings}
+          activeApps={windows.map((w) => w.id)}
+        />
+      </Suspense>
+    </div>
+  );
 
-      <Dock
-        openApp={handleOpenApp}
-        openSettings={handleOpenSettings}
-        activeApps={windows.map((w) => w.id)}
-      />
-    </main>
+  return (
+    <AnimatePresence mode="wait">
+      {isBooting ? (
+        <Bootloader
+          key="bootloader"
+          onComplete={() => setIsBooting(false)}
+          minimumDisplayTime={2500}
+        />
+      ) : (
+        desktopContent
+      )}
+    </AnimatePresence>
   );
 }

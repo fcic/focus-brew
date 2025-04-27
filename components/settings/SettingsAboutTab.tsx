@@ -1,10 +1,22 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Github, Twitter } from "lucide-react";
+import { Github, Twitter, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useState } from "react";
 
 const features = [
   {
@@ -67,6 +79,19 @@ const technologies = [
 ];
 
 export function SettingsAboutTab() {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const handleResetConfirm = () => {
+    // Clear all localStorage
+    if (typeof window !== "undefined") {
+      localStorage.clear();
+
+      // Close all windows by forcing a page reload
+      // This will reset the application state completely
+      window.location.reload();
+    }
+  };
+
   return (
     <div className="space-y-8 pb-8">
       <motion.div
@@ -155,6 +180,46 @@ export function SettingsAboutTab() {
         <p className="text-sm text-muted-foreground">
           Open source, privacy-friendly, and designed for macOS vibes.
         </p>
+      </motion.div>
+
+      <Separator />
+
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5, duration: 0.5 }}
+        className="space-y-4"
+      >
+        <h3 className="text-lg font-semibold">Reset Configuration</h3>
+        <p className="text-sm text-muted-foreground">
+          This will reset all your settings, clear local storage, and close all
+          windows. Your data will be lost and the application will return to its
+          default state.
+        </p>
+
+        <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" className="gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              Reset All Configuration
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action will reset all your settings to default, clear all
+                saved data, and close all windows. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleResetConfirm}>
+                Reset Everything
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </motion.div>
     </div>
   );
