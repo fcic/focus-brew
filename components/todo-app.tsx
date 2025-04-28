@@ -7,6 +7,16 @@ import { Button } from "@/components/ui/button";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Todo {
   id: string;
@@ -28,6 +38,8 @@ const springAnimation = {
 } as const;
 
 const TodoItem = memo(({ todo, onToggle, onDelete }: TodoItemProps) => {
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
   const handleKeyDown = (e: React.KeyboardEvent, action: () => void) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -35,58 +47,96 @@ const TodoItem = memo(({ todo, onToggle, onDelete }: TodoItemProps) => {
     }
   };
 
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    onDelete(todo.id);
+    setIsDeleteDialogOpen(false);
+  };
+
   return (
-    <motion.li
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-      transition={springAnimation}
-      className="group flex items-center justify-between p-3 bg-white/30 dark:bg-zinc-800/30 backdrop-blur-sm rounded-lg border border-zinc-300/20 dark:border-zinc-700/20 hover:bg-white/40 dark:hover:bg-zinc-800/40 transition-colors"
-    >
-      <div className="flex items-center space-x-3 flex-1 min-w-0">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 rounded-full p-0 focus-visible:ring-2 focus-visible:ring-offset-2"
-          onClick={() => onToggle(todo.id)}
-          onKeyDown={(e) => handleKeyDown(e, () => onToggle(todo.id))}
-          aria-label={
-            todo.completed ? "Mark as incomplete" : "Mark as complete"
-          }
-        >
-          {todo.completed ? (
-            <CheckCircle2 className="h-5 w-5 text-primary transition-colors" />
-          ) : (
-            <Circle className="h-5 w-5 text-zinc-400 dark:text-zinc-500 transition-colors" />
-          )}
-        </Button>
-        <span
-          className={cn(
-            "text-sm truncate",
-            todo.completed && "line-through text-zinc-400 dark:text-zinc-500"
-          )}
-          title={todo.text}
-        >
-          {todo.text}
-        </span>
-      </div>
-      <motion.div
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        className="opacity-0 group-hover:opacity-100 transition-opacity"
+    <>
+      <motion.li
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+        transition={springAnimation}
+        className="group flex items-center justify-between p-3 bg-white/30 dark:bg-zinc-800/30 backdrop-blur-sm rounded-lg border border-zinc-300/20 dark:border-zinc-700/20 hover:bg-white/40 dark:hover:bg-zinc-800/40 transition-colors"
       >
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => onDelete(todo.id)}
-          onKeyDown={(e) => handleKeyDown(e, () => onDelete(todo.id))}
-          className="rounded-full focus-visible:ring-2 focus-visible:ring-offset-2"
-          aria-label="Delete todo"
+        <div className="flex items-center space-x-3 flex-1 min-w-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 rounded-full p-0 focus-visible:ring-2 focus-visible:ring-offset-2"
+            onClick={() => onToggle(todo.id)}
+            onKeyDown={(e) => handleKeyDown(e, () => onToggle(todo.id))}
+            aria-label={
+              todo.completed ? "Mark as incomplete" : "Mark as complete"
+            }
+          >
+            {todo.completed ? (
+              <CheckCircle2 className="h-5 w-5 text-primary transition-colors" />
+            ) : (
+              <Circle className="h-5 w-5 text-zinc-400 dark:text-zinc-500 transition-colors" />
+            )}
+          </Button>
+          <span
+            className={cn(
+              "text-sm truncate",
+              todo.completed && "line-through text-zinc-400 dark:text-zinc-500"
+            )}
+            title={todo.text}
+          >
+            {todo.text}
+          </span>
+        </div>
+        <motion.div
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          className="opacity-0 group-hover:opacity-100 transition-opacity"
         >
-          <Trash2 className="h-4 w-4 text-red-500" />
-        </Button>
-      </motion.div>
-    </motion.li>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleDeleteClick}
+            onKeyDown={(e) =>
+              handleKeyDown(e, () => setIsDeleteDialogOpen(true))
+            }
+            className="rounded-full focus-visible:ring-2 focus-visible:ring-offset-2"
+            aria-label="Delete todo"
+          >
+            <Trash2 className="h-4 w-4 text-red-500" />
+          </Button>
+        </motion.div>
+      </motion.li>
+
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Task</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this task? This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 });
 

@@ -207,7 +207,7 @@ export function SettingsAboutTab() {
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogTitle>Reset Configuration</AlertDialogTitle>
               <AlertDialogDescription>
                 This action will reset all your settings to default, clear all
                 saved data, and close all windows. This action cannot be undone.
@@ -215,7 +215,10 @@ export function SettingsAboutTab() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleResetConfirm}>
+              <AlertDialogAction
+                onClick={handleResetConfirm}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
                 Reset Everything
               </AlertDialogAction>
             </AlertDialogFooter>

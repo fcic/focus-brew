@@ -28,6 +28,17 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Toggle } from "@/components/ui/toggle";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Note {
   id: string;
@@ -45,6 +56,8 @@ export function Notepad() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | null>(null);
+  const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const selectedNote = selectedNoteId
     ? notes.find((note) => note.id === selectedNoteId)
@@ -176,17 +189,21 @@ export function Notepad() {
     [setNotes]
   );
 
-  const deleteNote = useCallback(
-    (id: string) => {
-      if (window.confirm("Are you sure you want to delete this note?")) {
-        setNotes(notes.filter((note) => note.id !== id));
-        if (selectedNoteId === id) {
-          setSelectedNoteId(null);
-        }
+  const deleteNote = useCallback((id: string) => {
+    setNoteToDelete(id);
+    setIsDeleteDialogOpen(true);
+  }, []);
+
+  const confirmDeleteNote = useCallback(() => {
+    if (noteToDelete) {
+      setNotes(notes.filter((note) => note.id !== noteToDelete));
+      if (selectedNoteId === noteToDelete) {
+        setSelectedNoteId(null);
       }
-    },
-    [notes, selectedNoteId, setNotes]
-  );
+      setNoteToDelete(null);
+    }
+    setIsDeleteDialogOpen(false);
+  }, [notes, noteToDelete, selectedNoteId, setNotes]);
 
   return (
     <div className="h-full flex flex-col">
@@ -533,6 +550,30 @@ export function Notepad() {
           )}
         </div>
       </div>
+
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Note</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this note? This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteNote}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
