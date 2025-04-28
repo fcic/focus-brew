@@ -22,7 +22,7 @@ interface WallpaperTileProps {
   altText: string;
 }
 
-const DEFAULT_WALLPAPER = "/wallpapers/default.png";
+const DEFAULT_WALLPAPER = "/wallpapers/default.webp";
 
 const WallpaperTile: React.FC<WallpaperTileProps> = ({
   src,

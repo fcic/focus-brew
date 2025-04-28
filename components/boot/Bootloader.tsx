@@ -79,7 +79,7 @@ export const Bootloader = ({
       >
         <div className="relative w-32 h-32 mb-8">
           <Image
-            src="/icon.png"
+            src="/logo.svg"
             alt="FocusBrew"
             fill
             style={{ objectFit: "contain" }}

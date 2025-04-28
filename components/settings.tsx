@@ -54,7 +54,7 @@ const COMMON_CURRENCIES = [
   "inr",
 ];
 
-const DEFAULT_WALLPAPERS = ["/wallpapers/default.jpg", "/wallpapers/1.png"];
+const DEFAULT_WALLPAPERS = ["/wallpapers/default.webp", "/wallpapers/1.webp"];
 
 const CURRENCY_API_URL =
   "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json";

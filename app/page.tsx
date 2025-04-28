@@ -176,7 +176,7 @@ function useWindowManager() {
 export default function Home() {
   const [wallpaper, setWallpaper] = useLocalStorage(
     "wallpaper",
-    "/wallpapers/default.jpg"
+    "/wallpapers/default.webp"
   );
   const [font, setFont] = useLocalStorage("font", "font-satoshi");
   const [theme, setTheme] = useLocalStorage("theme", "dark");
