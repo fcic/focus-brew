@@ -36,20 +36,17 @@ const initialColumns: KanbanColumn[] = [
   {
     id: "todo",
     title: "To Do",
-    cards: [
-      { id: "1", title: "Task 1" },
-      { id: "2", title: "Task 2" },
-    ],
+    cards: [],
   },
   {
     id: "inprogress",
     title: "In Progress",
-    cards: [{ id: "3", title: "Task 3" }],
+    cards: [],
   },
   {
     id: "done",
     title: "Done",
-    cards: [{ id: "4", title: "Task 4" }],
+    cards: [],
   },
 ];
 
@@ -58,7 +55,11 @@ const KanbanBoard: React.FC = () => {
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
 
   // Add card handler
-  const addCardToColumn = (columnId: string, title: string, description?: string) => {
+  const addCardToColumn = (
+    columnId: string,
+    title: string,
+    description?: string
+  ) => {
     setColumns((prev) =>
       prev.map((col) =>
         col.id === columnId
@@ -249,7 +250,12 @@ const KanbanBoard: React.FC = () => {
           strategy={verticalListSortingStrategy}
         >
           {columns.map((column) => (
-            <BoardColumn key={column.id} column={column} addCard={addCardToColumn} deleteCard={deleteCardFromColumn} />
+            <BoardColumn
+              key={column.id}
+              column={column}
+              addCard={addCardToColumn}
+              deleteCard={deleteCardFromColumn}
+            />
           ))}
         </SortableContext>
       </div>
