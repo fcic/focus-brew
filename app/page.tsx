@@ -16,14 +16,14 @@ import { AppWindow } from "@/components/app-window";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { type SettingsTab } from "@/lib/constants";
 import { Bootloader } from "@/components/boot/Bootloader";
-import { stopAllAmbientSounds } from "@/components/ambient-sounds";
+import { stopAllAmbientSounds } from "@/components/apps/ambient-sounds";
 
 // Lazy load components
 const TodoApp = lazy(() =>
-  import("@/components/todo-app").then((mod) => ({ default: mod.TodoApp }))
+  import("@/components/apps/todo-app").then((mod) => ({ default: mod.TodoApp }))
 );
 const PomodoroTimer = lazy(() =>
-  import("@/components/pomodoro-timer").then((mod) => ({
+  import("@/components/apps/pomodoro-timer").then((mod) => ({
     default: mod.PomodoroTimer,
   }))
 );
@@ -37,17 +37,22 @@ const MenuBar = lazy(() =>
   import("@/components/menu-bar").then((mod) => ({ default: mod.MenuBar }))
 );
 const AmbientSounds = lazy(() =>
-  import("@/components/ambient-sounds").then((mod) => ({
+  import("@/components/apps/ambient-sounds").then((mod) => ({
     default: mod.AmbientSounds,
   }))
 );
 const Notepad = lazy(() =>
-  import("@/components/notepad").then((mod) => ({ default: mod.Notepad }))
+  import("@/components/apps/notepad").then((mod) => ({ default: mod.Notepad }))
 );
-const KanbanBoard = lazy(() => import("@/components/kanban/KanbanBoard"));
+const KanbanBoard = lazy(() => import("@/components/apps/kanban/KanbanBoard"));
 const YouTubePlayer = lazy(() =>
-  import("@/components/youtube-player").then((mod) => ({
+  import("@/components/apps/youtube-player").then((mod) => ({
     default: mod.YouTubePlayer,
+  }))
+);
+const HabitTracker = lazy(() =>
+  import("@/components/apps/habit-tracker").then((mod) => ({
+    default: mod.HabitTracker,
   }))
 );
 
@@ -65,6 +70,8 @@ const DEFAULT_WINDOW_SIZES = {
   ambient: { width: 850, height: 750 },
   pomodoro: { width: 700, height: 500 },
   notepad: { width: 800, height: 650 },
+  habit: { width: 900, height: 800 },
+  settings: { width: 850, height: 650 },
 } as const;
 
 const APP_TITLES = {
@@ -75,6 +82,7 @@ const APP_TITLES = {
   ambient: "Ambient Sounds",
   youtube: "YouTube Player",
   settings: "Settings",
+  habit: "Habit Tracker",
 } as const;
 
 type AppId = keyof typeof APP_TITLES;
@@ -234,6 +242,12 @@ export default function Home() {
           return (
             <Suspense fallback={<LoadingFallback />}>
               <YouTubePlayer />
+            </Suspense>
+          );
+        case "habit":
+          return (
+            <Suspense fallback={<LoadingFallback />}>
+              <HabitTracker />
             </Suspense>
           );
         case "settings":

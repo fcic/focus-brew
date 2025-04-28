@@ -4,15 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { Button } from "./ui/button";
-import { Slider } from "./ui/slider";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
   TooltipProvider,
-} from "./ui/tooltip";
+} from "@/components/ui/tooltip";
 import { Pause, Play, RotateCcw, Volume2 } from "lucide-react";
+import { sendPomodoroNotification } from "@/lib/notification";
 
 type TimerMode = "pomodoro" | "shortBreak" | "longBreak";
 
@@ -111,8 +112,16 @@ export function PomodoroTimer() {
         setCompletedPomodoros((count) => count + 1);
         const nextMode =
           completedPomodoros % 4 === 3 ? "longBreak" : "shortBreak";
+        // Send notification when pomodoro ends
+        sendPomodoroNotification("work", settings.shortBreak / 60);
         handleSwitchMode(nextMode);
-      } else {
+      } else if (mode === "shortBreak") {
+        // Send notification when short break ends
+        sendPomodoroNotification("break", settings.pomodoro / 60);
+        handleSwitchMode("pomodoro");
+      } else if (mode === "longBreak") {
+        // Send notification when long break ends
+        sendPomodoroNotification("longBreak", settings.pomodoro / 60);
         handleSwitchMode("pomodoro");
       }
     }
@@ -125,6 +134,8 @@ export function PomodoroTimer() {
     completedPomodoros,
     alarmSound,
     handleSwitchMode,
+    settings.shortBreak,
+    settings.pomodoro,
   ]);
 
   // Add keyboard shortcuts

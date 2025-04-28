@@ -15,6 +15,7 @@ import {
 import { SettingsWallpaperTab } from "./settings/SettingsWallpaperTab";
 import { SettingsAppearanceTab } from "./settings/SettingsAppearanceTab";
 import { SettingsAboutTab } from "./settings/SettingsAboutTab";
+import { SettingsGeneralTab } from "./settings/SettingsGeneralTab";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,7 +37,7 @@ interface CurrencyState {
   target: string;
 }
 
-type TabValue = "wallpaper" | "appearance" | "about";
+type TabValue = "general" | "wallpaper" | "appearance" | "about";
 
 // Constants
 const COMMON_CURRENCIES = [
@@ -137,7 +138,7 @@ export function Settings({
   const fileInputRef = useRef<HTMLInputElement>(
     null
   ) as React.RefObject<HTMLInputElement>;
-  const [tab, setTab] = useState<TabValue>("wallpaper");
+  const [tab, setTab] = useState<TabValue>("general");
 
   const { state, setState } = useSettingsState();
 
@@ -294,7 +295,14 @@ export function Settings({
           onValueChange={(value: string) => setTab(value as TabValue)}
           className="flex flex-col h-full"
         >
-          <TabsList className="grid grid-cols-3 bg-muted/30 backdrop-blur-sm">
+          <TabsList className="grid grid-cols-4 bg-muted/30 backdrop-blur-sm">
+            <TabsTrigger
+              value="general"
+              className="data-[state=active]:bg-background/70"
+              aria-label="General settings"
+            >
+              General
+            </TabsTrigger>
             <TabsTrigger
               value="wallpaper"
               className="data-[state=active]:bg-background/70"
@@ -327,6 +335,9 @@ export function Settings({
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
               >
+                <TabsContent value="general" className="p-6">
+                  <SettingsGeneralTab />
+                </TabsContent>
                 <TabsContent value="wallpaper" className="space-y-8 p-6">
                   <SettingsWallpaperTab
                     wallpaper={wallpaper}

@@ -8,12 +8,14 @@ import {
   Music,
   Youtube,
   Settings,
+  CalendarCheck,
 } from "lucide-react";
 
 export type AppId =
   | "todo"
   | "kanban"
   | "pomodoro"
+  | "habit"
   | "notepad"
   | "ambient"
   | "youtube"
@@ -44,6 +46,13 @@ export const APP_ITEMS: AppMenuItem[] = [
     icon: createIcon(Kanban),
     shortcut: "⌘K",
     shortcutKey: "K",
+  },
+  {
+    id: "habit",
+    label: "Habit Tracker",
+    icon: createIcon(CalendarCheck),
+    shortcut: "⌘H",
+    shortcutKey: "H",
   },
   {
     id: "pomodoro",
