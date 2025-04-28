@@ -62,8 +62,8 @@ const DEFAULT_WINDOW_SIZES = {
   default: { width: 700, height: 500 },
   kanban: { width: 1000, height: 600 },
   youtube: { width: 580, height: 800 },
-  ambient: { width: 850, height: 800 },
-  pomodoro: { width: 700, height: 800 },
+  ambient: { width: 850, height: 750 },
+  pomodoro: { width: 700, height: 500 },
   notepad: { width: 800, height: 650 },
 } as const;
 
@@ -320,6 +320,11 @@ export default function Home() {
   const handleOpenSettingsTab = useCallback(
     (tab: SettingsTab) => {
       openApp("settings");
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent("open-settings-tab", { detail: tab })
+        );
+      }, 100);
     },
     [openApp]
   );

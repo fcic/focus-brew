@@ -28,7 +28,7 @@ export interface AppMenuItem {
   shortcutKey: string;
 }
 
-const createIcon = (Icon: LucideIcon) => <Icon className="h-4 w-4" />;
+const createIcon = (Icon: LucideIcon) => <Icon className="h-6 w-6" />;
 
 export const APP_ITEMS: AppMenuItem[] = [
   {

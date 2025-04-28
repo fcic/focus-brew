@@ -133,7 +133,7 @@ const DockItem = memo(
           >
             <motion.div
               className={cn(
-                "relative flex items-center justify-center w-12 h-12 p-1.5 rounded-xl",
+                "relative flex items-center justify-center w-12 h-12 p-0 rounded-xl",
                 "bg-card/80 backdrop-blur-md shadow-sm border border-white/10",
                 "hover:bg-zinc-500/20 transition-all duration-150",
                 isActive && "bg-white/30"

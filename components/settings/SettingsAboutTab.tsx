@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Github, Twitter, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
+// import { Github, Twitter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -103,9 +104,9 @@ export function SettingsAboutTab() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold">FocusBrew</h2>
-            <p className="text-muted-foreground">Version 1.0.0</p>
+            {/* <p className="text-muted-foreground">Version 1.0.0</p> */}
           </div>
-          <div className="flex items-center gap-2">
+          {/* <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="gap-2">
               <Github className="h-4 w-4" />
               GitHub
@@ -114,7 +115,7 @@ export function SettingsAboutTab() {
               <Twitter className="h-4 w-4" />
               Twitter
             </Button>
-          </div>
+          </div> */}
         </div>
         <p className="text-muted-foreground leading-relaxed">
           Your all-in-one minimalist productivity suite, crafted for creators

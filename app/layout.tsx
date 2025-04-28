@@ -19,6 +19,7 @@ export const metadata: Metadata = {
   title: "FocusBrew | Productivity Workspace",
   description:
     "All-in-one digital workspace with todo lists, kanban boards, pomodoro timer, notes, ambient sounds, and more to boost your productivity.",
+  metadataBase: new URL("https://focusbrew.vercel.app"),
   keywords: [
     "productivity",
     "workspace",
