@@ -15,8 +15,8 @@ import { Desktop } from "@/components/desktop";
 import { AppWindow } from "@/components/app-window";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { type SettingsTab } from "@/lib/constants";
-import { toast } from "@/components/ui/use-toast";
 import { Bootloader } from "@/components/boot/Bootloader";
+import { stopAllAmbientSounds } from "@/components/ambient-sounds";
 
 // Lazy load components
 const TodoApp = lazy(() =>
@@ -129,6 +129,11 @@ function useWindowManager() {
   const closeApp = useCallback(
     (appId: AppId) => {
       try {
+        // Stop ambient sounds if closing the ambient sounds app
+        if (appId === "ambient") {
+          stopAllAmbientSounds();
+        }
+
         setWindows((prev) => prev.filter((w) => w.id !== appId));
       } catch (error) {
         console.error("Error closing app:", error);

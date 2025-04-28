@@ -10,17 +10,62 @@ import React, {
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { soundCategories, soundPaths, type SoundCategory } from "@/lib/paths";
 import { getSoundIcon, icons } from "@/lib/icons";
-import { SaveIcon } from "lucide-react";
+import { SaveIcon, StopCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Constants for volume
+const DEFAULT_VOLUME = 50;
+const MAX_VOLUME = 100;
+const MIN_VOLUME = 0;
+
+// Create a cache for audio elements that persists across component renders
+const globalAudioCache: Record<string, HTMLAudioElement> = {};
+let isPageUnloading = false;
+
+// Keep track of if sounds should continue in background
+let shouldPlayInBackground = true;
+
+// Handle page unload to clean up audio elements
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeunload", () => {
+    isPageUnloading = true;
+    // Clean up all audio elements
+    Object.values(globalAudioCache).forEach((audio) => {
+      try {
+        audio.pause();
+        audio.src = "";
+        audio.load();
+      } catch (e) {
+        console.error("Error cleaning up audio on page unload:", e);
+      }
+    });
+  });
+}
+
+// Export function to control background playback (can be called from outside)
+export function stopAllAmbientSounds() {
+  shouldPlayInBackground = false;
+  Object.values(globalAudioCache).forEach((audio) => {
+    try {
+      audio.pause();
+    } catch (e) {
+      console.error("Error stopping ambient sound:", e);
+    }
+  });
+}
+
+// Start playing ambient sounds again
+export function resumeAmbientSounds() {
+  shouldPlayInBackground = true;
+}
+
+// Define interfaces
 interface Sound {
   id: string;
   name: string;
@@ -47,7 +92,8 @@ interface SoundMix {
 interface SoundCardProps {
   sound: Sound;
   onToggle: (id: string) => void;
-  onVolumeChange: (id: string, volume: number) => void;
+  onVolumeChange: (id: string, value: number) => void;
+  onDelete?: (id: string) => void;
 }
 
 interface MasterVolumeProps {
@@ -69,6 +115,7 @@ interface SavedMixCardProps {
   onDelete: (id: string) => void;
 }
 
+// Animation configuration
 const ANIMATION_CONFIG = {
   initial: { opacity: 0, y: 10 },
   animate: { opacity: 1, y: 0 },
@@ -76,10 +123,12 @@ const ANIMATION_CONFIG = {
   transition: { duration: 0.2 },
 } as const;
 
-const DEFAULT_VOLUME = 50;
-const MAX_VOLUME = 100;
-const MIN_VOLUME = 0;
+// Safely convert UI volume (0-100) to audio volume (0-1)
+const normalizeVolume = (volume: number): number => {
+  return Math.max(0, Math.min(1, volume / MAX_VOLUME));
+};
 
+// Component implementations
 const SoundCard = React.memo(function SoundCard({
   sound,
   onToggle,
@@ -128,13 +177,16 @@ const SoundCard = React.memo(function SoundCard({
             min={MIN_VOLUME}
             max={MAX_VOLUME}
             step={1}
-            onValueChange={(value) => onVolumeChange(sound.id, value[0])}
+            onValueChange={(value) => {
+              const volumeValue = Array.isArray(value) ? value[0] : value;
+              onVolumeChange(sound.id, volumeValue);
+            }}
             onClick={handleSliderClick}
             onMouseDown={handleSliderClick}
             onMouseUp={handleSliderClick}
             disabled={!sound.playing || sound.isLoading || !!sound.error}
             className={cn(
-              "flex-1",
+              "w-24",
               (sound.isLoading || sound.error) && "opacity-50"
             )}
           />
@@ -281,8 +333,9 @@ const SavedMixCard = React.memo(function SavedMixCard({
 });
 
 export function AmbientSounds() {
+  // State
   const [sounds, setSounds] = useState<Sound[]>(() => {
-    // Tenta carregar as configurações de volume do localStorage
+    // Try to load volume settings from localStorage
     const savedVolumes = localStorage.getItem("ambient-sound-volumes");
     const volumeMap: Record<string, number> = savedVolumes
       ? JSON.parse(savedVolumes)
@@ -295,7 +348,7 @@ export function AmbientSounds() {
           {React.createElement(getSoundIcon(sound.name, sound.category))}
         </div>
       ),
-      // Usa o volume salvo ou o volume padrão
+      // Use saved volume or default
       volume: volumeMap[sound.id] || DEFAULT_VOLUME,
       playing: false,
       isLoading: false,
@@ -314,15 +367,22 @@ export function AmbientSounds() {
   );
   const [newMixName, setNewMixName] = useState("");
   const [activeTab, setActiveTab] = useState<SoundCategory>("nature");
-
-  const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
-  const loadingStatus = useRef<{ [key: string]: boolean }>({});
-  const initialized = useRef<{ [key: string]: boolean }>({});
-  const playPromises = useRef<{ [key: string]: Promise<void> }>({});
-  const activeAudioState = useRef<{ [key: string]: boolean }>({});
   const [isDragging, setIsDragging] = useState(false);
-  const dragTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isWindowFocused, setIsWindowFocused] = useState(true);
 
+  // Refs
+  const isWindowFocusedRef = useRef(true);
+  const loadingStatus = useRef<Record<string, boolean>>({});
+  const volumeUpdateTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
+  const dragTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const activeAudioState = useRef<Record<string, boolean>>({});
+  const audioRetries = useRef<Record<string, number>>({});
+
+  // Constants
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 1500;
+
+  // Derived state
   const sortedMixes = useMemo(
     () =>
       [...savedMixes].sort(
@@ -337,220 +397,248 @@ export function AmbientSounds() {
     [sounds, activeTab]
   );
 
-  useEffect(() => {
-    soundPaths.forEach((sound) => {
-      if (!initialized.current[sound.id]) {
-        initialized.current[sound.id] = true;
+  // Event handlers
+  const handleWindowBlur = useCallback(() => {
+    console.log("Window blur event");
+    isWindowFocusedRef.current = false;
+    setIsWindowFocused(false);
+
+    // Don't pause sounds when changing tabs - we want them to keep playing
+    // Just store which sounds were playing to handle potential errors
+    sounds.forEach((sound) => {
+      if (sound.playing) {
+        activeAudioState.current[sound.id] = true;
       }
     });
+  }, [sounds]);
 
-    return () => {
-      Object.values(audioRefs.current).forEach((audio) => {
-        if (audio) {
-          audio.pause();
-          audio.src = "";
-          audio.load();
-        }
-      });
-      audioRefs.current = {};
-      loadingStatus.current = {};
-      initialized.current = {};
-      playPromises.current = {};
-    };
-  }, []);
+  const handleWindowFocus = useCallback(() => {
+    console.log("Window focus event");
+    isWindowFocusedRef.current = true;
+    setIsWindowFocused(true);
 
-  const initializeAudio = useCallback(
-    (soundId: string) => {
-      // Encontre as informações do som
-      const soundInfo = sounds.find((s) => s.id === soundId);
-      if (!soundInfo) {
-        console.warn(`Sound with id ${soundId} not found`);
-        return null;
-      }
+    // Check if any sounds need to be restarted due to browser throttling
+    Object.entries(activeAudioState.current).forEach(
+      ([soundId, wasPlaying]) => {
+        if (wasPlaying) {
+          const sound = sounds.find((s) => s.id === soundId);
+          if (sound && sound.playing) {
+            const audio = globalAudioCache[soundId];
+            if (audio && audio.paused) {
+              // Only resume if the audio was paused by the browser
+              try {
+                // Set proper volume
+                const normalizedVolume =
+                  normalizeVolume(sound.volume) * normalizeVolume(masterVolume);
+                audio.volume = normalizedVolume;
 
-      // Se já existir uma instância de áudio para este som, retorne-a
-      if (audioRefs.current[soundId] && audioRefs.current[soundId].src) {
-        return audioRefs.current[soundId];
-      }
-
-      try {
-        // Verificar se a URL é válida
-        const audioPath = soundInfo.audioUrl;
-        if (!audioPath) {
-          throw new Error(`Invalid audio path for sound ${soundId}`);
-        }
-
-        // Criação do elemento de áudio com uma abordagem mais segura
-        const audio = document.createElement("audio");
-
-        // Configurar propriedades básicas
-        audio.preload = "auto";
-        audio.loop = true;
-        audio.crossOrigin = "anonymous"; // Evitar problemas CORS
-
-        // Definir manipuladores de eventos antes de configurar src
-        const handleCanPlay = () => {
-          loadingStatus.current[soundId] = false;
-          setSounds((prev) =>
-            prev.map((s) =>
-              s.id === soundId
-                ? { ...s, isLoading: false, error: undefined }
-                : s
-            )
-          );
-        };
-
-        const handleError = (e: Event) => {
-          loadingStatus.current[soundId] = false;
-
-          // Se a janela estiver sendo arrastada, trate o erro de forma diferente
-          if (isDragging) {
-            console.warn(
-              `Audio error during window drag for ${soundId} - will attempt recovery`
-            );
-            // Não atualize o estado para erro, apenas registre aviso
-            return;
+                // Resume playback
+                audio.play().catch((err) => {
+                  console.warn(
+                    `Error resuming audio ${soundId} on focus:`,
+                    err
+                  );
+                });
+              } catch (err) {
+                console.warn(`Error handling audio ${soundId} on focus:`, err);
+              }
+            }
           }
+        }
+      }
+    );
+  }, [sounds, masterVolume]);
 
-          // Logs detalhados para depuração
-          console.error(`Error loading sound ${soundId}:`, {
-            errorEvent: e,
-            errorType: e.type,
-            target: e.target,
-            path: audioPath,
-            details: "Audio loading failed",
-          });
+  // Toggle sound playback
+  const toggleSound = useCallback(
+    (soundId: string) => {
+      if (!isWindowFocusedRef.current && isDragging) {
+        console.warn(
+          "Ignoring toggle request - window not focused or dragging"
+        );
+        return;
+      }
 
-          setSounds((prev) =>
-            prev.map((s) =>
-              s.id === soundId
-                ? {
-                    ...s,
-                    isLoading: false,
-                    error: "Failed to load sound",
-                    playing: false,
+      setSounds((prevSounds) => {
+        // Find the sound we want to toggle
+        const soundToToggle = prevSounds.find((s) => s.id === soundId);
+        if (!soundToToggle) return prevSounds;
+
+        // We'll toggle this sound's playing state
+        const newPlayingState = !soundToToggle.playing;
+
+        return prevSounds.map((sound) => {
+          if (sound.id === soundId) {
+            // Handle audio playback
+            if (newPlayingState) {
+              // Initialize or get audio element
+              let audio = globalAudioCache[soundId];
+
+              if (!audio) {
+                audio = new Audio();
+                audio.loop = true;
+                audio.src = sound.audioUrl;
+                audio.volume =
+                  normalizeVolume(sound.volume) * normalizeVolume(masterVolume);
+
+                // Set up error handling
+                audio.onerror = () => {
+                  console.error(`Error loading sound ${soundId}`);
+
+                  if (!isWindowFocusedRef.current || isDragging) {
+                    console.warn(
+                      `Audio error while window unfocused/dragging for ${soundId}`
+                    );
+                    return;
                   }
-                : s
-            )
-          );
-        };
 
-        // Adicionar ouvintes de eventos
-        audio.addEventListener("canplaythrough", handleCanPlay);
-        audio.addEventListener("error", handleError);
+                  setSounds((prev) =>
+                    prev.map((s) =>
+                      s.id === soundId
+                        ? {
+                            ...s,
+                            playing: false,
+                            isLoading: false,
+                            error: "Failed to load sound",
+                          }
+                        : s
+                    )
+                  );
+                };
 
-        // Função para garantir limpeza adequada do elemento de áudio
-        const cleanupAudio = () => {
-          audio.removeEventListener("canplaythrough", handleCanPlay);
-          audio.removeEventListener("error", handleError);
-          audio.src = "";
-          audio.load();
-        };
+                // Add to global cache
+                globalAudioCache[soundId] = audio;
+              }
 
-        // Armazenar para limpeza futura
-        const cleanup = {
-          cleanupFn: cleanupAudio,
-          hasError: false,
-        };
+              // Play audio with error handling
+              try {
+                // Ensure volume is set correctly
+                audio.volume =
+                  normalizeVolume(sound.volume) * normalizeVolume(masterVolume);
 
-        // Verificar se o arquivo existe antes de atribuir ao src
-        fetch(audioPath, { method: "HEAD" })
-          .then((response) => {
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
+                // Play the sound
+                audio.play().catch((err) => {
+                  console.error(`Error playing sound ${soundId}:`, err);
+
+                  setSounds((prev) =>
+                    prev.map((s) =>
+                      s.id === soundId
+                        ? {
+                            ...s,
+                            playing: false,
+                            isLoading: false,
+                            error: `Playback error: ${err.message}`,
+                          }
+                        : s
+                    )
+                  );
+                });
+              } catch (err) {
+                console.error(`Exception playing sound ${soundId}:`, err);
+              }
+            } else {
+              // Pause audio
+              const audio = globalAudioCache[soundId];
+              if (audio) {
+                try {
+                  audio.pause();
+                } catch (err) {
+                  console.warn(`Error pausing audio ${soundId}:`, err);
+                }
+              }
             }
 
-            // O arquivo existe, configure o src com uma verificação de erro
-            audio.src = audioPath;
+            return {
+              ...sound,
+              playing: newPlayingState,
+              isLoading:
+                newPlayingState &&
+                (!globalAudioCache[soundId] ||
+                  !globalAudioCache[soundId].readyState),
+              error: undefined,
+            };
+          }
+          return sound;
+        });
+      });
+    },
+    [isDragging, masterVolume]
+  );
 
-            // Safari e alguns navegadores não acionam eventos se src for definido depois
-            // Força o carregamento do áudio
-            audio.load();
-          })
-          .catch((error) => {
-            console.error(`Could not access audio file for ${soundId}:`, error);
+  // Handle volume changes
+  const handleVolumeChange = useCallback(
+    (soundId: string, value: number) => {
+      const newVolume = value;
 
-            cleanup.hasError = true;
-            cleanupAudio();
+      // Update audio element volume directly
+      const audio = globalAudioCache[soundId];
+      if (audio) {
+        try {
+          // Convert from UI scale (0-100) to audio scale (0-1)
+          const normalizedVolume =
+            normalizeVolume(newVolume) * normalizeVolume(masterVolume);
+          console.log(
+            `Setting volume for ${soundId} to ${normalizedVolume} (${newVolume}%)`
+          );
+          audio.volume = normalizedVolume;
+        } catch (err) {
+          console.warn(`Error setting volume for ${soundId}:`, err);
+        }
+      }
 
-            setSounds((prev) =>
-              prev.map((s) =>
-                s.id === soundId
-                  ? {
-                      ...s,
-                      isLoading: false,
-                      error: "Sound file not accessible",
-                      playing: false,
-                    }
-                  : s
-              )
-            );
-          });
-
-        // Armazenar a referência do áudio
-        audioRefs.current[soundId] = audio;
-
-        return audio;
-      } catch (error) {
-        console.error(`Exception setting up audio for ${soundId}:`, error);
-
-        setSounds((prev) =>
-          prev.map((s) =>
-            s.id === soundId
-              ? {
-                  ...s,
-                  isLoading: false,
-                  error: "Failed to initialize audio",
-                  playing: false,
-                }
-              : s
+      // Debounce state updates
+      clearTimeout(volumeUpdateTimeouts.current[soundId]);
+      volumeUpdateTimeouts.current[soundId] = setTimeout(() => {
+        setSounds((prevSounds) =>
+          prevSounds.map((sound) =>
+            sound.id === soundId ? { ...sound, volume: newVolume } : sound
           )
         );
 
-        return null;
-      }
+        // Save to localStorage
+        const savedVolumes = JSON.parse(
+          localStorage.getItem("ambient-sound-volumes") || "{}"
+        );
+        localStorage.setItem(
+          "ambient-sound-volumes",
+          JSON.stringify({ ...savedVolumes, [soundId]: newVolume })
+        );
+      }, 100);
     },
-    [sounds, isDragging]
+    [masterVolume]
   );
 
-  const toggleSound = useCallback((id: string) => {
-    setSounds((prev) =>
-      prev.map((sound) => {
-        if (sound.id === id) {
-          const newPlaying = !sound.playing;
-          if (!newPlaying && audioRefs.current[id]) {
-            if (!playPromises.current[id]) {
-              audioRefs.current[id].pause();
-              audioRefs.current[id].currentTime = 0;
-            } else {
+  // Handle master volume change
+  const handleMasterVolumeChange = useCallback(
+    (volume: number) => {
+      setMasterVolume(volume);
+
+      // Update all playing audio elements with the new master volume
+      sounds.forEach((sound) => {
+        if (sound.playing) {
+          const audio = globalAudioCache[sound.id];
+          if (audio) {
+            try {
+              const normalizedVolume =
+                normalizeVolume(sound.volume) * normalizeVolume(volume);
               console.log(
-                `Scheduled pause for ${id} after play promise resolves`
+                `Updating master volume for ${sound.id} to ${normalizedVolume} (${volume}%)`
+              );
+              audio.volume = normalizedVolume;
+            } catch (err) {
+              console.warn(
+                `Error updating master volume for ${sound.id}:`,
+                err
               );
             }
-            return { ...sound, playing: false, error: undefined };
           }
-          return {
-            ...sound,
-            playing: newPlaying,
-            isLoading: newPlaying,
-            error: undefined,
-          };
         }
-        return sound;
-      })
-    );
-  }, []);
+      });
+    },
+    [sounds, setMasterVolume]
+  );
 
-  const handleVolumeChange = useCallback((id: string, volume: number) => {
-    setSounds((prev) =>
-      prev.map((sound) => (sound.id === id ? { ...sound, volume } : sound))
-    );
-  }, []);
-
-  const handleMasterVolumeChange = useCallback((volume: number) => {
-    setMasterVolume(volume);
-  }, []);
-
+  // Handle saving mix
   const handleSaveMix = useCallback(() => {
     if (!newMixName.trim()) return;
 
@@ -569,17 +657,67 @@ export function AmbientSounds() {
     setNewMixName("");
   }, [newMixName, sounds, setSavedMixes]);
 
-  const handleLoadMix = useCallback((mix: SoundMix) => {
-    setSounds((prev) =>
-      prev.map((sound) => {
-        const mixSound = mix.sounds.find((s) => s.id === sound.id);
-        return mixSound
-          ? { ...sound, volume: mixSound.volume, playing: mixSound.playing }
-          : sound;
-      })
-    );
-  }, []);
+  // Handle loading mix
+  const handleLoadMix = useCallback(
+    (mix: SoundMix) => {
+      // First pause all currently playing sounds
+      sounds.forEach((sound) => {
+        if (sound.playing) {
+          const audio = globalAudioCache[sound.id];
+          if (audio && !audio.paused) {
+            try {
+              audio.pause();
+            } catch (err) {
+              console.warn(
+                `Error pausing sound ${sound.id} when loading mix:`,
+                err
+              );
+            }
+          }
+        }
+      });
 
+      // Update state with new mix
+      setSounds((prev) =>
+        prev.map((sound) => {
+          const mixSound = mix.sounds.find((s) => s.id === sound.id);
+          const newState = mixSound
+            ? { ...sound, volume: mixSound.volume, playing: mixSound.playing }
+            : sound;
+
+          // Handle playback for this sound based on mix settings
+          if (mixSound?.playing) {
+            let audio = globalAudioCache[sound.id];
+
+            if (!audio) {
+              // Initialize new audio element
+              audio = new Audio();
+              audio.loop = true;
+              audio.src = sound.audioUrl;
+              globalAudioCache[sound.id] = audio;
+            }
+
+            // Set volume and play
+            try {
+              audio.volume =
+                normalizeVolume(mixSound.volume) *
+                normalizeVolume(masterVolume);
+              audio.play().catch((err) => {
+                console.warn(`Error playing sound ${sound.id} in mix:`, err);
+              });
+            } catch (err) {
+              console.warn(`Error setting up sound ${sound.id} in mix:`, err);
+            }
+          }
+
+          return newState;
+        })
+      );
+    },
+    [sounds, masterVolume]
+  );
+
+  // Handle deleting mix
   const handleDeleteMix = useCallback(
     (id: string) => {
       setSavedMixes((prev) => prev.filter((mix) => mix.id !== id));
@@ -587,176 +725,32 @@ export function AmbientSounds() {
     [setSavedMixes]
   );
 
+  // Save sound volumes to localStorage
   useEffect(() => {
-    const updateAudio = async () => {
-      // Se estiver arrastando, armazene o estado atual dos sons em vez de atualizar os áudios
-      if (isDragging) {
-        // Armazene quais sons estavam tocando para restauração posterior
-        sounds.forEach((sound) => {
-          activeAudioState.current[sound.id] = sound.playing;
-        });
-        return;
-      }
+    const volumeMap: Record<string, number> = {};
+    sounds.forEach((sound) => {
+      volumeMap[sound.id] = sound.volume;
+    });
 
-      const playingSounds = sounds.filter((sound) => sound.playing);
+    localStorage.setItem("ambient-sound-volumes", JSON.stringify(volumeMap));
+  }, [sounds]);
 
-      for (const sound of playingSounds) {
-        // Inicializar áudio se necessário
-        if (!audioRefs.current[sound.id]) {
-          initializeAudio(sound.id);
-          // Continue para o próximo ciclo para dar tempo ao áudio de ser inicializado
-          continue;
-        }
+  // Set up window focus/blur event listeners
+  useEffect(() => {
+    window.addEventListener("blur", handleWindowBlur);
+    window.addEventListener("focus", handleWindowFocus);
 
-        const audio = audioRefs.current[sound.id];
-        if (!audio || !audio.src) {
-          // Se ainda não temos o áudio ou src não está definido, marque como erro
-          setSounds((prev) =>
-            prev.map((s) =>
-              s.id === sound.id
-                ? {
-                    ...s,
-                    playing: false,
-                    isLoading: false,
-                    error: "Audio unavailable",
-                  }
-                : s
-            )
-          );
-          continue;
-        }
+    // Initialize with current focus state
+    isWindowFocusedRef.current = document.hasFocus();
+    setIsWindowFocused(document.hasFocus());
 
-        // Atualizar o volume
-        const newVolume =
-          (sound.volume / MAX_VOLUME) * (masterVolume / MAX_VOLUME);
-        if (Math.abs(audio.volume - newVolume) > 0.01) {
-          audio.volume = newVolume;
-        }
-
-        // Reproduzir áudio se necessário
-        if (sound.playing && audio.paused && !playPromises.current[sound.id]) {
-          try {
-            // Se o áudio não estiver totalmente carregado, aguarde
-            if (audio.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA) {
-              // Usar try/catch diretamente na operação play()
-              try {
-                const playPromise = audio.play();
-
-                if (playPromise !== undefined) {
-                  // Registrar a promessa
-                  playPromises.current[sound.id] = playPromise;
-
-                  playPromise
-                    .then(() => {
-                      // Limpar a referência quando a promessa for resolvida
-                      delete playPromises.current[sound.id];
-
-                      // Verificar se o som deve ser pausado
-                      const currentSoundState = sounds.find(
-                        (s) => s.id === sound.id
-                      );
-                      if (
-                        currentSoundState &&
-                        !currentSoundState.playing &&
-                        !audio.paused
-                      ) {
-                        audio.pause();
-                        audio.currentTime = 0;
-                      }
-                    })
-                    .catch((error) => {
-                      // Limpar a referência quando falhar
-                      delete playPromises.current[sound.id];
-
-                      console.error(
-                        `Play promise rejected for ${sound.id}:`,
-                        error
-                      );
-                      let errorMessage = "Playback failed";
-
-                      if (error.name === "NotAllowedError") {
-                        errorMessage =
-                          "Browser requires user interaction before playing audio";
-                      }
-
-                      setSounds((prev) =>
-                        prev.map((s) =>
-                          s.id === sound.id
-                            ? {
-                                ...s,
-                                playing: false,
-                                isLoading: false,
-                                error: errorMessage,
-                              }
-                            : s
-                        )
-                      );
-                    });
-                }
-              } catch (immediateError) {
-                console.error(
-                  `Immediate exception playing ${sound.id}:`,
-                  immediateError
-                );
-                setSounds((prev) =>
-                  prev.map((s) =>
-                    s.id === sound.id
-                      ? {
-                          ...s,
-                          playing: false,
-                          isLoading: false,
-                          error: "Playback error",
-                        }
-                      : s
-                  )
-                );
-              }
-            } else {
-              // Áudio ainda carregando, mantenha o estado de carregamento
-              setSounds((prev) =>
-                prev.map((s) =>
-                  s.id === sound.id ? { ...s, isLoading: true } : s
-                )
-              );
-            }
-          } catch (outerError) {
-            console.error(
-              `Outer exception in audio handling for ${sound.id}:`,
-              outerError
-            );
-            setSounds((prev) =>
-              prev.map((s) =>
-                s.id === sound.id
-                  ? {
-                      ...s,
-                      playing: false,
-                      isLoading: false,
-                      error: "Audio system error",
-                    }
-                  : s
-              )
-            );
-          }
-        }
-      }
-
-      // Gerenciar sons que não estão tocando
-      const nonPlayingSounds = sounds.filter((sound) => !sound.playing);
-      for (const sound of nonPlayingSounds) {
-        const audio = audioRefs.current[sound.id];
-        if (audio) {
-          // Só pausar se não houver operação pendente
-          if (!playPromises.current[sound.id] && !audio.paused) {
-            audio.pause();
-            audio.currentTime = 0;
-          }
-        }
-      }
+    return () => {
+      window.removeEventListener("blur", handleWindowBlur);
+      window.removeEventListener("focus", handleWindowFocus);
     };
+  }, [handleWindowBlur, handleWindowFocus]);
 
-    updateAudio();
-  }, [sounds, masterVolume, initializeAudio, isDragging]);
-
+  // Set up keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (
@@ -786,138 +780,89 @@ export function AmbientSounds() {
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, []);
+  }, [setMasterVolume]);
 
+  // Set up drag detection
   useEffect(() => {
-    return () => {
-      Object.entries(playPromises.current).forEach(([id, promise]) => {
-        promise
-          .catch(() => {})
-          .finally(() => {
-            if (audioRefs.current[id]) {
-              audioRefs.current[id].pause();
-            }
-          });
-      });
-    };
-  }, []);
-
-  // Salva os volumes dos sons no localStorage quando eles mudam
-  useEffect(() => {
-    const volumeMap: Record<string, number> = {};
-    sounds.forEach((sound) => {
-      volumeMap[sound.id] = sound.volume;
-    });
-
-    localStorage.setItem("ambient-sound-volumes", JSON.stringify(volumeMap));
-  }, [sounds]);
-
-  // Adicionar detecção de arrasto de janela
-  useEffect(() => {
-    // Detectar o início do arrasto
     const handleDragStart = () => {
       setIsDragging(true);
-
-      // Limpar qualquer timeout existente
       if (dragTimeoutRef.current) {
         clearTimeout(dragTimeoutRef.current);
       }
     };
 
-    // Detectar o fim do arrasto e configurar um pequeno atraso para restaurar áudios
     const handleDragEnd = () => {
-      // Definir um timeout para restaurar os áudios após um breve atraso
       if (dragTimeoutRef.current) {
         clearTimeout(dragTimeoutRef.current);
       }
 
-      // Fornecer um atraso para permitir que o navegador se estabilize após o arrasto
       dragTimeoutRef.current = setTimeout(() => {
         setIsDragging(false);
-        // Tentar restaurar áudios que estavam ativos
-        restoreAudiosAfterDrag();
       }, 500);
     };
 
-    // Usar eventos de mouse como proxy para detecção de arrasto de janela
+    // Use mouse events as proxy for drag detection
     window.addEventListener("mousedown", handleDragStart);
     window.addEventListener("mouseup", handleDragEnd);
 
     return () => {
       window.removeEventListener("mousedown", handleDragStart);
       window.removeEventListener("mouseup", handleDragEnd);
-
       if (dragTimeoutRef.current) {
         clearTimeout(dragTimeoutRef.current);
       }
     };
   }, []);
 
-  // Função para restaurar áudios após arrasto
-  const restoreAudiosAfterDrag = useCallback(() => {
-    // Apenas continue se não estiver mais arrastando
-    if (isDragging) return;
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      // Clean up all timeouts
+      Object.keys(volumeUpdateTimeouts.current).forEach((id) => {
+        clearTimeout(volumeUpdateTimeouts.current[id]);
+      });
 
-    // Para cada som que deveria estar tocando
-    sounds.forEach((sound) => {
-      if (sound.playing) {
-        // Verifique se há um elemento de áudio
-        const audio = audioRefs.current[sound.id];
+      if (dragTimeoutRef.current) {
+        clearTimeout(dragTimeoutRef.current);
+      }
 
-        if (audio) {
-          // Se estiver pausado mas deveria estar tocando, tente restaurar
-          if (audio.paused) {
-            try {
-              // Defina o volume correto
-              const newVolume =
-                (sound.volume / MAX_VOLUME) * (masterVolume / MAX_VOLUME);
-              if (Math.abs(audio.volume - newVolume) > 0.01) {
-                audio.volume = newVolume;
+      // Check if we should stop sounds when component unmounts
+      if (!shouldPlayInBackground) {
+        // Stop all playing sounds
+        sounds.forEach((sound) => {
+          if (sound.playing) {
+            const audio = globalAudioCache[sound.id];
+            if (audio && !audio.paused) {
+              try {
+                audio.pause();
+              } catch (err) {
+                console.warn(
+                  `Error stopping sound ${sound.id} on unmount:`,
+                  err
+                );
               }
-
-              // Tente reproduzir novamente se o som deveria estar ativo
-              if (!playPromises.current[sound.id]) {
-                console.log(`Restoring audio for ${sound.id} after drag`);
-                const playPromise = audio.play();
-
-                if (playPromise !== undefined) {
-                  playPromises.current[sound.id] = playPromise;
-
-                  playPromise
-                    .then(() => {
-                      delete playPromises.current[sound.id];
-                    })
-                    .catch((error) => {
-                      delete playPromises.current[sound.id];
-                      console.warn(
-                        `Could not restore audio ${sound.id} after drag:`,
-                        error
-                      );
-                    });
-                }
-              }
-            } catch (error) {
-              console.warn(
-                `Error restoring audio ${sound.id} after drag:`,
-                error
-              );
             }
           }
-        } else {
-          // Se o áudio não existir, tente reinicializá-lo
-          initializeAudio(sound.id);
-        }
+        });
       }
-    });
-  }, [sounds, masterVolume, isDragging, initializeAudio]);
+    };
+  }, [sounds]);
 
-  // Adicionar efeito para tentar restaurar áudios após o arrasto ser concluído
-  useEffect(() => {
-    // Quando isDragging muda de true para false, tente restaurar os áudios
-    if (!isDragging) {
-      restoreAudiosAfterDrag();
-    }
-  }, [isDragging, restoreAudiosAfterDrag]);
+  // Add a function to stop all sounds
+  const stopAllSounds = useCallback(() => {
+    // First update all sounds to not playing in state
+    setSounds((prevSounds) =>
+      prevSounds.map((sound) => ({
+        ...sound,
+        playing: false,
+        isLoading: false,
+        error: undefined,
+      }))
+    );
+
+    // Then stop all audio elements
+    stopAllAmbientSounds();
+  }, []);
 
   return (
     <div className="h-full flex flex-col bg-zinc-950">
@@ -926,9 +871,20 @@ export function AmbientSounds() {
           volume={masterVolume}
           onVolumeChange={handleMasterVolumeChange}
         />
-        <div className="text-xs text-zinc-500">
-          <kbd className="px-2 py-1 bg-zinc-800 rounded">Space</kbd> Toggle
-          Sound
+        <div className="flex items-center gap-4">
+          <Button
+            onClick={stopAllSounds}
+            variant="destructive"
+            size="sm"
+            className="bg-red-700 hover:bg-red-800 text-white"
+          >
+            <StopCircle className="w-4 h-4 mr-2" />
+            Stop All
+          </Button>
+          <div className="text-xs text-zinc-500">
+            <kbd className="px-2 py-1 bg-zinc-800 rounded">Space</kbd> Toggle
+            Sound
+          </div>
         </div>
       </div>
 
