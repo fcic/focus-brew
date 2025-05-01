@@ -17,7 +17,12 @@ export const Bootloader = ({
   minimumDisplayTime = 2000,
 }: BootloaderProps) => {
   const [progress, setProgress] = useState(0);
-  const { theme } = useTheme();
+  const { theme, systemTheme } = useTheme();
+
+  // Determine which logo to use based on the effective theme
+  const effectiveTheme = theme === "system" ? systemTheme : theme;
+  const logoPath =
+    effectiveTheme === "dark" ? "/logo-light.svg" : "/logo-dark.svg";
 
   useEffect(() => {
     const startTime = Date.now();
@@ -76,7 +81,7 @@ export const Bootloader = ({
       >
         <div className="relative w-32 h-32 mb-8">
           <Image
-            src={theme === "dark" ? "/logo-light.svg" : "/logo-dark.svg"}
+            src={logoPath}
             alt="FocusBrew"
             fill
             style={{ objectFit: "contain" }}

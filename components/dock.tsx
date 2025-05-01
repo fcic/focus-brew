@@ -220,7 +220,7 @@ const DockItem = memo(
             )}
           >
             {app.label}
-            {isMinimized && " (Minimizado)"}
+            {isMinimized && " (Minimized)"}
           </span>
           {shortcutText && (
             <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border px-1.5 font-mono text-[10px] font-medium">

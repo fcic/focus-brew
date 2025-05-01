@@ -125,14 +125,19 @@ function useWindowManager() {
       const validAppId = appId as AppId;
       const currentWindows = windowsRef.current;
 
-      // Se a janela já existe e está minimizada, restaura ela
+      // Se a janela já existe e está minimizada, restaura ela e traz para frente
       if (minimizedWindows.has(validAppId)) {
         setMinimizedWindows((prev) => {
           const next = new Set(prev);
           next.delete(validAppId);
           return next;
         });
-        bringToFront(validAppId);
+
+        // Certifique-se de que a janela será trazida para frente após ser restaurada
+        setTimeout(() => {
+          bringToFront(validAppId);
+        }, 10);
+
         return;
       }
 
@@ -388,6 +393,16 @@ export default function Home() {
     openApp("settings");
   }, [openApp]);
 
+  // Add function to close all apps
+  const closeAllApps = useCallback(() => {
+    // Copy list of app IDs to avoid modification during iteration
+    const appsToClose = [...windows.map((w) => w.id)];
+    // Close each app
+    appsToClose.forEach((appId) => {
+      closeApp(appId);
+    });
+  }, [windows, closeApp]);
+
   // Render desktop content
   const desktopContent = (
     <div
@@ -423,6 +438,8 @@ export default function Home() {
         openApp={handleOpenApp}
         openSettings={handleOpenSettings}
         activeApps={windows.map((w) => w.id)}
+        closeAllApps={closeAllApps}
+        resetAllWindows={resetAllWindows}
       />
     </div>
   );

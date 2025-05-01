@@ -11,21 +11,47 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { AppId, APP_ITEMS, SETTINGS_APP } from "@/lib/constants";
-import { Info } from "lucide-react";
+import { Info, X, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/toast";
 
 type CommandPaletteProps = {
   openApp: (appId: AppId) => void;
   openSettings: () => void;
   activeApps: AppId[];
+  closeAllApps?: () => void;
+  resetAllWindows?: () => void;
 };
 
 export function CommandPalette({
   openApp,
   openSettings,
   activeApps,
+  closeAllApps,
+  resetAllWindows,
 }: CommandPaletteProps) {
   const [open, setOpen] = useState(false);
+
+  const handleReset = useCallback(() => {
+    // Clear all localStorage data
+    localStorage.clear();
+
+    // Reset all windows
+    resetAllWindows?.();
+
+    // Feedback to user
+    toast.success("Settings reset successfully", {
+      description: "All settings have been reset to their default values.",
+    });
+
+    // Close command palette
+    setOpen(false);
+
+    // Reload the page to apply all reset settings
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000); // Small delay to show the toast before reload
+  }, [resetAllWindows]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -33,11 +59,23 @@ export function CommandPalette({
         e.preventDefault();
         setOpen((open) => !open);
       }
+
+      // Add shortcut ⌘⇧W to close all windows
+      if (e.key === "w" && e.metaKey && e.shiftKey) {
+        e.preventDefault();
+        closeAllApps?.();
+      }
+
+      // Add shortcut ⌘⇧R to reset all settings
+      if (e.key === "r" && e.metaKey && e.shiftKey) {
+        e.preventDefault();
+        handleReset();
+      }
     };
 
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
-  }, []);
+  }, [closeAllApps, handleReset]);
 
   const handleSelect = useCallback(
     (command: string) => {
@@ -58,23 +96,29 @@ export function CommandPalette({
         case "about":
           openSettings();
           break;
+        case "close-all":
+          closeAllApps?.();
+          break;
+        case "reset-all":
+          handleReset();
+          break;
         default:
           break;
       }
     },
-    [openApp, openSettings]
+    [openApp, openSettings, closeAllApps, handleReset]
   );
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
       <Command className="rounded-lg border-none bg-background/80 backdrop-blur-xl">
         <CommandInput
-          placeholder="Digite um comando ou pesquise..."
+          placeholder="Type a command or search..."
           className="border-none bg-transparent"
         />
         <CommandList>
-          <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
-          <CommandGroup heading="Aplicativos">
+          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandGroup heading="Applications">
             {APP_ITEMS.map((app) => (
               <CommandItem
                 key={app.id}
@@ -110,9 +154,33 @@ export function CommandPalette({
                 </CommandShortcut>
               )}
             </CommandItem>
+            {activeApps.length > 0 && (
+              <CommandItem
+                value="close-all"
+                onSelect={handleSelect}
+                className="flex items-center gap-2 px-2 py-3"
+              >
+                <div className="flex items-center gap-2 flex-1">
+                  <X className="h-4 w-4" />
+                  <span>Close all windows</span>
+                </div>
+                <CommandShortcut>⌘⇧W</CommandShortcut>
+              </CommandItem>
+            )}
+            <CommandItem
+              value="reset-all"
+              onSelect={handleSelect}
+              className="flex items-center gap-2 px-2 py-3"
+            >
+              <div className="flex items-center gap-2 flex-1">
+                <RotateCcw className="h-4 w-4" />
+                <span>Reset all settings</span>
+              </div>
+              <CommandShortcut>⌘⇧R</CommandShortcut>
+            </CommandItem>
           </CommandGroup>
           <CommandSeparator />
-          <CommandGroup heading="Ajuda">
+          <CommandGroup heading="Help">
             <CommandItem
               value="about"
               onSelect={handleSelect}
@@ -120,7 +188,7 @@ export function CommandPalette({
             >
               <div className="flex items-center gap-2 flex-1">
                 <Info className="h-4 w-4" />
-                <span>Sobre</span>
+                <span>About</span>
               </div>
               <CommandShortcut>⌘8</CommandShortcut>
             </CommandItem>

@@ -41,18 +41,18 @@ export const metadata: Metadata = {
     description:
       "All-in-one digital workspace with todo lists, kanban boards, pomodoro timer, notes, ambient sounds, and more to boost your productivity.",
     siteName: "FocusBrew",
-    images: [{ url: "/logo.svg" }],
+    images: [{ url: "/icon.png" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "FocusBrew | Productivity Workspace",
     description:
       "All-in-one digital workspace with todo lists, kanban boards, pomodoro timer, notes, ambient sounds, and more to boost your productivity.",
-    images: [{ url: "/logo.svg" }],
+    images: [{ url: "/icon.png" }],
   },
   icons: {
-    icon: "/logo.svg",
-    apple: "/logo.svg",
+    icon: "/icon.png",
+    apple: "/icon.png",
   },
 };
 
@@ -68,7 +68,7 @@ export default function RootLayout({ children }: Readonly<RootLayoutProps>) {
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
         >
