@@ -5,7 +5,7 @@ import { Bell, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import { toast, showNotificationPermissionToast } from "@/lib/toast";
 import {
   Card,
   CardContent,
@@ -13,6 +13,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { isBrowserNotificationSupported } from "@/lib/notification";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export type NotificationSettings = {
   enabled: boolean;
@@ -28,6 +30,12 @@ export function NotificationSettings() {
     habitReminders: true,
     pomodoroNotifications: true,
   });
+  const [notificationsSupported, setNotificationsSupported] = useState(true);
+
+  // Check if browser supports notifications
+  useEffect(() => {
+    setNotificationsSupported(isBrowserNotificationSupported());
+  }, []);
 
   // Load settings from localStorage
   useEffect(() => {
@@ -43,19 +51,19 @@ export function NotificationSettings() {
   }, [settings]);
 
   const requestNotificationPermission = async () => {
+    if (!notificationsSupported) {
+      toast.error("Notifications not supported", {
+        description: "Your browser does not support notifications.",
+      });
+      return;
+    }
+
     try {
       const permission = await Notification.requestPermission();
+      showNotificationPermissionToast(permission);
+
       if (permission === "granted") {
         setSettings((prev) => ({ ...prev, enabled: true }));
-        toast.success("Notifications enabled!", {
-          description:
-            "You will now receive notifications for your habits and pomodoro sessions.",
-        });
-      } else {
-        toast.error("Permission denied", {
-          description:
-            "Please enable notifications in your browser settings to receive reminders.",
-        });
       }
     } catch (error) {
       toast.error("Error enabling notifications", {
@@ -85,6 +93,15 @@ export function NotificationSettings() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {!notificationsSupported && (
+          <Alert className="border bg-yellow-500/20">
+            <AlertDescription>
+              Your browser does not support notifications. Some features may not
+              work properly.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <Label>Enable Notifications</Label>
@@ -97,6 +114,7 @@ export function NotificationSettings() {
             size="sm"
             onClick={toggleNotifications}
             className="space-x-2"
+            disabled={!notificationsSupported}
           >
             {settings.enabled ? (
               <>
@@ -125,7 +143,7 @@ export function NotificationSettings() {
               onCheckedChange={(checked) =>
                 setSettings((prev) => ({ ...prev, habitReminders: checked }))
               }
-              disabled={!settings.enabled}
+              disabled={!settings.enabled || !notificationsSupported}
             />
           </div>
 
@@ -144,7 +162,7 @@ export function NotificationSettings() {
                   pomodoroNotifications: checked,
                 }))
               }
-              disabled={!settings.enabled}
+              disabled={!settings.enabled || !notificationsSupported}
             />
           </div>
         </div>

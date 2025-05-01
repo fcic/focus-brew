@@ -6,7 +6,8 @@ import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useState, useEffect } from "react";
-import { toast } from "sonner";
+import { toast, showNotificationPermissionToast } from "@/lib/toast";
+import { isBrowserNotificationSupported } from "@/lib/notification";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -192,29 +193,23 @@ export function HabitReminderPicker({
 
   const handleToggleReminder = async (checked: boolean) => {
     if (checked) {
-      if (
-        typeof Notification !== "undefined" &&
-        Notification.permission !== "granted"
-      ) {
+      if (!isBrowserNotificationSupported()) {
+        toast.error("Notifications not supported", {
+          description: "Your browser does not support notifications.",
+        });
+        onEnabledChange(false);
+        return;
+      }
+
+      if (Notification.permission !== "granted") {
         try {
           const permission = await Notification.requestPermission();
           setNotificationPermission(permission);
+          showNotificationPermissionToast(permission);
 
           if (permission === "granted") {
-            toast.success("Notification permission granted!");
             onEnabledChange(true);
-          } else if (permission === "denied") {
-            toast.error(
-              "Notification permission denied. You will not receive reminders.",
-              {
-                description:
-                  "Please enable notifications in your browser settings.",
-              }
-            );
-            onEnabledChange(false);
-            return;
           } else {
-            toast.info("Notification permission is needed for reminders.");
             onEnabledChange(false);
             return;
           }

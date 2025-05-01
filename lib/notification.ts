@@ -1,10 +1,6 @@
-const LOCAL_STORAGE_KEY = "focusbrew_notification_settings";
+import { type NotificationSettings } from "@/components/settings/notification-settings";
 
-type NotificationSettings = {
-  enabled: boolean;
-  habitReminders: boolean;
-  pomodoroNotifications: boolean;
-};
+const LOCAL_STORAGE_KEY = "focusbrew_notification_settings";
 
 export const getNotificationSettings = (): NotificationSettings => {
   if (typeof window === "undefined") {
@@ -25,13 +21,18 @@ export const getNotificationSettings = (): NotificationSettings => {
       };
 };
 
+// Check if browser supports notifications
+export const isBrowserNotificationSupported = (): boolean => {
+  return typeof window !== "undefined" && "Notification" in window;
+};
+
 export const sendNotification = async (
   title: string,
   options?: NotificationOptions
 ) => {
   const settings = getNotificationSettings();
 
-  if (!settings.enabled) return;
+  if (!settings.enabled || !isBrowserNotificationSupported()) return;
 
   try {
     // Check if we have permission
@@ -65,7 +66,12 @@ export const sendHabitReminder = async (
   frequency: string
 ) => {
   const settings = getNotificationSettings();
-  if (!settings.enabled || !settings.habitReminders) return;
+  if (
+    !settings.enabled ||
+    !settings.habitReminders ||
+    !isBrowserNotificationSupported()
+  )
+    return;
 
   await sendNotification(`Time to complete: ${habitName}`, {
     body: `Don't forget to complete your ${frequency.toLowerCase()} habit.`,
@@ -78,7 +84,12 @@ export const sendPomodoroNotification = async (
   duration: number
 ) => {
   const settings = getNotificationSettings();
-  if (!settings.enabled || !settings.pomodoroNotifications) return;
+  if (
+    !settings.enabled ||
+    !settings.pomodoroNotifications ||
+    !isBrowserNotificationSupported()
+  )
+    return;
 
   const messages = {
     work: {

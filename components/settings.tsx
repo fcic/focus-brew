@@ -17,7 +17,7 @@ import { SettingsAppearanceTab } from "./settings/SettingsAppearanceTab";
 import { SettingsAboutTab } from "./settings/SettingsAboutTab";
 import { SettingsGeneralTab } from "./settings/SettingsGeneralTab";
 import { motion, AnimatePresence } from "framer-motion";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "@/lib/toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -135,7 +135,6 @@ export function Settings({
   setTheme: setPropTheme,
 }: SettingsProps) {
   const { theme, setTheme } = useTheme();
-  const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(
     null
   ) as React.RefObject<HTMLInputElement>;
@@ -182,28 +181,19 @@ export function Settings({
             selectedWallpaper: result,
           }));
           setWallpaper(result);
-          toast({
-            title: "Wallpaper added",
+          toast.success("Wallpaper added", {
             description: "Your custom wallpaper has been added successfully.",
           });
         } catch (error) {
-          toast({
-            title: "Error",
-            description: "Failed to process wallpaper. Please try again.",
-            variant: "destructive",
-          });
+          toast.error("Failed to process wallpaper. Please try again.");
         }
       };
       reader.onerror = () => {
-        toast({
-          title: "Error",
-          description: "Failed to read file. Please try again.",
-          variant: "destructive",
-        });
+        toast.error("Failed to read file. Please try again.");
       };
       reader.readAsDataURL(file);
     },
-    [customWallpapers, setWallpaper, toast, setState]
+    [customWallpapers, setWallpaper, setState]
   );
 
   // Fetch currencies
@@ -218,11 +208,7 @@ export function Settings({
           currencies: Object.keys(data),
         }));
       } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to fetch currencies. Using default list.",
-          variant: "destructive",
-        });
+        toast.error("Failed to fetch currencies. Using default list.");
         setState((prev: SettingsState) => ({
           ...prev,
           currencies: COMMON_CURRENCIES,
@@ -230,7 +216,7 @@ export function Settings({
       }
     };
     fetchCurrencies();
-  }, [toast, setState]);
+  }, [setState]);
 
   // Handle currency changes
   useEffect(() => {
@@ -247,13 +233,9 @@ export function Settings({
         new CustomEvent("currency_changed", { detail: currencyState })
       );
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save currency settings.",
-        variant: "destructive",
-      });
+      toast.error("Failed to save currency settings.");
     }
-  }, [currencyState, toast]);
+  }, [currencyState]);
 
   // Handle settings tab events
   useEffect(() => {

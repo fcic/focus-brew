@@ -22,7 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "@/lib/toast";
 
 // Types
 interface PlaylistItem {
@@ -159,7 +159,6 @@ const PlaylistItemComponent: React.FC<{
 );
 
 export function YouTubePlayer() {
-  const { toast } = useToast();
   const [playlist, setPlaylist] = useLocalStorage<PlaylistItem[]>(
     "youtube-playlist",
     DEFAULT_PLAYLIST
@@ -229,10 +228,8 @@ export function YouTubePlayer() {
   const handleAdd = useCallback(() => {
     const id = extractYouTubeId(newUrl);
     if (!id) {
-      toast({
-        title: "Invalid URL",
+      toast.error("Invalid URL", {
         description: "Please enter a valid YouTube URL or video ID",
-        variant: "destructive",
       });
       return;
     }
@@ -258,16 +255,13 @@ export function YouTubePlayer() {
           },
         ]);
         setNewUrl("");
-        toast({
-          title: "Video added",
+        toast.success("Video added", {
           description: "The video has been added to your playlist",
         });
       })
       .catch((error) => {
-        toast({
-          title: "Error adding video",
+        toast.error("Error adding video", {
           description: error.message,
-          variant: "destructive",
         });
       })
       .finally(() => {
@@ -422,10 +416,8 @@ export function YouTubePlayer() {
         error: errorMessage,
         playing: false,
       }));
-      toast({
-        title: "Playback Error",
+      toast.error("Playback Error", {
         description: errorMessage,
-        variant: "destructive",
       });
     },
     [toast]
