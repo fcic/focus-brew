@@ -3,31 +3,36 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Coffee, Info } from "lucide-react";
 import { Weather } from "@/components/weather";
-import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-  DropdownMenuShortcut,
-} from "@/components/ui/dropdown-menu";
+  Menubar,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarShortcut,
+  MenubarTrigger,
+  MenubarSub,
+  MenubarSubContent,
+  MenubarSubTrigger,
+} from "@/components/ui/menubar";
 import { motion } from "framer-motion";
 import { ExchangeRate } from "@/components/exchange-rate";
 import { cn, formatShortcut } from "@/lib/utils";
 import { AppId, SettingsTab, APP_ITEMS, SETTINGS_APP } from "@/lib/constants";
 
-interface MenuBarProps {
+type MenuBarProps = {
   openApp: (appId: AppId) => void;
-  openSettingsTab: (tab: SettingsTab) => void;
+  openSettings: () => void;
+  activeApps: AppId[];
   className?: string;
-}
+};
 
-export function MenuBar({ openApp, openSettingsTab, className }: MenuBarProps) {
+export function MenuBar({
+  openApp,
+  openSettings,
+  activeApps,
+  className,
+}: MenuBarProps) {
   const [dateTime, setDateTime] = useState(() => {
     const now = new Date();
     const weekday = now.toLocaleDateString([], { weekday: "short" });
@@ -72,7 +77,7 @@ export function MenuBar({ openApp, openSettingsTab, className }: MenuBarProps) {
         // Handle About shortcut
         if (e.key === "8") {
           e.preventDefault();
-          openSettingsTab("about");
+          openSettings();
           return;
         }
 
@@ -84,7 +89,7 @@ export function MenuBar({ openApp, openSettingsTab, className }: MenuBarProps) {
         }
       }
     },
-    [openApp, openSettingsTab]
+    [openApp, openSettings]
   );
 
   useEffect(() => {
@@ -95,84 +100,143 @@ export function MenuBar({ openApp, openSettingsTab, className }: MenuBarProps) {
   return (
     <motion.div
       className={cn(
-        "fixed top-0 left-0 right-0 h-7 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl",
-        "border-b border-zinc-200/30 dark:border-zinc-800/30 flex items-center justify-between px-4",
+        "fixed top-0 left-0 right-0 h-7 bg-background/60 backdrop-blur-xl",
+        "border-b border-border/30 flex items-center justify-between px-4",
+        "z-[9999]",
         className
       )}
-      style={{
-        zIndex: 9999,
-        position: "fixed",
-        isolation: "isolate",
-      }}
       initial={{ y: -10, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.3 }}
+      transition={{
+        duration: 0.3,
+        type: "spring",
+        stiffness: 300,
+        damping: 30,
+      }}
     >
       <div className="flex items-center space-x-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-5 px-2 text-xs hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50"
-              aria-label="Open menu"
+        <Menubar className="h-auto border-none bg-transparent p-0 shadow-none">
+          <MenubarMenu>
+            <MenubarTrigger className="h-5 px-2 text-xs hover:bg-accent/50 transition-colors focus:bg-accent/70">
+              <div className="flex items-center">
+                <Coffee className="h-4 w-4" />
+              </div>
+            </MenubarTrigger>
+            <MenubarContent
+              className="bg-popover/90 backdrop-blur-md rounded-md border border-border mt-1 p-1"
+              align="start"
+              sideOffset={4}
+              alignOffset={-4}
             >
-              <Coffee className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            className="w-56"
-            sideOffset={4}
-            style={{ zIndex: 10000 }}
-          >
-            <DropdownMenuLabel>Applications</DropdownMenuLabel>
+              {/* Tasks */}
+              <MenubarItem
+                className="text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm"
+                onClick={() => openApp("todo")}
+              >
+                Tasks
+                <MenubarShortcut>{formatShortcut("1")}</MenubarShortcut>
+              </MenubarItem>
 
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <span className="flex items-center">Apps</span>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent style={{ zIndex: 10000 }}>
-                {APP_ITEMS.map((item) => (
-                  <DropdownMenuItem
-                    key={item.id}
-                    onClick={() => openApp(item.id)}
-                    className="flex items-center"
-                  >
-                    <div className="h-4 w-4 mr-2">{item.icon}</div>
-                    {item.label}
-                    <DropdownMenuShortcut>
-                      {item.getShortcutText ? item.getShortcutText() : ""}
-                    </DropdownMenuShortcut>
-                  </DropdownMenuItem>
-                ))}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => openApp(SETTINGS_APP.id)}
-                  className="flex items-center"
-                >
-                  <div className="h-4 w-4 mr-2">{SETTINGS_APP.icon}</div>
-                  {SETTINGS_APP.label}
-                  <DropdownMenuShortcut>
-                    {SETTINGS_APP.getShortcutText
-                      ? SETTINGS_APP.getShortcutText()
-                      : ""}
-                  </DropdownMenuShortcut>
-                </DropdownMenuItem>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
+              {/* Kanban */}
+              <MenubarItem
+                className="text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm"
+                onClick={() => openApp("kanban")}
+              >
+                Kanban
+                <MenubarShortcut>{formatShortcut("2")}</MenubarShortcut>
+              </MenubarItem>
 
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => openSettingsTab("about")}
-              className="flex items-center"
-            >
-              <Info className="h-4 w-4 mr-2" />
-              About
-              <DropdownMenuShortcut>{formatShortcut("8")}</DropdownMenuShortcut>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {/* Habit Tracker */}
+              <MenubarItem
+                className="text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm"
+                onClick={() => openApp("habit")}
+              >
+                Habit Tracker
+                <MenubarShortcut>{formatShortcut("3")}</MenubarShortcut>
+              </MenubarItem>
+
+              {/* Focus Timer */}
+              <MenubarItem
+                className="text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm"
+                onClick={() => openApp("pomodoro")}
+              >
+                Focus Timer
+                <MenubarShortcut>{formatShortcut("4")}</MenubarShortcut>
+              </MenubarItem>
+
+              {/* Notes */}
+              <MenubarItem
+                className="text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm"
+                onClick={() => openApp("notepad")}
+              >
+                Notes
+                <MenubarShortcut>{formatShortcut("5")}</MenubarShortcut>
+              </MenubarItem>
+
+              {/* Ambient Sounds */}
+              <MenubarItem
+                className="text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm"
+                onClick={() => openApp("ambient")}
+              >
+                Ambient Sounds
+                <MenubarShortcut>{formatShortcut("6")}</MenubarShortcut>
+              </MenubarItem>
+
+              {/* YouTube Player */}
+              <MenubarItem
+                className="text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm"
+                onClick={() => openApp("youtube")}
+              >
+                YouTube Player
+                <MenubarShortcut>{formatShortcut("7")}</MenubarShortcut>
+              </MenubarItem>
+
+              <MenubarSeparator />
+
+              {/* Settings */}
+              <MenubarItem
+                onClick={() => openApp(SETTINGS_APP.id)}
+                className={cn(
+                  "text-xs flex items-center justify-between gap-2 px-2 py-1.5",
+                  "cursor-pointer rounded-sm",
+                  "hover:bg-accent/50 focus:bg-accent focus:text-accent-foreground",
+                  activeApps.includes(SETTINGS_APP.id) &&
+                    "text-primary font-medium"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="h-4 w-4 text-primary/70 group-hover:text-primary overflow-hidden flex items-center justify-center">
+                    <span className="scale-[0.67] transform-gpu">
+                      {SETTINGS_APP.icon}
+                    </span>
+                  </span>
+                  <span>{SETTINGS_APP.label}</span>
+                </div>
+                {SETTINGS_APP.getShortcutText && (
+                  <MenubarShortcut>
+                    {SETTINGS_APP.getShortcutText()}
+                  </MenubarShortcut>
+                )}
+              </MenubarItem>
+
+              <MenubarSeparator />
+
+              {/* About */}
+              <MenubarItem
+                onClick={() => openSettings()}
+                className="text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 cursor-pointer px-2 py-1.5 rounded-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="h-4 w-4 text-primary/70 group-hover:text-primary">
+                    <Info className="h-4 w-4" />
+                  </span>
+                  <span>About</span>
+                </div>
+                <MenubarShortcut>{formatShortcut("8")}</MenubarShortcut>
+              </MenubarItem>
+            </MenubarContent>
+          </MenubarMenu>
+        </Menubar>
       </div>
 
       <div className="flex items-center space-x-3">

@@ -14,6 +14,12 @@ const MIN_WINDOW_SIZE = {
   height: 200,
 } as const;
 
+// Constantes para os limites da janela
+const MENU_BAR_HEIGHT = 28;
+const DOCK_HEIGHT = 96; // Altura da dock + margem inferior
+const WINDOW_PADDING = 8; // Pequena margem para não colar nas bordas
+const TOTAL_VERTICAL_PADDING = WINDOW_PADDING * 2; // Padding para todas as direções
+
 type Position = { x: number; y: number };
 type Size = { width: number; height: number };
 type ResizeDirection = "right" | "bottom" | "corner" | null;
@@ -24,6 +30,8 @@ interface AppWindowProps {
   children: React.ReactNode;
   onClose: () => void;
   onFocus: () => void;
+  onMinimize: () => void;
+  isMinimized: boolean;
   zIndex: number;
   position: Position;
   size: Size;
@@ -31,27 +39,40 @@ interface AppWindowProps {
 }
 
 interface WindowControlProps {
-  color: string;
+  variant: "close" | "minimize" | "maximize";
   onClick?: (e: React.MouseEvent) => void;
   label: string;
   icon?: React.ReactNode;
-  hoverColor?: string;
 }
 
 const WindowControl = ({
-  color,
+  variant,
   onClick,
   label,
   icon,
-  hoverColor,
 }: WindowControlProps) => {
   const [isHovered, setIsHovered] = useState(false);
+
+  const variantStyles = {
+    close: {
+      base: "bg-destructive/70",
+      hover: "bg-destructive",
+    },
+    minimize: {
+      base: "bg-amber-400 dark:bg-amber-500/70",
+      hover: "bg-amber-500 dark:bg-amber-500",
+    },
+    maximize: {
+      base: "bg-emerald-400 dark:bg-emerald-500/70",
+      hover: "bg-emerald-500 dark:bg-emerald-500",
+    },
+  };
 
   return (
     <motion.div
       className={cn(
         "h-3 w-3 rounded-full flex items-center justify-center transition-all duration-150",
-        isHovered && hoverColor ? hoverColor : color,
+        isHovered ? variantStyles[variant].hover : variantStyles[variant].base,
         isHovered ? "shadow-inner" : ""
       )}
       whileHover={{ scale: 1.05 }}
@@ -63,7 +84,7 @@ const WindowControl = ({
     >
       {isHovered && icon && (
         <motion.span
-          className="text-zinc-800/90 flex items-center justify-center w-full h-full"
+          className="text-zinc-800/90 dark:text-zinc-200/90 flex items-center justify-center w-full h-full"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -131,36 +152,181 @@ const useWindowSnapping = (initialSize: Size) => {
   return { snapGuides, checkSnapping };
 };
 
+// State for window management
+interface WindowState {
+  isMinimized: boolean;
+  isMaximized: boolean;
+}
+
+// Update to add window controls for minimize and maximize
+const WindowControlGroup = ({
+  onClose,
+  onMinimize,
+  onMaximize,
+  isMaximized,
+}: {
+  onClose: () => void;
+  onMinimize: () => void;
+  onMaximize: () => void;
+  isMaximized: boolean;
+}) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+  }, []);
+
+  return (
+    <div
+      className="flex space-x-1.5 items-center"
+      onMouseDown={handleMouseDown}
+    >
+      <WindowControl
+        variant="close"
+        label="Close window"
+        onClick={onClose}
+        icon={<X size={10} />}
+      />
+      <WindowControl
+        variant="minimize"
+        label="Minimize window"
+        onClick={onMinimize}
+        icon={<Minus size={10} />}
+      />
+      <WindowControl
+        variant="maximize"
+        label="Maximize window"
+        onClick={onMaximize}
+        icon={
+          isMaximized ? (
+            <div className="h-[8px] w-[8px] border border-zinc-800/90 dark:border-zinc-200/90" />
+          ) : (
+            <Plus size={10} />
+          )
+        }
+      />
+    </div>
+  );
+};
+
+// Add a utility function to handle both mouse and touch events
+const getEventCoordinates = (
+  e: React.MouseEvent | React.TouchEvent
+): { clientX: number; clientY: number } => {
+  if ("touches" in e) {
+    return {
+      clientX: e.touches[0].clientX,
+      clientY: e.touches[0].clientY,
+    };
+  }
+  return {
+    clientX: e.clientX,
+    clientY: e.clientY,
+  };
+};
+
 export function AppWindow({
   id,
   title,
   children,
   onClose,
   onFocus,
+  onMinimize,
+  isMinimized,
   zIndex,
   position,
   size,
   onUpdate,
 }: AppWindowProps) {
   const windowRef = useRef<HTMLDivElement>(null);
-  const [internalPosition, setInternalPosition] = useState<Position>(() => {
-    // Ensure initial position is not behind the menu bar
-    const menuBarHeight = 28;
-    return {
-      x: position.x,
-      y: Math.max(menuBarHeight, position.y),
+  const nodeRef = useRef<HTMLDivElement>(null);
+
+  // Add a function to validate window bounds
+  const validateWindowBounds = useCallback((pos: Position, sz: Size) => {
+    if (typeof window === "undefined") return { pos, sz };
+
+    // Calculate screen boundaries with proper constraints
+    const maxWidth = window.innerWidth - TOTAL_VERTICAL_PADDING;
+    const maxHeight =
+      window.innerHeight -
+      MENU_BAR_HEIGHT -
+      DOCK_HEIGHT -
+      TOTAL_VERTICAL_PADDING;
+
+    // Ensure the window size is within acceptable bounds
+    const validatedSize = {
+      width: Math.min(Math.max(sz.width, MIN_WINDOW_SIZE.width), maxWidth),
+      height: Math.min(Math.max(sz.height, MIN_WINDOW_SIZE.height), maxHeight),
     };
+
+    // Calculate minimum position to keep window in view (at least partially)
+    const minX = WINDOW_PADDING;
+    const minY = MENU_BAR_HEIGHT + WINDOW_PADDING;
+    // Maximum position to keep window at least partially visible
+    const maxX = Math.max(
+      window.innerWidth - MIN_WINDOW_SIZE.width - WINDOW_PADDING,
+      minX
+    );
+    const maxY = Math.max(
+      window.innerHeight -
+        DOCK_HEIGHT -
+        MIN_WINDOW_SIZE.height -
+        TOTAL_VERTICAL_PADDING,
+      minY
+    );
+
+    // Ensure position keeps window at least partially visible
+    let x = Math.min(Math.max(minX, pos.x), maxX);
+    let y = Math.min(Math.max(minY, pos.y), maxY);
+
+    // If window doesn't fit at the current position with the validated size,
+    // adjust position to keep as much of the window visible as possible
+    if (x + validatedSize.width > window.innerWidth - WINDOW_PADDING) {
+      x = Math.max(
+        minX,
+        window.innerWidth - validatedSize.width - WINDOW_PADDING
+      );
+    }
+
+    if (
+      y + validatedSize.height >
+      window.innerHeight - DOCK_HEIGHT - TOTAL_VERTICAL_PADDING
+    ) {
+      y = Math.max(
+        minY,
+        window.innerHeight -
+          DOCK_HEIGHT -
+          validatedSize.height -
+          TOTAL_VERTICAL_PADDING
+      );
+    }
+
+    const validatedPosition = { x, y };
+
+    return { pos: validatedPosition, sz: validatedSize };
+  }, []);
+
+  // Memoize the initial position and size validation
+  const initialValidation = useMemo(() => {
+    const initialPos = {
+      x: Math.max(WINDOW_PADDING, position.x),
+      y: Math.max(MENU_BAR_HEIGHT + WINDOW_PADDING, position.y),
+    };
+    return validateWindowBounds(initialPos, size);
+  }, [position, size, validateWindowBounds]);
+
+  const [internalPosition, setInternalPosition] = useState<Position>(
+    initialValidation.pos
+  );
+  const [internalSize, setInternalSize] = useState<Size>(initialValidation.sz);
+  const [windowState, setWindowState] = useState<WindowState>({
+    isMinimized: false,
+    isMaximized: false,
   });
-  const [internalSize, setInternalSize] = useState<Size>(size);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  const [resizeDirection, setResizeDirection] = useState<ResizeDirection>(null);
-  const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
-  const [isHovered, setIsHovered] = useState(false);
+
+  // Keep refs updated synchronously
   const positionRef = useRef(internalPosition);
   const sizeRef = useRef(internalSize);
+  const isUpdatingRef = useRef(false);
 
-  // Update refs when state changes to avoid stale closures
   useEffect(() => {
     positionRef.current = internalPosition;
   }, [internalPosition]);
@@ -169,29 +335,49 @@ export function AppWindow({
     sizeRef.current = internalSize;
   }, [internalSize]);
 
-  // Sync internal state with props (only when props change)
-  useEffect(() => {
-    if (
-      position.x !== internalPosition.x ||
-      position.y !== internalPosition.y
-    ) {
-      // Ensure position updates also respect the menu bar limit
-      const menuBarHeight = 28;
-      setInternalPosition({
-        x: position.x,
-        y: Math.max(menuBarHeight, position.y),
-      });
-    }
-  }, [position]);
+  // Store previous state for maximize/restore
+  const previousStateRef = useRef<{ position: Position; size: Size } | null>(
+    null
+  );
 
-  useEffect(() => {
-    if (
-      size.width !== internalSize.width ||
-      size.height !== internalSize.height
-    ) {
-      setInternalSize(size);
-    }
-  }, [size]);
+  // Safe update function to prevent recursive updates
+  const safeUpdate = useCallback(
+    (pos: Position, sz: Size) => {
+      if (!isUpdatingRef.current) {
+        isUpdatingRef.current = true;
+        requestAnimationFrame(() => {
+          onUpdate(pos, sz);
+          isUpdatingRef.current = false;
+        });
+      }
+    },
+    [onUpdate]
+  );
+
+  // Update position and size setters to use validation
+  const setValidatedPosition = useCallback(
+    (pos: Position) => {
+      const { pos: validPos } = validateWindowBounds(pos, sizeRef.current);
+      setInternalPosition(validPos);
+      positionRef.current = validPos;
+    },
+    [validateWindowBounds]
+  );
+
+  const setValidatedSize = useCallback(
+    (sz: Size) => {
+      const { sz: validSize } = validateWindowBounds(positionRef.current, sz);
+      setInternalSize(validSize);
+      sizeRef.current = validSize;
+    },
+    [validateWindowBounds]
+  );
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeDirection, setResizeDirection] = useState<ResizeDirection>(null);
+  const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
+  const [isHovered, setIsHovered] = useState(false);
 
   // Focus window when mounted
   useEffect(() => {
@@ -211,187 +397,222 @@ export function AppWindow({
   // Add window snapping
   const { snapGuides, checkSnapping } = useWindowSnapping(size);
 
-  // Throttled update callback to reduce frequency of parent updates
-  const throttledUpdate = useMemo(
-    () =>
-      throttle((pos: Position, sz: Size) => {
-        onUpdate(pos, sz);
-      }, 100),
-    [onUpdate]
-  );
-
-  // Cleanup throttled function
-  useEffect(() => {
-    return () => {
-      throttledUpdate.cancel();
-    };
-  }, [throttledUpdate]);
-
-  // Handle updates when dragging/resizing ends
-  useEffect(() => {
-    if (!isDragging && !isResizing) {
-      // Only update if the values actually changed to prevent loops
-      const positionChanged =
-        positionRef.current.x !== position.x ||
-        positionRef.current.y !== position.y;
-
-      const sizeChanged =
-        sizeRef.current.width !== size.width ||
-        sizeRef.current.height !== size.height;
-
-      if (positionChanged || sizeChanged) {
-        throttledUpdate(positionRef.current, sizeRef.current);
-      }
-    }
-  }, [isDragging, isResizing, position, size, throttledUpdate]);
-
   const handleFocus = useCallback(() => {
     onFocus();
   }, [onFocus]);
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      if (!windowRef.current) return;
+  // Update handleDragStart to handle both mouse and touch events
+  const handleDragStart = useCallback(
+    (e: React.MouseEvent | React.TouchEvent) => {
+      if ("button" in e && e.button === 2) return; // Ignore right-click
 
-      // Calculate the exact offset from the mouse position to the window corner
-      const rect = windowRef.current.getBoundingClientRect();
-      setDragOffset({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      });
+      const coords = getEventCoordinates(e);
+
       setIsDragging(true);
+      setDragOffset({
+        x: coords.clientX - internalPosition.x,
+        y: coords.clientY - internalPosition.y,
+      });
       onFocus();
 
-      // Prevent default behaviors that might interfere with dragging
       e.preventDefault();
       e.stopPropagation();
     },
-    [onFocus]
+    [internalPosition, onFocus]
   );
 
-  const startResize = useCallback(
-    (direction: ResizeDirection, e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
+  // Add a separate resize handler
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent | React.TouchEvent, direction: ResizeDirection) => {
+      if ("button" in e && e.button === 2) return; // Ignore right-click
+
       setIsResizing(true);
       setResizeDirection(direction);
       onFocus();
+
+      e.preventDefault();
+      e.stopPropagation();
     },
     [onFocus]
   );
 
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (isDragging) {
-        // Calculate new position based on the exact drag offset
-        const newPos = {
-          x: e.clientX - dragOffset.x,
-          y: e.clientY - dragOffset.y,
-        };
+  // Handle window maximize with improved state management
+  const handleMaximize = useCallback(
+    (e?: React.MouseEvent) => {
+      e?.stopPropagation();
 
-        // Only check for snapping if enabled
-        if (
-          ENABLE_SNAPPING &&
-          (Math.abs(e.movementX) > 5 || Math.abs(e.movementY) > 5)
-        ) {
-          const guides = checkSnapping(newPos);
+      // Use requestAnimationFrame for smoother state transition
+      requestAnimationFrame(() => {
+        if (!windowState.isMaximized) {
+          // Save current state before maximizing
+          previousStateRef.current = {
+            position: positionRef.current,
+            size: sizeRef.current,
+          };
 
-          // Apply snapping
-          if (guides.vertical !== null) {
-            newPos.x = guides.vertical;
+          if (typeof window !== "undefined") {
+            // Calculate new maximized size with proper constraints
+            const maxHeight =
+              window.innerHeight -
+              MENU_BAR_HEIGHT -
+              DOCK_HEIGHT -
+              TOTAL_VERTICAL_PADDING;
+            const maxWidth = window.innerWidth - TOTAL_VERTICAL_PADDING;
+
+            const newPosition = {
+              x: WINDOW_PADDING,
+              y: MENU_BAR_HEIGHT + WINDOW_PADDING,
+            };
+
+            const newSize = {
+              width: maxWidth,
+              height: maxHeight,
+            };
+
+            // Update with validated values for better safety
+            setValidatedPosition(newPosition);
+            setValidatedSize(newSize);
+            safeUpdate(newPosition, newSize);
           }
+        } else {
+          // Restore previous state when unmaximizing
+          if (previousStateRef.current) {
+            const { position, size } = previousStateRef.current;
 
-          if (guides.horizontal !== null) {
-            newPos.y = guides.horizontal;
+            // Validate window bounds before applying
+            const { pos: validPos, sz: validSize } = validateWindowBounds(
+              position,
+              size
+            );
+
+            setValidatedPosition(validPos);
+            setValidatedSize(validSize);
+            safeUpdate(validPos, validSize);
+            previousStateRef.current = null;
           }
         }
 
-        // Enforce screen boundaries only if enabled
-        if (RESTRICT_TO_SCREEN && typeof window !== "undefined") {
-          // Keep at least 100px of window width visible
-          const minVisibleWidth = 100;
-          newPos.x = Math.max(
-            -sizeRef.current.width + minVisibleWidth,
-            newPos.x
-          );
-          newPos.x = Math.min(window.innerWidth - minVisibleWidth, newPos.x);
-
-          // Keep the title bar (at least 30px) visible at the top
-          const titleBarHeight = 30;
-          newPos.y = Math.max(
-            -sizeRef.current.height + titleBarHeight,
-            newPos.y
-          );
-          newPos.y = Math.min(window.innerHeight - titleBarHeight, newPos.y);
-        }
-
-        // Apply menu-bar constraint only when needed - avoid restricting if the window is already below the menu bar
-        const menuBarHeight = 28; // 7px height + some padding
-        if (newPos.y < menuBarHeight) {
-          newPos.y = menuBarHeight;
-        }
-
-        // Update the position
-        setInternalPosition(newPos);
-      } else if (isResizing && windowRef.current) {
-        const rect = windowRef.current.getBoundingClientRect();
-        let newSize = { ...sizeRef.current };
-
-        switch (resizeDirection) {
-          case "right":
-            newSize = {
-              width: Math.max(MIN_WINDOW_SIZE.width, e.clientX - rect.left),
-              height: sizeRef.current.height,
-            };
-            break;
-          case "bottom":
-            newSize = {
-              width: sizeRef.current.width,
-              height: Math.max(MIN_WINDOW_SIZE.height, e.clientY - rect.top),
-            };
-            break;
-          case "corner":
-            newSize = {
-              width: Math.max(MIN_WINDOW_SIZE.width, e.clientX - rect.left),
-              height: Math.max(MIN_WINDOW_SIZE.height, e.clientY - rect.top),
-            };
-            break;
-        }
-
-        setInternalSize(newSize);
-      }
+        // Toggle maximized state
+        setWindowState((prev) => ({
+          ...prev,
+          isMaximized: !prev.isMaximized,
+        }));
+      });
     },
-    [isDragging, isResizing, dragOffset, resizeDirection, checkSnapping]
+    [
+      windowState.isMaximized,
+      safeUpdate,
+      setValidatedPosition,
+      setValidatedSize,
+      validateWindowBounds,
+    ]
   );
 
-  const handleMouseUp = useCallback(() => {
-    if (isDragging || isResizing) {
-      // Stop dragging/resizing
-      setIsDragging(false);
-      setIsResizing(false);
-      setResizeDirection(null);
-
-      // Clear any active snap guides by triggering a final update
-      // No need to explicitly set snap guides as they're managed by the hook
-
-      // Update parent component with final position/size
-      throttledUpdate.cancel(); // Cancel any pending throttled updates
-      throttledUpdate(positionRef.current, sizeRef.current);
-    }
-  }, [isDragging, isResizing, throttledUpdate]);
-
-  // Global mouse events
+  // Update mouse event handlers to work with document-level events
   useEffect(() => {
+    // Use throttled functions with requestAnimationFrame for smoother updates
+    const handleGlobalMouseMove = throttle((e: MouseEvent) => {
+      if (!isDragging && !isResizing) return;
+
+      requestAnimationFrame(() => {
+        if (isDragging) {
+          const newPos = {
+            x: e.clientX - dragOffset.x,
+            y: e.clientY - dragOffset.y,
+          };
+          setValidatedPosition(newPos);
+        } else if (isResizing && windowRef.current) {
+          const rect = windowRef.current.getBoundingClientRect();
+          let newSize = { ...sizeRef.current };
+
+          switch (resizeDirection) {
+            case "right":
+              newSize = {
+                width: Math.max(MIN_WINDOW_SIZE.width, e.clientX - rect.left),
+                height: sizeRef.current.height,
+              };
+              break;
+            case "bottom":
+              newSize = {
+                width: sizeRef.current.width,
+                height: Math.max(MIN_WINDOW_SIZE.height, e.clientY - rect.top),
+              };
+              break;
+            case "corner":
+              newSize = {
+                width: Math.max(MIN_WINDOW_SIZE.width, e.clientX - rect.left),
+                height: Math.max(MIN_WINDOW_SIZE.height, e.clientY - rect.top),
+              };
+              break;
+          }
+
+          setValidatedSize(newSize);
+        }
+      });
+    }, 10); // Small throttle value for smooth movement
+
+    const handleGlobalMouseUp = (e: MouseEvent) => {
+      if (isDragging) {
+        setIsDragging(false);
+        safeUpdate(positionRef.current, sizeRef.current);
+      } else if (isResizing) {
+        setIsResizing(false);
+        setResizeDirection(null);
+        safeUpdate(positionRef.current, sizeRef.current);
+      }
+    };
+
+    // Handle touch events as well
+    const handleGlobalTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const touch = e.touches[0];
+
+      // Create a synthesized mouse event
+      const mouseEvent = new MouseEvent("mousemove", {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        bubbles: true,
+        cancelable: true,
+        view: window,
+      });
+
+      handleGlobalMouseMove(mouseEvent);
+    };
+
+    const handleGlobalTouchEnd = () => {
+      handleGlobalMouseUp(new MouseEvent("mouseup"));
+    };
+
     if (isDragging || isResizing) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
+      // Add mouse event listeners
+      document.addEventListener("mousemove", handleGlobalMouseMove);
+      document.addEventListener("mouseup", handleGlobalMouseUp);
+
+      // Add touch event listeners
+      document.addEventListener("touchmove", handleGlobalTouchMove, {
+        passive: false,
+      });
+      document.addEventListener("touchend", handleGlobalTouchEnd);
+      document.addEventListener("touchcancel", handleGlobalTouchEnd);
 
       return () => {
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
+        // Remove all event listeners on cleanup
+        document.removeEventListener("mousemove", handleGlobalMouseMove);
+        document.removeEventListener("mouseup", handleGlobalMouseUp);
+        document.removeEventListener("touchmove", handleGlobalTouchMove);
+        document.removeEventListener("touchend", handleGlobalTouchEnd);
+        document.removeEventListener("touchcancel", handleGlobalTouchEnd);
       };
     }
-  }, [isDragging, isResizing, handleMouseMove, handleMouseUp]);
+  }, [
+    isDragging,
+    isResizing,
+    dragOffset,
+    resizeDirection,
+    safeUpdate,
+    setValidatedPosition,
+    setValidatedSize,
+  ]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -402,33 +623,19 @@ export function AppWindow({
     [onClose]
   );
 
-  // Window controls section
-  const windowControls = (
-    <div
-      className="flex items-center space-x-1.5 ml-2 mt-3 mb-3"
-      onMouseDown={(e) => e.stopPropagation()} // Prevent dragging when clicking controls
-    >
-      <WindowControl
-        color="bg-red-500"
-        hoverColor="bg-red-500"
-        onClick={onClose}
-        label="Close window"
-        icon={<X className="h-2 w-2" />}
-      />
-      <WindowControl
-        color="bg-amber-500"
-        hoverColor="bg-amber-500"
-        label="Minimize window"
-        icon={<Minus className="h-2 w-2" />}
-      />
-      <WindowControl
-        color="bg-green-500"
-        hoverColor="bg-green-500"
-        label="Maximize window"
-        icon={<Plus className="h-2 w-2" />}
-      />
-    </div>
+  // Handle window minimize
+  const handleMinimize = useCallback(
+    (e?: React.MouseEvent) => {
+      e?.stopPropagation();
+      onMinimize();
+    },
+    [onMinimize]
   );
+
+  // Double-click on header to maximize
+  const handleHeaderDoubleClick = useCallback(() => {
+    handleMaximize();
+  }, [handleMaximize]);
 
   return (
     <>
@@ -456,110 +663,124 @@ export function AppWindow({
         )}
       </AnimatePresence>
 
-      <motion.div
-        ref={windowRef}
-        tabIndex={0}
-        role="dialog"
-        aria-label={title}
-        aria-modal="true"
-        style={{
-          position: "absolute",
-          left: internalPosition.x,
-          top: internalPosition.y,
-          width: internalSize.width,
-          height: internalSize.height,
-          zIndex,
-        }}
-        initial={{ scale: 0.95, opacity: 0, y: 10 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0, y: 10 }}
-        transition={{
-          type: "spring",
-          stiffness: 350,
-          damping: 25,
-        }}
-        onClick={handleFocus}
-        onKeyDown={handleKeyDown}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        className="focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-0 rounded-xl"
-      >
-        <Card className="h-full overflow-hidden shadow-lg border border-white/10 rounded-xl bg-card/90 backdrop-blur-md">
-          <CardHeader
-            onMouseDown={handleMouseDown}
-            onDoubleClick={() => {
-              // Maximize logic would go here
+      <AnimatePresence>
+        {!isMinimized && (
+          <motion.div
+            ref={windowRef}
+            key={id}
+            tabIndex={0}
+            className="absolute shadow-lg overflow-hidden shadow-zinc-950/10 dark:shadow-zinc-950/20 outline-none"
+            style={{
+              width: internalSize.width,
+              height: internalSize.height,
+              zIndex,
+              borderRadius: 8,
+              position: "absolute",
+              willChange: "transform, width, height",
+              touchAction: "none",
+              maxWidth: windowState.isMaximized
+                ? `calc(100vw - ${TOTAL_VERTICAL_PADDING}px)`
+                : "none",
+              maxHeight: windowState.isMaximized
+                ? `calc(100vh - ${
+                    MENU_BAR_HEIGHT + DOCK_HEIGHT + TOTAL_VERTICAL_PADDING
+                  }px)`
+                : "none",
             }}
-            className="h-8 p-0 cursor-move select-none flex items-center rounded-t-xl bg-gradient-to-b from-muted/80 to-muted/50"
+            initial={{ opacity: 0, scale: 0.95, x: position.x, y: position.y }}
+            animate={{
+              opacity: 1,
+              scale: 1,
+              x: internalPosition.x,
+              y: internalPosition.y,
+              transition: isDragging
+                ? { type: "spring", damping: 50, stiffness: 500 }
+                : { type: "spring", damping: 20, stiffness: 300 },
+            }}
+            exit={{
+              opacity: 0,
+              scale: 0.95,
+              transition: { duration: 0.15 },
+            }}
+            onFocus={handleFocus}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            aria-labelledby={`window-title-${id}`}
+            role="dialog"
+            aria-modal="true"
           >
-            <div className="flex items-center px-3 w-full h-full">
-              <div className="flex space-x-2">{windowControls}</div>
-              <motion.div
-                className="flex-1 flex justify-center"
-                animate={{
-                  opacity: isDragging ? 0.7 : 1,
-                }}
-                transition={{ duration: 0.2 }}
+            <Card className="flex flex-col h-full overflow-hidden outline-none ring-0 border-zinc-100/20 dark:border-zinc-800/20">
+              <CardHeader
+                className={cn(
+                  "p-0 space-y-0 select-none cursor-move flex flex-row items-center justify-between border-b border-zinc-100/20 dark:border-zinc-800/20 window-header",
+                  isDragging && "cursor-grabbing"
+                )}
+                onMouseDown={handleDragStart}
+                onTouchStart={handleDragStart}
+                onDoubleClick={handleHeaderDoubleClick}
+                data-testid="window-header"
               >
-                <span className="text-xs font-medium text-foreground/80 px-2">
-                  {title}
-                </span>
-              </motion.div>
-              <div className="w-[62px] opacity-0" aria-hidden="true" />
-            </div>
-          </CardHeader>
-          <CardContent className="p-0 h-[calc(100%-2rem)] overflow-hidden">
-            {children}
-          </CardContent>
+                <div className="flex-1 flex items-center justify-between px-3 py-1.5">
+                  <WindowControlGroup
+                    onClose={onClose}
+                    onMinimize={handleMinimize}
+                    onMaximize={handleMaximize}
+                    isMaximized={windowState.isMaximized}
+                  />
 
-          {/* Resize handles with improved visual feedback */}
-          <AnimatePresence>
-            {isHovered && (
-              <>
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 0.3 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="absolute bottom-0 right-0 w-1 h-full cursor-ew-resize hover:bg-blue-400/50"
-                  onMouseDown={(e) => startResize("right", e)}
-                  aria-label="Resize window width"
-                  role="button"
-                  tabIndex={-1}
-                  whileHover={{ opacity: 0.6, width: 2 }}
-                />
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 0.3 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="absolute bottom-0 right-0 h-1 w-full cursor-ns-resize hover:bg-blue-400/50"
-                  onMouseDown={(e) => startResize("bottom", e)}
-                  aria-label="Resize window height"
-                  role="button"
-                  tabIndex={-1}
-                  whileHover={{ opacity: 0.6, height: 2 }}
-                />
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 0.5 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="absolute bottom-0 right-0 h-5 w-5 cursor-se-resize hover:bg-blue-400/30 rounded-bl-xl"
-                  onMouseDown={(e) => startResize("corner", e)}
-                  aria-label="Resize window"
-                  role="button"
-                  tabIndex={-1}
-                  whileHover={{
-                    opacity: 0.8,
-                    transition: { duration: 0.2 },
-                  }}
-                />
-              </>
-            )}
-          </AnimatePresence>
-        </Card>
-      </motion.div>
+                  <div className="flex items-center space-x-2">
+                    <h2
+                      id={`window-title-${id}`}
+                      className="text-sm font-medium text-center max-w-[100px] truncate"
+                    >
+                      {title}
+                    </h2>
+                  </div>
+
+                  <div className="invisible w-[58px]" />
+                </div>
+              </CardHeader>
+
+              <CardContent className="p-0 flex-1 overflow-hidden relative h-full">
+                {children}
+              </CardContent>
+
+              {/* Resize handlers */}
+              {!windowState.isMaximized && (
+                <>
+                  <div
+                    className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
+                    onMouseDown={(e) => handleResizeStart(e, "right")}
+                    onTouchStart={(e) => handleResizeStart(e, "right")}
+                    onDoubleClick={(e) => e.stopPropagation()}
+                    aria-label="Resize window"
+                    role="button"
+                    tabIndex={-1}
+                  />
+                  <div
+                    className="absolute bottom-0 w-full h-1 cursor-s-resize"
+                    onMouseDown={(e) => handleResizeStart(e, "bottom")}
+                    onTouchStart={(e) => handleResizeStart(e, "bottom")}
+                    onDoubleClick={(e) => e.stopPropagation()}
+                    aria-label="Resize window height"
+                    role="button"
+                    tabIndex={-1}
+                  />
+                  <div
+                    className="absolute right-0 h-full w-1 cursor-e-resize"
+                    onMouseDown={(e) => handleResizeStart(e, "corner")}
+                    onTouchStart={(e) => handleResizeStart(e, "corner")}
+                    onDoubleClick={(e) => e.stopPropagation()}
+                    aria-label="Resize window width"
+                    role="button"
+                    tabIndex={-1}
+                  />
+                </>
+              )}
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

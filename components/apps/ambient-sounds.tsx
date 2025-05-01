@@ -15,9 +15,23 @@ import { Label } from "@/components/ui/label";
 import { motion } from "framer-motion";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { soundCategories, soundPaths, type SoundCategory } from "@/lib/paths";
-import { getSoundIcon, icons } from "@/lib/icons";
-import { SaveIcon, StopCircle } from "lucide-react";
+import { getSoundIcon } from "@/lib/icons";
+import {
+  SaveIcon,
+  StopCircle,
+  Play,
+  Trash2,
+  Volume2,
+  PauseCircle,
+  Plus,
+  Headphones,
+  Bookmark,
+  BookmarkCheck,
+  Layers,
+  Sparkles,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Constants for volume
 const DEFAULT_VOLUME = 50;
@@ -99,6 +113,8 @@ interface SoundCardProps {
 interface MasterVolumeProps {
   volume: number;
   onVolumeChange: (volume: number) => void;
+  onStopAll: () => void;
+  activeSoundsCount: number;
 }
 
 interface SaveMixProps {
@@ -106,6 +122,7 @@ interface SaveMixProps {
   onMixNameChange: (name: string) => void;
   onSave: () => void;
   isValid: boolean;
+  activeSoundsCount: number;
 }
 
 interface SavedMixCardProps {
@@ -113,6 +130,7 @@ interface SavedMixCardProps {
   sounds: Sound[];
   onLoad: (mix: SoundMix) => void;
   onDelete: (id: string) => void;
+  isActive: boolean;
 }
 
 // Animation configuration
@@ -142,36 +160,59 @@ const SoundCard = React.memo(function SoundCard({
     <motion.div {...ANIMATION_CONFIG}>
       <div
         className={cn(
-          "p-4 rounded-lg border border-zinc-800/50 bg-zinc-900/50 backdrop-blur-sm",
-          "hover:border-zinc-700/50 transition-all cursor-pointer",
-          sound.playing && "border-zinc-700 bg-zinc-800/50",
-          sound.error && "border-red-900/50"
+          "p-4 rounded-xl border bg-background/80 backdrop-blur-sm transition-all cursor-pointer",
+          sound.playing
+            ? "border-primary/50 shadow-[0_0_15px_rgba(0,0,0,0.05)] dark:shadow-[0_0_15px_rgba(0,0,0,0.25)]"
+            : "border-border/50 hover:border-border/80",
+          sound.error && "border-destructive/30"
         )}
         onClick={() => onToggle(sound.id)}
       >
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-3 mb-3">
           <div
             className={cn(
-              "p-2 bg-zinc-800 rounded-lg",
+              "p-2 rounded-lg flex items-center justify-center",
+              sound.playing
+                ? "bg-primary/10 text-primary"
+                : "bg-muted/70 dark:bg-muted text-muted-foreground",
               sound.isLoading && "animate-pulse"
             )}
           >
             {sound.icon}
           </div>
-          <div className="flex-1">
-            <span className="text-sm font-medium text-zinc-200">
-              {sound.name}
-            </span>
+          <div className="flex-1 min-w-0">
+            <div className="font-medium text-sm truncate">{sound.name}</div>
             {sound.error && (
-              <p className="text-xs text-red-400 mt-0.5">{sound.error}</p>
+              <p className="text-xs text-destructive mt-0.5 truncate">
+                {sound.error}
+              </p>
             )}
           </div>
+          <Button
+            variant={sound.playing ? "default" : "outline"}
+            size="icon"
+            className={cn(
+              "h-8 w-8 shrink-0",
+              sound.playing && "bg-primary text-primary-foreground"
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle(sound.id);
+            }}
+          >
+            {sound.playing ? (
+              <PauseCircle className="h-4 w-4" />
+            ) : (
+              <Play className="h-4 w-4" />
+            )}
+            <span className="sr-only">
+              {sound.playing ? "Pause" : "Play"} {sound.name}
+            </span>
+          </Button>
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 text-zinc-400">
-            {React.createElement(icons.Volume2)}
-          </div>
+          <Volume2 className="w-4 h-4 text-muted-foreground shrink-0" />
           <Slider
             value={[sound.volume]}
             min={MIN_VOLUME}
@@ -186,11 +227,11 @@ const SoundCard = React.memo(function SoundCard({
             onMouseUp={handleSliderClick}
             disabled={!sound.playing || sound.isLoading || !!sound.error}
             className={cn(
-              "w-24",
+              "flex-1",
               (sound.isLoading || sound.error) && "opacity-50"
             )}
           />
-          <span className="text-xs text-zinc-400 w-8 text-right">
+          <span className="text-xs text-muted-foreground w-8 text-right">
             {sound.volume}%
           </span>
         </div>
@@ -202,26 +243,47 @@ const SoundCard = React.memo(function SoundCard({
 const MasterVolume = React.memo(function MasterVolume({
   volume,
   onVolumeChange,
+  onStopAll,
+  activeSoundsCount,
 }: MasterVolumeProps) {
   return (
-    <div className="p-4 rounded-lg border border-zinc-800/50 bg-zinc-900/50 backdrop-blur-sm">
-      <div className="flex items-center gap-2 mb-4">
-        <div className="p-2 bg-zinc-800 rounded-lg">
-          <div className="w-4 h-4 text-zinc-400">
-            {React.createElement(icons.Volume2)}
+    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full">
+      <div className="p-4 rounded-xl border border-border/50 bg-background/80 backdrop-blur-sm flex-1 w-full">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="p-2 rounded-lg bg-primary/10 text-primary">
+            <Headphones className="w-4 h-4" />
           </div>
+          <span className="text-sm font-medium">Master Volume</span>
+          <span className="text-xs text-muted-foreground ml-auto">
+            {volume}%
+          </span>
         </div>
-        <span className="text-sm font-medium text-zinc-200">Master Volume</span>
-        <span className="text-xs text-zinc-400 ml-auto">{volume}%</span>
+        <div className="flex items-center gap-2">
+          <Volume2 className="w-4 h-4 text-muted-foreground" />
+          <Slider
+            value={[volume]}
+            min={MIN_VOLUME}
+            max={MAX_VOLUME}
+            step={1}
+            onValueChange={(value) => onVolumeChange(value[0])}
+            className="flex-1"
+          />
+          <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+            <span className="text-xs">Space</span>
+          </kbd>
+        </div>
       </div>
-      <Slider
-        value={[volume]}
-        min={MIN_VOLUME}
-        max={MAX_VOLUME}
-        step={1}
-        onValueChange={(value) => onVolumeChange(value[0])}
-        className="flex-1"
-      />
+
+      <Button
+        onClick={onStopAll}
+        variant="destructive"
+        size="sm"
+        className="gap-1.5 h-10 px-4 whitespace-nowrap"
+        disabled={activeSoundsCount === 0}
+      >
+        <StopCircle className="w-4 h-4" />
+        Stop All {activeSoundsCount > 0 && `(${activeSoundsCount})`}
+      </Button>
     </div>
   );
 });
@@ -231,33 +293,48 @@ const SaveMix = React.memo(function SaveMix({
   onMixNameChange,
   onSave,
   isValid,
+  activeSoundsCount,
 }: SaveMixProps) {
   return (
-    <div className="flex items-end gap-2 bg-zinc-900/50 p-4 rounded-lg border border-zinc-800/50">
-      <div className="flex-1">
-        <Label htmlFor="mix-name" className="text-sm mb-2 block text-zinc-400">
-          Mix Name
-        </Label>
-        <Input
-          id="mix-name"
-          value={mixName}
-          onChange={(e) => onMixNameChange(e.target.value)}
-          placeholder="My custom mix"
-          className="h-9 bg-zinc-800/50 border-zinc-700/50 text-zinc-200 focus:border-zinc-600 focus-visible:ring-0 focus-visible:ring-offset-0"
-        />
-      </div>
-      <Button
-        onClick={onSave}
-        disabled={!isValid}
-        size="sm"
-        className={cn(
-          "bg-zinc-800 hover:bg-zinc-700 text-zinc-200",
-          "border border-zinc-700/50",
-          "disabled:bg-zinc-900 disabled:text-zinc-500"
+    <div className="p-4 rounded-xl border border-border/50 bg-background/80 backdrop-blur-sm">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="p-2 rounded-lg bg-primary/10 text-primary">
+          <Bookmark className="w-4 h-4" />
+        </div>
+        <span className="text-sm font-medium">Save Current Mix</span>
+        {activeSoundsCount > 0 && (
+          <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+            {activeSoundsCount} sound{activeSoundsCount !== 1 ? "s" : ""} active
+          </span>
         )}
-      >
-        <SaveIcon className="w-4 h-4" />
-      </Button>
+      </div>
+
+      <div className="flex items-end gap-2">
+        <div className="flex-1">
+          <Label
+            htmlFor="mix-name"
+            className="text-xs mb-1.5 block text-muted-foreground"
+          >
+            Mix Name
+          </Label>
+          <Input
+            id="mix-name"
+            value={mixName}
+            onChange={(e) => onMixNameChange(e.target.value)}
+            placeholder="My custom mix"
+            className="h-9"
+          />
+        </div>
+        <Button
+          onClick={onSave}
+          disabled={!isValid || activeSoundsCount === 0}
+          size="sm"
+          className="gap-1.5 h-9"
+        >
+          <SaveIcon className="w-4 h-4" />
+          <span>Save</span>
+        </Button>
+      </div>
     </div>
   );
 });
@@ -267,68 +344,150 @@ const SavedMixCard = React.memo(function SavedMixCard({
   sounds,
   onLoad,
   onDelete,
+  isActive,
 }: SavedMixCardProps) {
-  const handleDelete = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onDelete(mix.id);
-    },
-    [mix.id, onDelete]
-  );
+  // Get a list of unique sound IDs in this mix
+  const soundsInMix = mix.sounds.filter((s) => s.playing).map((s) => s.id);
 
-  const activeSounds = useMemo(
-    () =>
-      mix.sounds
-        .filter((s) => s.playing)
-        .map((s) => {
-          const soundInfo = sounds.find((ds) => ds.id === s.id);
-          return { ...s, info: soundInfo };
-        }),
-    [mix.sounds, sounds]
-  );
+  // Get the icons for each unique sound
+  const soundIcons = useMemo(() => {
+    const uniqueSounds = [...new Set(soundsInMix)]
+      .map((id) => {
+        const soundDetails = sounds.find((s) => s.id === id);
+        return soundDetails ? soundDetails.icon : null;
+      })
+      .filter(Boolean);
+
+    // Return at most 3 icons
+    return uniqueSounds.slice(0, 3);
+  }, [soundsInMix, sounds]);
+
+  // Format the date
+  const formattedDate = useMemo(() => {
+    try {
+      const date = new Date(mix.createdAt);
+      return new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(date);
+    } catch (e) {
+      return "";
+    }
+  }, [mix.createdAt]);
 
   return (
-    <div
-      className="p-4 rounded-lg border border-zinc-800/50 bg-zinc-900/50 backdrop-blur-sm hover:border-zinc-700/50 transition-all cursor-pointer"
-      onClick={() => onLoad(mix)}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className="p-2 bg-zinc-800 rounded-lg">
-            <div className="w-4 h-4 text-zinc-400">
-              {React.createElement(icons.Music)}
+    <motion.div {...ANIMATION_CONFIG}>
+      <div
+        className={cn(
+          "p-4 rounded-xl border bg-background/80 backdrop-blur-sm transition-all",
+          isActive
+            ? "border-primary/50 shadow-[0_0_15px_rgba(0,0,0,0.05)] dark:shadow-[0_0_15px_rgba(0,0,0,0.25)]"
+            : "border-border/50 hover:border-border/80"
+        )}
+      >
+        <div className="flex items-center gap-3 mb-3">
+          <div
+            className={cn(
+              "p-2 rounded-lg flex items-center justify-center",
+              isActive
+                ? "bg-primary/10 text-primary"
+                : "bg-muted/70 dark:bg-muted text-muted-foreground"
+            )}
+          >
+            {isActive ? (
+              <BookmarkCheck className="w-4 h-4" />
+            ) : (
+              <Bookmark className="w-4 h-4" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-medium text-sm truncate">{mix.name}</div>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-xs text-muted-foreground">
+                {soundsInMix.length} sound{soundsInMix.length !== 1 ? "s" : ""}
+              </span>
+              <span className="text-muted-foreground/40 text-xs">•</span>
+              <span className="text-xs text-muted-foreground">
+                {formattedDate}
+              </span>
             </div>
           </div>
-          <span className="text-sm font-medium text-zinc-200">{mix.name}</span>
         </div>
-        <div className="flex gap-2">
-          <div className="px-2 py-1 rounded-md text-xs font-medium bg-zinc-800 text-zinc-400 border border-zinc-700/50">
-            Load
+
+        {soundIcons.length > 0 && (
+          <div className="flex items-center gap-1 mb-3 ml-1">
+            {soundIcons.map((icon, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "w-7 h-7 rounded-lg flex items-center justify-center",
+                  isActive
+                    ? "bg-primary/10 text-primary"
+                    : "bg-muted/70 dark:bg-muted text-muted-foreground",
+                  i !== 0 && "-ml-1"
+                )}
+                style={{ zIndex: 3 - i }}
+              >
+                {icon}
+              </div>
+            ))}
+            {soundIcons.length < soundsInMix.length && (
+              <div
+                className={cn(
+                  "w-7 h-7 rounded-lg flex items-center justify-center -ml-1",
+                  isActive
+                    ? "bg-primary/10 text-primary"
+                    : "bg-muted/70 dark:bg-muted text-muted-foreground"
+                )}
+                style={{ zIndex: 3 - soundIcons.length }}
+              >
+                <span className="text-xs font-medium">
+                  +{soundsInMix.length - soundIcons.length}
+                </span>
+              </div>
+            )}
           </div>
+        )}
+
+        <div className="flex gap-2">
           <Button
-            variant="ghost"
             size="sm"
-            onClick={handleDelete}
-            className="h-7 w-7 p-0 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+            variant={isActive ? "default" : "outline"}
+            className={cn(
+              "flex-1 h-9 text-xs gap-1.5",
+              isActive && "bg-primary text-primary-foreground"
+            )}
+            onClick={() => onLoad(mix)}
           >
-            <div className="w-4 h-4">{React.createElement(icons.Trash)}</div>
+            {isActive ? (
+              <>
+                <StopCircle className="h-3.5 w-3.5" />
+                Stop
+              </>
+            ) : (
+              <>
+                <Play className="h-3.5 w-3.5" />
+                Play
+              </>
+            )}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive hover:border-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(mix.id);
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+            <span className="sr-only">Delete {mix.name}</span>
           </Button>
         </div>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {activeSounds.map((s) => (
-          <div
-            key={s.id}
-            className="text-xs bg-zinc-800 text-zinc-300 px-2 py-1 rounded-full flex items-center gap-1.5"
-          >
-            <div className="w-3 h-3 text-zinc-400">{s.info?.icon}</div>
-            <span>
-              {s.info?.name}: {s.volume}%
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
+    </motion.div>
   );
 });
 
@@ -369,6 +528,7 @@ export function AmbientSounds() {
   const [activeTab, setActiveTab] = useState<SoundCategory>("nature");
   const [isDragging, setIsDragging] = useState(false);
   const [isWindowFocused, setIsWindowFocused] = useState(true);
+  const [activeMixId, setActiveMixId] = useState<string | null>(null);
 
   // Refs
   const isWindowFocusedRef = useRef(true);
@@ -395,6 +555,11 @@ export function AmbientSounds() {
   const filteredSounds = useMemo(
     () => sounds.filter((sound) => sound.category === activeTab),
     [sounds, activeTab]
+  );
+
+  const activeSoundsCount = useMemo(
+    () => sounds.filter((sound) => sound.playing).length,
+    [sounds]
   );
 
   // Event handlers
@@ -561,6 +726,9 @@ export function AmbientSounds() {
           return sound;
         });
       });
+
+      // Clear active mix when manually toggling sounds
+      setActiveMixId(null);
     },
     [isDragging, masterVolume]
   );
@@ -604,6 +772,9 @@ export function AmbientSounds() {
           JSON.stringify({ ...savedVolumes, [soundId]: newVolume })
         );
       }, 100);
+
+      // Clear active mix when manually changing volume
+      setActiveMixId(null);
     },
     [masterVolume]
   );
@@ -655,11 +826,22 @@ export function AmbientSounds() {
 
     setSavedMixes((prev) => [newMix, ...prev]);
     setNewMixName("");
+    setActiveMixId(newMix.id);
   }, [newMixName, sounds, setSavedMixes]);
 
   // Handle loading mix
   const handleLoadMix = useCallback(
     (mix: SoundMix) => {
+      // Check if this mix is already active
+      const isActive = mix.id === activeMixId;
+
+      if (isActive) {
+        // If active, stop all sounds and clear active mix
+        stopAllSounds();
+        setActiveMixId(null);
+        return;
+      }
+
       // First pause all currently playing sounds
       sounds.forEach((sound) => {
         if (sound.playing) {
@@ -713,16 +895,24 @@ export function AmbientSounds() {
           return newState;
         })
       );
+
+      // Set this mix as active
+      setActiveMixId(mix.id);
     },
-    [sounds, masterVolume]
+    [sounds, masterVolume, activeMixId]
   );
 
   // Handle deleting mix
   const handleDeleteMix = useCallback(
     (id: string) => {
+      // If deleting the active mix, clear active mix ID
+      if (id === activeMixId) {
+        setActiveMixId(null);
+      }
+
       setSavedMixes((prev) => prev.filter((mix) => mix.id !== id));
     },
-    [setSavedMixes]
+    [setSavedMixes, activeMixId]
   );
 
   // Save sound volumes to localStorage
@@ -738,6 +928,9 @@ export function AmbientSounds() {
   // Set up window focus/blur event listeners
   useEffect(() => {
     window.addEventListener("blur", handleWindowBlur);
+    window.addEventListener("focus", handleWindowFocus);
+
+    // Initialize with  handleWindowBlur)
     window.addEventListener("focus", handleWindowFocus);
 
     // Initialize with current focus state
@@ -766,12 +959,12 @@ export function AmbientSounds() {
         e.code.match(/Digit[1-9]/) &&
         !(e.target as HTMLElement)?.matches?.("input, textarea")
       ) {
-        const volume = parseInt(e.code.replace("Digit", "")) * 10;
+        const volume = Number.parseInt(e.code.replace("Digit", "")) * 10;
         setMasterVolume(volume);
       }
 
       if (e.altKey && e.code && e.code.match(/Digit[1-5]/)) {
-        const index = parseInt(e.code.replace("Digit", "")) - 1;
+        const index = Number.parseInt(e.code.replace("Digit", "")) - 1;
         if (index < soundCategories.length) {
           setActiveTab(soundCategories[index]);
         }
@@ -862,103 +1055,149 @@ export function AmbientSounds() {
 
     // Then stop all audio elements
     stopAllAmbientSounds();
+
+    // Clear active mix
+    setActiveMixId(null);
   }, []);
 
   return (
-    <div className="h-full flex flex-col bg-zinc-950">
-      <div className="flex items-center justify-between p-6 pb-4">
-        <MasterVolume
-          volume={masterVolume}
-          onVolumeChange={handleMasterVolumeChange}
-        />
-        <div className="flex items-center gap-4">
-          <Button
-            onClick={stopAllSounds}
-            variant="destructive"
-            size="sm"
-            className="bg-red-700 hover:bg-red-800 text-white"
-          >
-            <StopCircle className="w-4 h-4 mr-2" />
-            Stop All
-          </Button>
-          <div className="text-xs text-zinc-500 flex gap-2">
-            <kbd className="px-2 py-1 bg-zinc-800 rounded">Space</kbd>
-            <span>Toggle Sound</span>
-          </div>
-        </div>
-      </div>
+    <div className="h-full flex flex-col bg-gradient-to-b from-background to-background/95">
+      <div className="container mx-auto p-4 max-w-6xl">
+        <div className="flex flex-col gap-6">
+          {/* Header with master controls */}
+          <MasterVolume
+            volume={masterVolume}
+            onVolumeChange={handleMasterVolumeChange}
+            onStopAll={stopAllSounds}
+            activeSoundsCount={activeSoundsCount}
+          />
 
-      <div className="flex-1 flex flex-col gap-4 px-6 overflow-hidden">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-            {soundCategories.map((category, index) => (
-              <Button
-                key={category}
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap",
-                  "bg-zinc-900/50 border border-zinc-800/50 hover:bg-zinc-800/50",
-                  "text-zinc-400 hover:text-zinc-200",
-                  activeTab === category &&
-                    "bg-zinc-800 text-zinc-200 border-zinc-700"
-                )}
-                onClick={() => setActiveTab(category)}
+          {/* Main content - split into two columns on larger screens */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-6">
+            {/* Sound browser */}
+            <div className="flex flex-col gap-4">
+              <Tabs
+                defaultValue={activeTab}
+                onValueChange={(v) => setActiveTab(v as SoundCategory)}
               >
-                <span className="hidden sm:inline mr-1 text-zinc-500">
-                  Alt+{index + 1}
-                </span>
-                {category.charAt(0).toUpperCase() + category.slice(1)}
-              </Button>
-            ))}
-          </div>
-        </div>
+                <TabsList className="mb-4 flex flex-wrap">
+                  {soundCategories.map((category, index) => (
+                    <TabsTrigger
+                      key={category}
+                      value={category}
+                      className="capitalize"
+                    >
+                      {category}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
 
-        <ScrollArea
-          className="flex-1 pr-4"
-          style={{ height: "calc(100vh - 280px)" }}
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">
-            {filteredSounds.map((sound) => (
-              <SoundCard
-                key={sound.id}
-                sound={sound}
-                onToggle={toggleSound}
-                onVolumeChange={handleVolumeChange}
-              />
-            ))}
-          </div>
-        </ScrollArea>
-      </div>
-
-      <div className="border-t border-zinc-800/60 bg-zinc-900/30 backdrop-blur-sm p-6 pt-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-zinc-200">Saved Mixes</h3>
-          <span className="text-xs text-zinc-500">
-            Create custom combinations
-          </span>
-        </div>
-        <SaveMix
-          mixName={newMixName}
-          onMixNameChange={setNewMixName}
-          onSave={handleSaveMix}
-          isValid={newMixName.trim().length > 0}
-        />
-        {sortedMixes.length > 0 && (
-          <ScrollArea className="pr-4 mt-4" style={{ maxHeight: "160px" }}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {sortedMixes.map((mix) => (
-                <SavedMixCard
-                  key={mix.id}
-                  mix={mix}
-                  sounds={sounds}
-                  onLoad={handleLoadMix}
-                  onDelete={handleDeleteMix}
-                />
-              ))}
+                {soundCategories.map((category) => (
+                  <TabsContent key={category} value={category} className="mt-0">
+                    <ScrollArea className="h-[calc(100vh-400px)] min-h-[300px]">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4">
+                        {sounds
+                          .filter((sound) => sound.category === category)
+                          .map((sound) => (
+                            <SoundCard
+                              key={sound.id}
+                              sound={sound}
+                              onToggle={toggleSound}
+                              onVolumeChange={handleVolumeChange}
+                            />
+                          ))}
+                      </div>
+                    </ScrollArea>
+                  </TabsContent>
+                ))}
+              </Tabs>
             </div>
-          </ScrollArea>
-        )}
+
+            {/* Mixes sidebar */}
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-primary" />
+                  Sound Mixes
+                </h3>
+                <span className="text-xs text-muted-foreground">
+                  {savedMixes.length} saved mix
+                  {savedMixes.length !== 1 ? "es" : ""}
+                </span>
+              </div>
+
+              <SaveMix
+                mixName={newMixName}
+                onMixNameChange={setNewMixName}
+                onSave={handleSaveMix}
+                isValid={newMixName.trim().length > 0}
+                activeSoundsCount={activeSoundsCount}
+              />
+
+              {sortedMixes.length > 0 ? (
+                <ScrollArea className="h-[calc(100vh-400px)] min-h-[300px]">
+                  <div className="grid grid-cols-1 gap-4 pb-4">
+                    {sortedMixes.map((mix) => (
+                      <SavedMixCard
+                        key={mix.id}
+                        mix={mix}
+                        sounds={sounds}
+                        onLoad={handleLoadMix}
+                        onDelete={handleDeleteMix}
+                        isActive={mix.id === activeMixId}
+                      />
+                    ))}
+                  </div>
+                </ScrollArea>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed rounded-xl border-border/50">
+                  <Sparkles className="h-8 w-8 text-muted-foreground mb-2" />
+                  <h3 className="text-sm font-medium mb-1">
+                    No saved mixes yet
+                  </h3>
+                  <p className="text-xs text-muted-foreground mb-3 max-w-[250px]">
+                    Play some sounds and save your mix to create custom ambient
+                    combinations
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => setNewMixName("My First Mix")}
+                    disabled={activeSoundsCount === 0}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Create Mix
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Keyboard shortcuts */}
+          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground border-t border-border/30 pt-4 mt-2">
+            <div className="flex items-center gap-1.5">
+              <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px]">
+                Space
+              </kbd>
+              <span>Toggle Sound</span>
+            </div>
+            <span className="text-muted-foreground/40">•</span>
+            <div className="flex items-center gap-1.5">
+              <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px]">
+                1-9
+              </kbd>
+              <span>Set Volume</span>
+            </div>
+            <span className="text-muted-foreground/40">•</span>
+            <div className="flex items-center gap-1.5">
+              <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px]">
+                Alt+1-5
+              </kbd>
+              <span>Change Category</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,13 +1,6 @@
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useState,
-  memo,
-  useMemo,
-  useRef,
-} from "react";
+import React, { useCallback, useEffect, useState, memo, useRef } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -29,11 +22,13 @@ import {
   type AppId,
 } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "next-themes";
 
 type DockProps = {
   openApp: (appId: AppId) => void;
   openSettings: () => void;
   activeApps: AppId[];
+  minimizedApps: Set<string>;
 };
 
 const DOCK_APPS = [...APP_ITEMS, SETTINGS_APP];
@@ -47,6 +42,7 @@ const DockItem = memo(
   ({
     app,
     isActive,
+    isMinimized,
     mouseX,
     index,
     totalItems,
@@ -54,6 +50,7 @@ const DockItem = memo(
   }: {
     app: AppMenuItem;
     isActive: boolean;
+    isMinimized: boolean;
     mouseX: number;
     index: number;
     totalItems: number;
@@ -63,6 +60,9 @@ const DockItem = memo(
     const [isHovered, setIsHovered] = useState(false);
     const itemRef = React.useRef<HTMLDivElement>(null);
     const [itemPosition, setItemPosition] = useState(0);
+
+    const { theme } = useTheme();
+    const isLightTheme = theme === "light";
 
     // Calculate distance from mouse to determine scale
     const distance = useMotionValue(0);
@@ -134,10 +134,13 @@ const DockItem = memo(
           >
             <motion.div
               className={cn(
-                "relative flex items-center justify-center w-12 h-12 p-0 rounded-xl",
-                "bg-card/80 backdrop-blur-md shadow-sm border border-white/10",
-                "hover:bg-zinc-500/20 transition-all duration-150",
-                isActive && "bg-white/30"
+                "relative flex items-center justify-center w-12 h-12 p-0 rounded-xl transition-all duration-150",
+                isLightTheme
+                  ? "bg-white/80 backdrop-blur-md shadow-sm border border-gray-200/30"
+                  : "bg-zinc-800/80 backdrop-blur-md shadow-sm border border-zinc-700/30",
+                isActive && isLightTheme && "ring-1 ring-primary/40",
+                isActive && !isLightTheme && "border-primary/40",
+                isMinimized && "opacity-60"
               )}
               whileHover={{
                 y: -8,
@@ -167,16 +170,27 @@ const DockItem = memo(
                     rotate: isHovered && !isActive ? [0, -5, 5, -5, 5, 0] : 0,
                     transition: { duration: 0.5, ease: "easeInOut" },
                   }}
-                  className="text-foreground/90"
+                  className={cn(
+                    "transition-all duration-200",
+                    isLightTheme ? "text-foreground" : "text-foreground",
+                    isHovered && "text-primary",
+                    isActive && "text-primary scale-110"
+                  )}
                 >
                   {app.icon}
                 </motion.div>
               </Button>
             </motion.div>
             <AnimatePresence>
-              {isActive && (
+              {(isActive || isHovered) && (
                 <motion.div
-                  className="absolute -bottom-1.5 h-1 w-1.5 rounded-full bg-white"
+                  className={cn(
+                    "absolute -bottom-1.5 rounded-full",
+                    isActive
+                      ? "h-2 w-2.5 bg-primary"
+                      : "h-1.5 w-1.5 bg-primary/70",
+                    isMinimized && "opacity-60"
+                  )}
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{
                     scale: 1,
@@ -188,7 +202,7 @@ const DockItem = memo(
                     },
                   }}
                   exit={{ scale: 0, opacity: 0 }}
-                  layoutId={`dot-${app.id}`}
+                  layoutId={isActive ? `dot-${app.id}` : undefined}
                 />
               )}
             </AnimatePresence>
@@ -196,13 +210,20 @@ const DockItem = memo(
         </TooltipTrigger>
         <TooltipContent
           side="top"
-          className="flex items-center gap-4 bg-black/80 backdrop-blur-md text-white border-white/10 rounded-lg px-3 py-1.5"
+          className="flex items-center gap-4 px-3 py-1.5 text-sm"
           sideOffset={8}
-          style={{ zIndex: 9999 }}
         >
-          <span className="text-xs font-medium">{app.label}</span>
+          <span
+            className={cn(
+              "text-xs",
+              isActive ? "font-semibold" : "font-medium"
+            )}
+          >
+            {app.label}
+            {isMinimized && " (Minimizado)"}
+          </span>
           {shortcutText && (
-            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-white/20 bg-black/50 px-1.5 font-mono text-[10px] font-medium text-white/80 opacity-100">
+            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border px-1.5 font-mono text-[10px] font-medium">
               <span className="text-xs">{shortcutText}</span>
             </kbd>
           )}
@@ -214,128 +235,101 @@ const DockItem = memo(
 
 DockItem.displayName = "DockItem";
 
-export function Dock({ openApp, openSettings, activeApps }: DockProps) {
-  const mouseX = useMotionValue(0);
+export function Dock({
+  openApp,
+  openSettings,
+  activeApps,
+  minimizedApps,
+}: DockProps) {
+  const [mouseX, setMouseX] = useState(0);
   const dockRef = useRef<HTMLDivElement>(null);
+  const { theme } = useTheme();
+  const isLightTheme = theme === "light";
 
   // Track mouse position for magnification effect
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (!dockRef.current) return;
-      const rect = dockRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      mouseX.set(x);
-    },
-    [mouseX]
-  );
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!dockRef.current) return;
+    const rect = dockRef.current.getBoundingClientRect();
+    const dockX = e.clientX - rect.left;
+    setMouseX(dockX);
+  }, []);
 
-  // Reset magnification when mouse leaves
+  // Reset mouse position when mouse leaves the dock
   const handleMouseLeave = useCallback(() => {
-    mouseX.set(0);
-  }, [mouseX]);
-
-  // Use a more efficient approach with Set for active apps
-  const isAppActive = useCallback(
-    (appId: string) => activeApps.includes(appId as AppId),
-    [activeApps]
-  );
-
-  const handleOpenApp = useCallback(
-    (appId: string) => {
-      if (appId === "settings") {
-        openApp("settings");
-      } else {
-        openApp(appId as AppId);
-      }
-    },
-    [openApp]
-  );
+    setMouseX(0);
+  }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key >= "1" && e.key <= "9") {
         e.preventDefault();
         const index = Number.parseInt(e.key) - 1;
         if (index < DOCK_APPS.length) {
-          const appId = DOCK_APPS[index].id;
-          handleOpenApp(appId);
+          const appItem = DOCK_APPS[index];
+          if (appItem.id === SETTINGS_APP.id) {
+            openSettings();
+          } else {
+            openApp(appItem.id);
+          }
         }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleOpenApp]);
-
-  const regularApps = useMemo(() => DOCK_APPS.slice(0, -1), []);
-  const settingsApp = useMemo(() => DOCK_APPS[DOCK_APPS.length - 1], []);
-  const allApps = [...regularApps, settingsApp];
+  }, [openApp, openSettings]);
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 flex justify-center mb-4"
-      style={{ zIndex: 9999 }}
+      className="fixed bottom-6 left-0 right-0 flex justify-center items-center"
+      style={{ zIndex: 9000 }}
     >
-      <motion.div
-        initial={{ y: 50, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{
-          type: "spring",
-          stiffness: 300,
-          damping: 30,
-        }}
-        className="px-3 py-2 rounded-2xl bg-black/20 backdrop-blur-xl border border-white/10 shadow-lg"
-        style={{ isolation: "isolate" }}
-        role="toolbar"
-        aria-label="Application dock"
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        ref={dockRef}
-        whileHover={{
-          y: -4,
-          transition: { duration: 0.3, ease: "easeOut" },
-        }}
-      >
-        <TooltipProvider>
-          <div className="flex items-end h-14 gap-1.5">
-            {regularApps.map((app, index) => (
+      <TooltipProvider>
+        <motion.div
+          className={cn(
+            "p-2 rounded-2xl backdrop-blur-lg border shadow-lg",
+            isLightTheme
+              ? "bg-background/20 border-border/30"
+              : "bg-background/20 border-border/30"
+          )}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            type: "spring",
+            stiffness: 400,
+            damping: 25,
+            delay: 0.3,
+          }}
+        >
+          <motion.div
+            className="flex items-center gap-2"
+            ref={dockRef}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+            layoutId="dock"
+            layout
+          >
+            {DOCK_APPS.map((app, i) => (
               <DockItem
                 key={app.id}
                 app={app}
-                isActive={isAppActive(app.id)}
-                mouseX={mouseX.get()}
-                index={index}
-                totalItems={allApps.length}
-                onClick={() => handleOpenApp(app.id)}
+                isActive={activeApps.includes(app.id)}
+                isMinimized={minimizedApps.has(app.id)}
+                mouseX={mouseX}
+                index={i}
+                totalItems={DOCK_APPS.length}
+                onClick={() => {
+                  if (app.id === SETTINGS_APP.id) {
+                    openSettings();
+                  } else {
+                    openApp(app.id);
+                  }
+                }}
               />
             ))}
-            <motion.div
-              key="divider"
-              className="w-px h-8 bg-white/20 mx-2"
-              initial={{ scaleY: 0 }}
-              animate={{
-                scaleY: 1,
-                transition: {
-                  delay: 0.2,
-                  duration: 0.3,
-                  ease: "easeOut",
-                },
-              }}
-            />
-            <DockItem
-              key={settingsApp.id}
-              app={settingsApp}
-              isActive={isAppActive(settingsApp.id)}
-              mouseX={mouseX.get()}
-              index={regularApps.length}
-              totalItems={allApps.length}
-              onClick={() => handleOpenApp(settingsApp.id)}
-            />
-          </div>
-        </TooltipProvider>
-      </motion.div>
+          </motion.div>
+        </motion.div>
+      </TooltipProvider>
     </div>
   );
 }

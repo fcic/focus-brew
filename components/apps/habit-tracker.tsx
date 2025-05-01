@@ -1,38 +1,46 @@
+"use client";
+
+import type React from "react";
+
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
-import type { LucideIcon } from "lucide-react";
-import { format, subDays, addDays, isSameDay, parseISO } from "date-fns";
+import { format, startOfToday, subDays, isSameDay, isToday } from "date-fns";
 import {
-  Trash2,
-  Edit,
-  MoreVertical,
-  Dumbbell,
-  Brain,
-  BookOpen,
-  Music2,
-  Code2,
-  Palette,
-  Heart,
-  Coffee,
-  UtensilsCrossed,
-  Moon,
-  Timer,
-  Target,
-  GraduationCap,
-  Gamepad2,
-  Bike,
-  Dog,
-  Cat,
-  PenLine,
-  Star,
-  CalendarDays,
-  HelpCircle,
-  ArrowRight,
   Check,
-  ActivitySquare,
+  Plus,
+  Edit,
+  Trash2,
+  Calendar,
+  BarChart3,
   Flame,
+  ChevronLeft,
+  ChevronRight,
+  Bell,
+  MoreHorizontal,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -40,145 +48,75 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from "@/lib/toast";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "@/hooks/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import {
-  IconBolt,
-  IconCalendar,
-  IconFlame,
-  IconPlus,
-  IconMinus,
-  IconBook,
-  IconRun,
-  IconGlass,
-  IconBed,
-  IconApple,
-  IconBike,
-  IconDeviceLaptop,
-} from "@tabler/icons-react";
-import { Textarea } from "@/components/ui/textarea";
-import { HabitReminderPicker } from "@/components/ui/habit-reminder-picker";
-import { sendHabitReminder } from "@/lib/notification";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-// Update FrequencyType to include more options
-type FrequencyType = "daily" | "weekly" | "monthly" | "yearly" | "none";
-
-// Type for habit icons
-type HabitIconType = (typeof HABIT_ICONS)[number];
-
-type CategoryType =
+// Types
+type FrequencyType = "daily" | "weekly" | "custom";
+type HabitCategory =
   | "health"
-  | "productivity"
   | "fitness"
-  | "mindfulness"
+  | "productivity"
   | "learning"
-  | "finance"
-  | "social"
-  | "other"
-  | "custom";
+  | "mindfulness"
+  | "other";
 
-interface Reminder {
-  id: string;
-  time: string;
-  days: string[];
-  advance?: {
-    value: number;
-    unit: "minutes" | "hours" | "days" | "weeks";
-  };
-}
-
-// Updated Habit interface to include both original properties and new ones
 interface Habit {
   id: string;
   name: string;
-  icon: HabitIconType | React.ReactNode;
-  color: string;
-  frequency?: FrequencyType;
-  completedDates?: string[];
-  createdAt?: string;
-  updatedAt?: string;
-  reminders?: Reminder[];
   description?: string;
-  category?: CategoryType;
-  streak: number;
-  completionsToday?: number;
-  completionsPerDay?: number;
-  lastCompletedDate?: string;
-  dailyGoal: number;
-  currentStreak?: number;
-  currentCount?: number;
-  completions?: {
-    date: string;
-    count: number;
-  }[];
+  icon: string;
+  color: string;
+  frequency: FrequencyType;
+  category: HabitCategory;
+  createdAt: string;
+  completedDates: string[];
+  reminderTime?: string;
+  reminderEnabled?: boolean;
+  customDays?: string[]; // For custom frequency (e.g., "mon", "wed", "fri")
+  duration: number; // Number of times to complete
+  period: "days" | "weeks" | "months"; // Period for the duration
 }
 
-// Define the icon types first
+// Icons for habits
 const HABIT_ICONS = [
-  "Exercise",
-  "Mindfulness",
-  "Reading",
-  "Music",
-  "Coding",
-  "Art",
-  "Health",
-  "Coffee",
-  "Eating",
-  "Sleep",
-  "Timer",
-  "Goal",
-  "Writing",
-  "Learning",
-  "Gaming",
-  "Cycling",
-  "Dog",
-  "Cat",
-] as const;
+  "💧",
+  "🏃",
+  "📚",
+  "🧘",
+  "💪",
+  "🥗",
+  "💊",
+  "😴",
+  "🧠",
+  "🎯",
+  "💻",
+  "🎨",
+  "🎵",
+  "🌱",
+  "✍️",
+  "🧹",
+];
 
-// Define the icon mapping
-const ICON_MAP: Record<HabitIconType, LucideIcon> = {
-  Exercise: Dumbbell,
-  Mindfulness: Brain,
-  Reading: BookOpen,
-  Music: Music2,
-  Coding: Code2,
-  Art: Palette,
-  Health: Heart,
-  Coffee: Coffee,
-  Eating: UtensilsCrossed,
-  Sleep: Moon,
-  Timer: Timer,
-  Goal: Target,
-  Writing: PenLine,
-  Learning: GraduationCap,
-  Gaming: Gamepad2,
-  Cycling: Bike,
-  Dog: Dog,
-  Cat: Cat,
-};
-
-// Available colors for habits
+// Colors for habits
 const HABIT_COLORS = [
   "#10b981", // emerald
   "#3b82f6", // blue
@@ -188,909 +126,792 @@ const HABIT_COLORS = [
   "#ef4444", // red
   "#06b6d4", // cyan
   "#14b8a6", // teal
-  "#a855f7", // purple
-  "#f43f5e", // rose
-  "#84cc16", // lime
-  "#eab308", // yellow
-  "#22c55e", // green
-  "#6366f1", // indigo
-  "#d946ef", // fuchsia
-  "#0ea5e9", // sky
 ];
 
-// Add custom category option to CATEGORIES
-const CATEGORIES: Record<CategoryType, { label: string; icon: HabitIconType }> =
-  {
-    health: { label: "Health", icon: "Health" },
-    productivity: { label: "Productivity", icon: "Timer" },
-    fitness: { label: "Fitness", icon: "Exercise" },
-    mindfulness: { label: "Mindfulness", icon: "Mindfulness" },
-    learning: { label: "Learning", icon: "Learning" },
-    finance: { label: "Finance", icon: "Goal" },
-    social: { label: "Social", icon: "Health" },
-    other: { label: "Other", icon: "Goal" },
-    custom: { label: "Custom", icon: "Goal" }, // Add custom category
-  };
-
-// Constants
-const LOCAL_STORAGE_KEY = "focusbrew_habits";
-const DEFAULT_HEATMAP_DAYS = 30; // Total days to show (today + 29 future days)
-
-const DEFAULT_HABIT: Omit<Habit, "id"> = {
-  name: "",
-  icon: "Exercise",
-  color: "#000000",
-  frequency: "daily",
-  completedDates: [],
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-  reminders: [],
-  category: "other",
-  streak: 0,
-  completionsToday: 0,
-  completionsPerDay: 1,
-  lastCompletedDate: "",
-  dailyGoal: 0,
-  currentStreak: 0,
-  completions: [],
+// Categories
+const CATEGORIES: Record<HabitCategory, { label: string; icon: string }> = {
+  health: { label: "Health", icon: "💊" },
+  fitness: { label: "Fitness", icon: "💪" },
+  productivity: { label: "Productivity", icon: "💻" },
+  learning: { label: "Learning", icon: "📚" },
+  mindfulness: { label: "Mindfulness", icon: "🧘" },
+  other: { label: "Other", icon: "🎯" },
 };
 
-// Helper to get frequency text
-const getFrequencyText = (frequency: FrequencyType): string => {
-  switch (frequency) {
-    case "daily":
-      return "Daily";
-    case "weekly":
-      return "Weekly";
-    case "monthly":
-      return "Monthly";
-    case "yearly":
-      return "Yearly";
-    case "none":
-      return "None";
-    default:
-      return frequency;
-  }
-};
+// Days of the week for custom frequency
+const DAYS_OF_WEEK = [
+  { value: "mon", label: "Mon" },
+  { value: "tue", label: "Tue" },
+  { value: "wed", label: "Wed" },
+  { value: "thu", label: "Thu" },
+  { value: "fri", label: "Fri" },
+  { value: "sat", label: "Sat" },
+  { value: "sun", label: "Sun" },
+];
 
-// Icon component for habit icons
-interface IconProps {
-  name: HabitIconType | keyof typeof CATEGORIES;
-  className?: string;
-  style?: React.CSSProperties;
-}
+// Local storage key
+const STORAGE_KEY = "habit_tracker_data";
 
-const Icon = ({ name, className, style }: IconProps) => {
-  if (name in ICON_MAP) {
-    const IconComponent = ICON_MAP[name as HabitIconType];
-    return <IconComponent className={className} style={style} />;
-  }
-
-  // For category icons
-  if (name in CATEGORIES) {
-    const categoryIcon = CATEGORIES[name as keyof typeof CATEGORIES].icon;
-    const IconComponent = ICON_MAP[categoryIcon];
-    return <IconComponent className={className} style={style} />;
-  }
-
-  // Fallback
-  return <Star className={className} style={style} />;
-};
-
-interface IconSelectorProps {
-  selectedIcon: HabitIconType;
-  onSelect: (icon: HabitIconType) => void;
-}
-
-function IconSelector({ selectedIcon, onSelect }: IconSelectorProps) {
-  return (
-    <div className="grid grid-cols-6 gap-2 p-2">
-      {HABIT_ICONS.map((icon) => (
-        <button
-          key={icon}
-          className={cn(
-            "flex h-10 w-10 items-center justify-center rounded-lg transition-colors hover:bg-accent",
-            selectedIcon === icon && "bg-accent"
-          )}
-          onClick={() => onSelect(icon)}
-        >
-          <Icon name={icon} className="h-6 w-6" />
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// Component to display a GitHub-like heatmap with improved interaction
-const HabitHeatmap = ({ habit }: { habit: Habit }) => {
-  const today = new Date();
-  const cells = [];
-
-  // Generate dates for the heatmap (today and future)
-  for (let i = 0; i < DEFAULT_HEATMAP_DAYS; i++) {
-    const date = addDays(today, i);
-    const dateISO = date.toISOString();
-    const isCompleted =
-      habit.completedDates?.some((d) => isSameDay(parseISO(d), date)) || false;
-    const isToday = i === 0;
-    const isFuture = i > 0;
-
-    // Calculate day label for tooltip
-    const dayLabel = isToday ? "Today" : i === 1 ? "Tomorrow" : `In ${i} days`;
-
-    cells.push(
-      <TooltipProvider key={dateISO}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div
-              className={cn(
-                "w-4 h-4 rounded-sm cursor-pointer transition-colors relative",
-                isCompleted
-                  ? "hover:opacity-80"
-                  : "bg-gray-100 dark:bg-gray-800 hover:opacity-50",
-                isFuture &&
-                  "border border-dashed border-gray-300 dark:border-gray-700"
-              )}
-              style={{
-                backgroundColor: isCompleted ? habit.color : "",
-                opacity: isCompleted ? 1 : 0.15,
-              }}
-              onClick={() => {
-                const customEvent = new CustomEvent("toggle-habit-date", {
-                  detail: { habitId: habit.id, date },
-                });
-                window.dispatchEvent(customEvent);
-              }}
-            />
-          </TooltipTrigger>
-          <TooltipContent>
-            <p className="font-medium">{format(date, "PPP")}</p>
-            <p className="text-xs text-muted-foreground">{dayLabel}</p>
-            <p className="text-xs text-muted-foreground">
-              {isCompleted ? "✅ Completed" : "❌ Not completed"}
-            </p>
-            {isFuture && <p className="text-xs text-blue-500">Future date</p>}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }
-
-  return (
-    <div className="mt-4">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">
-            Next {DEFAULT_HEATMAP_DAYS} Days
-          </span>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger>
-                <HelpCircle className="h-4 w-4 text-muted-foreground" />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <div className="space-y-2">
-                  <p>How it works:</p>
-                  <ul className="list-disc pl-4 text-xs space-y-1">
-                    <li>Click on days to mark them as completed</li>
-                    <li>Plan ahead by marking future dates</li>
-                    <li>Track your progress over time</li>
-                  </ul>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground">Not completed</span>
-          <div className="w-3 h-3 rounded-sm bg-gray-100 dark:bg-gray-800"></div>
-          <div
-            className="w-3 h-3 rounded-sm"
-            style={{ backgroundColor: habit.color }}
-          ></div>
-          <span className="text-xs text-muted-foreground">Completed</span>
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-1">
-        <div className="flex items-center mb-1 mr-1">
-          <span className="text-xs text-muted-foreground mr-2">Today</span>
-          <ArrowRight className="h-3 w-3 text-muted-foreground" />
-        </div>
-        {cells}
-      </div>
-
-      <div className="mt-2 text-xs text-muted-foreground">
-        <div className="flex items-center gap-1">
-          <CalendarDays className="h-3 w-3" />
-          <span>Click on squares to mark completion for any day</span>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Função auxiliar para calcular streak atual
+// Helper functions
 const calculateStreak = (completedDates: string[]): number => {
   if (!completedDates.length) return 0;
 
-  // Ordenar datas de completude em ordem decrescente (mais recente primeiro)
+  // Sort dates in descending order
   const sortedDates = [...completedDates]
     .map((date) => new Date(date))
     .sort((a, b) => b.getTime() - a.getTime());
 
-  // Verificar se a data mais recente é hoje ou ontem (para manter streak ativo)
-  const mostRecentDate = sortedDates[0];
-  const today = new Date();
+  const today = startOfToday();
   const yesterday = subDays(today, 1);
 
+  // Check if the most recent date is today or yesterday
+  const mostRecentDate = sortedDates[0];
   if (
     !isSameDay(mostRecentDate, today) &&
     !isSameDay(mostRecentDate, yesterday)
   ) {
-    return 0; // Streak quebrado se a data mais recente não for hoje ou ontem
+    return 0; // Streak broken if not completed today or yesterday
   }
 
-  let streak = 1; // Começar com 1 para a data mais recente
+  let streak = 1; // Start with 1 for the most recent day
   let currentDate = mostRecentDate;
 
-  // Verificar dias consecutivos para trás
+  // Check consecutive days backwards
   for (let i = 1; i < sortedDates.length; i++) {
     const expectedPrevDate = subDays(currentDate, 1);
     if (isSameDay(sortedDates[i], expectedPrevDate)) {
       streak++;
       currentDate = sortedDates[i];
     } else {
-      break; // Streak quebrado
+      break; // Streak broken
     }
   }
 
   return streak;
 };
 
-// Função auxiliar para calcular o melhor streak
-const calculateLongestStreak = (completedDates: string[]): number => {
-  if (!completedDates.length) return 0;
-
-  // Ordenar datas de completude
-  const sortedDates = [...completedDates]
-    .map((date) => new Date(date))
-    .sort((a, b) => a.getTime() - b.getTime());
-
-  let longestStreak = 1;
-  let currentStreak = 1;
-
-  for (let i = 1; i < sortedDates.length; i++) {
-    const previousDate = sortedDates[i - 1];
-    const currentDate = sortedDates[i];
-    const expectedDate = addDays(previousDate, 1);
-
-    if (isSameDay(currentDate, expectedDate)) {
-      currentStreak++;
-      longestStreak = Math.max(longestStreak, currentStreak);
-    } else {
-      currentStreak = 1; // Reiniciar streak atual
-    }
-  }
-
-  return longestStreak;
-};
-
-// Calculate completion rate
 const calculateCompletionRate = (habit: Habit): number => {
-  const stats = calculateCompletionStats(habit.completedDates || []);
-  return Math.round((stats.last30Days / 30) * 100);
-};
-
-// Calculate completion stats
-const calculateCompletionStats = (completedDates: string[]) => {
   const today = new Date();
-  const last7Days = Array.from({ length: 7 }, (_, i) => subDays(today, i));
   const last30Days = Array.from({ length: 30 }, (_, i) => subDays(today, i));
 
-  // Converter strings de data para objetos Date
-  const completedDateObjects = completedDates.map((date) => new Date(date));
+  // Count completed days in the last 30 days
+  const completedInLast30Days = last30Days.filter((date) =>
+    habit.completedDates.some((completedDate) =>
+      isSameDay(new Date(completedDate), date)
+    )
+  ).length;
 
-  // Verificar se uma data está nos objetos de datas completadas
-  const isDateCompleted = (date: Date) =>
-    completedDateObjects.some((d) => isSameDay(d, date));
-
-  // Completude para hoje
-  const isCompletedToday = isDateCompleted(today);
-
-  // Completude para os últimos 7 dias
-  const completed7Days = last7Days.filter(isDateCompleted).length;
-
-  // Completude para os últimos 30 dias
-  const completed30Days = last30Days.filter(isDateCompleted).length;
-
-  return {
-    today: isCompletedToday ? 1 : 0,
-    last7Days: completed7Days,
-    last30Days: completed30Days,
-  };
+  return Math.round((completedInLast30Days / 30) * 100);
 };
 
-// Display completion percentage with improved context
-const CompletionLabel = ({ habit }: { habit: Habit }) => {
-  // Safe access to completedDates
-  const completedDates = habit.completedDates || [];
+const shouldCompleteToday = (habit: Habit): boolean => {
+  const today = new Date();
+  const dayOfWeek = today
+    .toLocaleDateString("en-US", { weekday: "short" })
+    .toLowerCase();
 
-  // Calculate completion rate with the non-null completedDates
-  const stats = calculateCompletionStats(completedDates);
-  const completionRate = Math.round((stats.last30Days / 30) * 100);
+  // First check if it's a valid day based on frequency
+  let isValidDay = false;
+  if (habit.frequency === "daily") {
+    isValidDay = true;
+  } else if (habit.frequency === "weekly") {
+    // For weekly habits, check if it's been completed this week
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
 
-  const getLabelText = () => {
-    if (!habit.frequency || habit.frequency === "none") {
-      return `${completionRate}% complete`;
-    } else if (habit.frequency === "daily") {
-      return `${completionRate}% complete (${DEFAULT_HEATMAP_DAYS} days)`;
-    } else if (habit.frequency === "weekly") {
-      return `${completionRate}% complete (last 4 weeks)`;
-    } else if (habit.frequency === "monthly") {
-      return `${completionRate}% complete (last 3 months)`;
-    } else {
-      return `${completionRate}% complete (this year)`;
-    }
-  };
+    isValidDay = !habit.completedDates.some((date) => {
+      const completedDate = new Date(date);
+      return completedDate >= startOfWeek && completedDate <= today;
+    });
+  } else if (habit.frequency === "custom" && habit.customDays) {
+    isValidDay = habit.customDays.includes(dayOfWeek.substring(0, 3));
+  }
 
-  return <span className="text-muted-foreground">{getLabelText()}</span>;
+  if (!isValidDay) return false;
+
+  // Then check if we've met the duration requirement for the period
+  const periodStart = new Date(today);
+  switch (habit.period) {
+    case "days":
+      periodStart.setDate(today.getDate() - habit.duration + 1);
+      break;
+    case "weeks":
+      periodStart.setDate(today.getDate() - habit.duration * 7 + 1);
+      break;
+    case "months":
+      periodStart.setMonth(today.getMonth() - habit.duration + 1);
+      break;
+  }
+
+  const completionsInPeriod = habit.completedDates.filter((date) => {
+    const completedDate = new Date(date);
+    return completedDate >= periodStart && completedDate <= today;
+  }).length;
+
+  return completionsInPeriod < habit.duration;
 };
 
-// Helper to schedule habit reminders
-const scheduleHabitReminder = (habit: Habit) => {
-  if (!habit.reminders) return;
-
-  habit.reminders.forEach((reminder) => {
-    const now = new Date();
-    const eventTime = new Date(reminder.time);
-
-    // Calculate the reminder time based on advance settings
-    let reminderTime = new Date(eventTime);
-    if (reminder.advance) {
-      const { value, unit } = reminder.advance;
-
-      // Subtract the advance time from the event time
-      switch (unit) {
-        case "minutes":
-          reminderTime.setMinutes(reminderTime.getMinutes() - value);
-          break;
-        case "hours":
-          reminderTime.setHours(reminderTime.getHours() - value);
-          break;
-        case "days":
-          reminderTime.setDate(reminderTime.getDate() - value);
-          break;
-        case "weeks":
-          reminderTime.setDate(reminderTime.getDate() - value * 7);
-          break;
-      }
-    }
-
-    if (reminderTime > now) {
-      const timeUntilReminder = reminderTime.getTime() - now.getTime();
-
-      setTimeout(() => {
-        // Show toast notification
-        toast.info(`Habit Reminder: ${habit.name}`, {
-          description: `Your habit is scheduled to be completed soon!`,
-        });
-
-        // Use the sendHabitReminder function for browser notifications
-        sendHabitReminder(habit.name, habit.frequency || "daily");
-
-        // Schedule next reminder based on the habit frequency
-        const frequency = habit.frequency || "daily";
-        const nextEventTime = new Date(eventTime);
-
-        // Adjust reminder date based on frequency
-        switch (frequency) {
-          case "daily":
-            nextEventTime.setDate(nextEventTime.getDate() + 1);
-            break;
-          case "weekly":
-            nextEventTime.setDate(nextEventTime.getDate() + 7);
-            break;
-          case "monthly":
-            nextEventTime.setMonth(nextEventTime.getMonth() + 1);
-            break;
-          case "yearly":
-            nextEventTime.setFullYear(nextEventTime.getFullYear() + 1);
-            break;
-          default:
-            // For "none", don't schedule further reminders
-            return;
-        }
-
-        reminder.time = nextEventTime.toISOString();
-        // Schedule the next reminder
-        scheduleHabitReminder(habit);
-      }, timeUntilReminder);
-    }
-  });
-};
-
-// Componente Stat para mostrar estatísticas
-const Stat = ({ label, value }: { label: string; value: string }) => {
-  return (
-    <div className="flex flex-col items-center">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-lg font-semibold">{value}</p>
-    </div>
-  );
-};
-
-// Update the HabitStats component to be consistent
-const HabitStats = ({ habit }: { habit: Habit }) => {
-  const currentStreak = calculateStreak(habit.completedDates || []);
-  const longestStreak = calculateLongestStreak(habit.completedDates || []);
-  const stats = calculateCompletionStats(habit.completedDates || []);
-  const completionRate = calculateCompletionRate(habit);
-
-  return (
-    <div className="flex flex-col p-4 pb-2 pt-2 bg-background rounded-md border shadow-sm">
-      <div className="flex flex-row justify-between mb-2">
-        <Stat label="Current Streak" value={`${currentStreak} days`} />
-        <Stat label="Best Streak" value={`${longestStreak} days`} />
-      </div>
-      <div className="flex flex-row justify-between">
-        <Stat label="Last 7 days" value={`${stats.last7Days}/7`} />
-        <Stat label="Last 30 days" value={`${stats.last30Days}/30`} />
-      </div>
-      <div className="mt-2">
-        <div className="text-xs text-muted-foreground mb-1">
-          {completionRate}% complete (30 days)
-        </div>
-        <Progress value={completionRate} className="h-1" />
-      </div>
-    </div>
-  );
-};
-
-// Enhanced color options for habits
-const colorOptions = [
-  { name: "Verde", value: "#10b981" },
-  { name: "Roxo", value: "#8b5cf6" },
-  { name: "Âmbar", value: "#f59e0b" },
-  { name: "Rosa", value: "#ec4899" },
-  { name: "Azul", value: "#3b82f6" },
-  { name: "Vermelho", value: "#ef4444" },
-  { name: "Ciano", value: "#06b6d4" },
-  { name: "Esmeralda", value: "#14b8a6" },
-  { name: "Lima", value: "#84cc16" },
-  { name: "Índigo", value: "#6366f1" },
-];
-
-// Updated HabitForm interface to support editing
+// Components
 const HabitForm = ({
-  initialHabit,
   onSave,
-  onClose,
+  onCancel,
+  initialHabit,
 }: {
-  initialHabit?: Habit | null;
-  onSave: (habit: Omit<Habit, "id" | "currentCount" | "streak">) => void;
-  onClose: () => void;
+  onSave: (habit: Omit<Habit, "id" | "createdAt" | "completedDates">) => void;
+  onCancel: () => void;
+  initialHabit?: Habit;
 }) => {
   const [name, setName] = useState(initialHabit?.name || "");
   const [description, setDescription] = useState(
     initialHabit?.description || ""
   );
-  const [selectedIcon, setSelectedIcon] = useState<React.ReactNode>(
-    initialHabit?.icon || <IconBolt />
+  const [icon, setIcon] = useState(initialHabit?.icon || HABIT_ICONS[0]);
+  const [color, setColor] = useState(initialHabit?.color || HABIT_COLORS[0]);
+  const [frequency, setFrequency] = useState<FrequencyType>(
+    initialHabit?.frequency || "daily"
   );
-  const [selectedColor, setSelectedColor] = useState(
-    initialHabit?.color || colorOptions[0].value
+  const [category, setCategory] = useState<HabitCategory>(
+    initialHabit?.category || "other"
   );
-  const [dailyGoal, setDailyGoal] = useState(initialHabit?.dailyGoal || 1);
-  const [streakGoal, setStreakGoal] = useState<FrequencyType>(
-    (initialHabit?.frequency as FrequencyType) || "daily"
+  const [customDays, setCustomDays] = useState<string[]>(
+    initialHabit?.customDays || []
   );
-  const [showReminder, setShowReminder] = useState(false);
-  const [reminderTime, setReminderTime] = useState<Date | null>(null);
-  const [reminderAdvance, setReminderAdvance] = useState<{
-    value: number;
-    unit: "minutes" | "hours" | "days" | "weeks";
-  }>({
-    value: 30,
-    unit: "minutes",
-  });
-
-  const incrementGoal = () => setDailyGoal((prev) => prev + 1);
-  const decrementGoal = () => setDailyGoal((prev) => Math.max(1, prev - 1));
+  const [reminderEnabled, setReminderEnabled] = useState(
+    initialHabit?.reminderEnabled || false
+  );
+  const [reminderTime, setReminderTime] = useState(
+    initialHabit?.reminderTime || "09:00"
+  );
+  const [duration, setDuration] = useState(initialHabit?.duration || 1);
+  const [period, setPeriod] = useState<"days" | "weeks" | "months">(
+    initialHabit?.period || "days"
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const newHabit: Omit<Habit, "id" | "currentCount" | "streak"> = {
+    const newHabit = {
       name,
       description,
-      icon: selectedIcon,
-      color: selectedColor,
-      dailyGoal,
-      frequency: streakGoal as FrequencyType,
+      icon,
+      color,
+      frequency,
+      category,
+      customDays: frequency === "custom" ? customDays : undefined,
+      reminderEnabled,
+      reminderTime: reminderEnabled ? reminderTime : undefined,
+      duration,
+      period,
     };
 
-    // Add reminder if enabled
-    if (showReminder && reminderTime) {
-      // Get the time part but set to today's date to ensure it's correctly evaluated
-      const reminderDate = new Date(reminderTime);
-
-      // If time already passed today, set for tomorrow
-      if (reminderDate < new Date()) {
-        reminderDate.setDate(reminderDate.getDate() + 1);
-      }
-
-      newHabit.reminders = [
-        {
-          id: Date.now().toString(),
-          time: reminderDate.toISOString(),
-          days: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
-          advance: reminderAdvance,
-        },
-      ];
-    }
-
     onSave(newHabit);
-    onClose();
   };
 
-  // Initialize reminder state if habit has reminders
-  useEffect(() => {
-    if (initialHabit?.reminders && initialHabit.reminders.length > 0) {
-      setShowReminder(true);
-      setReminderTime(new Date(initialHabit.reminders[0].time));
-      if (initialHabit.reminders[0].advance) {
-        setReminderAdvance(initialHabit.reminders[0].advance);
-      }
+  const toggleCustomDay = (day: string) => {
+    if (customDays.includes(day)) {
+      setCustomDays(customDays.filter((d) => d !== day));
+    } else {
+      setCustomDays([...customDays, day]);
     }
-  }, [initialHabit]);
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="name" className="text-sm font-medium">
-          Name
-        </Label>
+        <Label htmlFor="name">Name</Label>
         <Input
           id="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Habit name"
           required
-          className="rounded-lg"
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="description" className="text-sm font-medium">
-          Description (optional)
-        </Label>
+        <Label htmlFor="description">Description (optional)</Label>
         <Textarea
           id="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Describe the habit"
+          placeholder="What's this habit about?"
           rows={2}
-          className="rounded-lg"
         />
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Icon</Label>
-        <div className="grid grid-cols-5 gap-2">
-          <IconButton
-            selected={Boolean(
-              selectedIcon && (selectedIcon as any).type === IconBolt
-            )}
-            onClick={() => setSelectedIcon(<IconBolt />)}
-            icon={<IconBolt size={20} />}
-          />
-          <IconButton
-            selected={Boolean(
-              selectedIcon && (selectedIcon as any).type === IconFlame
-            )}
-            onClick={() => setSelectedIcon(<IconFlame />)}
-            icon={<IconFlame size={20} />}
-          />
-          <IconButton
-            selected={Boolean(
-              selectedIcon && (selectedIcon as any).type === IconCalendar
-            )}
-            onClick={() => setSelectedIcon(<IconCalendar />)}
-            icon={<IconCalendar size={20} />}
-          />
-          <IconButton
-            selected={Boolean(
-              selectedIcon && (selectedIcon as any).type === IconBook
-            )}
-            onClick={() => setSelectedIcon(<IconBook />)}
-            icon={<IconBook size={20} />}
-          />
-          <IconButton
-            selected={Boolean(
-              selectedIcon && (selectedIcon as any).type === IconRun
-            )}
-            onClick={() => setSelectedIcon(<IconRun />)}
-            icon={<IconRun size={20} />}
-          />
-          <IconButton
-            selected={Boolean(
-              selectedIcon && (selectedIcon as any).type === IconGlass
-            )}
-            onClick={() => setSelectedIcon(<IconGlass />)}
-            icon={<IconGlass size={20} />}
-          />
-          <IconButton
-            selected={Boolean(
-              selectedIcon && (selectedIcon as any).type === IconBed
-            )}
-            onClick={() => setSelectedIcon(<IconBed />)}
-            icon={<IconBed size={20} />}
-          />
-          <IconButton
-            selected={Boolean(
-              selectedIcon && (selectedIcon as any).type === IconApple
-            )}
-            onClick={() => setSelectedIcon(<IconApple />)}
-            icon={<IconApple size={20} />}
-          />
-          <IconButton
-            selected={Boolean(
-              selectedIcon && (selectedIcon as any).type === IconBike
-            )}
-            onClick={() => setSelectedIcon(<IconBike />)}
-            icon={<IconBike size={20} />}
-          />
-          <IconButton
-            selected={Boolean(
-              selectedIcon && (selectedIcon as any).type === IconDeviceLaptop
-            )}
-            onClick={() => setSelectedIcon(<IconDeviceLaptop />)}
-            icon={<IconDeviceLaptop size={20} />}
-          />
+        <Label>Icon</Label>
+        <div className="grid grid-cols-8 gap-2">
+          {HABIT_ICONS.map((habitIcon) => (
+            <button
+              key={habitIcon}
+              type="button"
+              className={cn(
+                "h-10 w-10 rounded-md flex items-center justify-center text-lg",
+                icon === habitIcon ? "ring-2 ring-primary" : "hover:bg-muted"
+              )}
+              onClick={() => setIcon(habitIcon)}
+            >
+              {habitIcon}
+            </button>
+          ))}
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Color</Label>
-        <div className="grid grid-cols-5 gap-2">
-          {colorOptions.map((color) => (
-            <div
-              key={color.value}
-              className={`h-6 w-6 rounded-full cursor-pointer border transition-all ${
-                selectedColor === color.value
-                  ? "ring-2 ring-offset-2 ring-offset-background"
-                  : "hover:scale-110"
-              }`}
-              style={{ backgroundColor: color.value }}
-              onClick={() => setSelectedColor(color.value)}
+        <Label>Color</Label>
+        <div className="grid grid-cols-8 gap-2">
+          {HABIT_COLORS.map((habitColor) => (
+            <button
+              key={habitColor}
+              type="button"
+              className={cn(
+                "h-8 w-8 rounded-full",
+                color === habitColor ? "ring-2 ring-primary ring-offset-2" : ""
+              )}
+              style={{ backgroundColor: habitColor }}
+              onClick={() => setColor(habitColor)}
             />
           ))}
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Completions per day</Label>
-        <div className="flex items-center space-x-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            onClick={decrementGoal}
-          >
-            <IconMinus size={14} />
-          </Button>
-          <span className="w-8 text-center font-medium">{dailyGoal}</span>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            onClick={incrementGoal}
-          >
-            <IconPlus size={14} />
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="streak-goal" className="text-sm font-medium">
-          Streak goal
-        </Label>
+        <Label htmlFor="category">Category</Label>
         <Select
-          value={streakGoal}
-          onValueChange={(value: FrequencyType) => setStreakGoal(value)}
+          value={category}
+          onValueChange={(value: HabitCategory) => setCategory(value)}
         >
-          <SelectTrigger id="streak-goal" className="h-9">
-            <SelectValue placeholder="Select a goal" />
+          <SelectTrigger>
+            <SelectValue placeholder="Select a category" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">None</SelectItem>
-            <SelectItem value="daily">Daily</SelectItem>
-            <SelectItem value="weekly">Weekly</SelectItem>
-            <SelectItem value="monthly">Monthly</SelectItem>
+            {Object.entries(CATEGORIES).map(([key, { label, icon }]) => (
+              <SelectItem key={key} value={key}>
+                <div className="flex items-center">
+                  <span className="mr-2">{icon}</span>
+                  <span>{label}</span>
+                </div>
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
 
-      <HabitReminderPicker
-        enabled={showReminder}
-        onEnabledChange={setShowReminder}
-        time={reminderTime}
-        onTimeChange={setReminderTime}
-        frequency={streakGoal}
-        reminderAdvance={reminderAdvance}
-        onReminderAdvanceChange={setReminderAdvance}
-      />
-
-      <div className="flex justify-end space-x-2 pt-4">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onClose}
-          className=""
+      <div className="space-y-2">
+        <Label htmlFor="frequency">Frequency</Label>
+        <Select
+          value={frequency}
+          onValueChange={(value: FrequencyType) => setFrequency(value)}
         >
+          <SelectTrigger>
+            <SelectValue placeholder="Select frequency" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="daily">Daily</SelectItem>
+            <SelectItem value="weekly">Weekly</SelectItem>
+            <SelectItem value="custom">Custom days</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {frequency === "custom" && (
+        <div className="space-y-2">
+          <Label>Days of the week</Label>
+          <div className="flex flex-wrap gap-2">
+            {DAYS_OF_WEEK.map((day) => (
+              <button
+                key={day.value}
+                type="button"
+                className={cn(
+                  "px-3 py-1 rounded-full text-xs font-medium",
+                  customDays.includes(day.value)
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted hover:bg-muted/80"
+                )}
+                onClick={() => toggleCustomDay(day.value)}
+              >
+                {day.label}
+              </button>
+            ))}
+          </div>
+          {customDays.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Please select at least one day
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <Label>Duration</Label>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <Input
+              type="number"
+              min="1"
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
+              className="w-full"
+            />
+          </div>
+          <Select
+            value={period}
+            onValueChange={(value: "days" | "weeks" | "months") =>
+              setPeriod(value)
+            }
+          >
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Period" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="days">Days</SelectItem>
+              <SelectItem value="weeks">Weeks</SelectItem>
+              <SelectItem value="months">Months</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          How many times should this habit be completed in the given period?
+        </p>
+      </div>
+
+      <div className="space-y-2 pt-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="reminder">Reminder</Label>
+          <Switch
+            id="reminder"
+            checked={reminderEnabled}
+            onCheckedChange={setReminderEnabled}
+          />
+        </div>
+
+        {reminderEnabled && (
+          <div className="pt-2">
+            <Label htmlFor="reminderTime">Time</Label>
+            <Input
+              id="reminderTime"
+              type="time"
+              value={reminderTime}
+              onChange={(e) => setReminderTime(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+        )}
+      </div>
+
+      <DialogFooter className="pt-4">
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" size="sm" className="">
-          {initialHabit ? "Update Habit" : "Create Habit"}
+        <Button
+          type="submit"
+          disabled={frequency === "custom" && customDays.length === 0}
+        >
+          {initialHabit ? "Update" : "Create"} Habit
         </Button>
-      </div>
+      </DialogFooter>
     </form>
   );
 };
 
-// IconButton corrigido
-const IconButton = ({
-  selected,
-  onClick,
-  icon,
-}: {
-  selected: boolean | null | undefined;
-  onClick: () => void;
-  icon: React.ReactNode;
-}) => (
-  <div
-    className={`flex justify-center items-center h-8 rounded-lg cursor-pointer border transition-all ${
-      selected
-        ? "bg-primary/10 border-primary/30"
-        : "border-border hover:border-foreground/20"
-    }`}
-    onClick={onClick}
-  >
-    {icon}
-  </div>
-);
-
-// Add the missing interface
-interface HabitItemProps {
-  habit: Habit;
-  onIncrement: (id: string) => void;
-  onDecrement: (id: string) => void;
-  onEdit: (habit: Habit) => void;
-  onDelete: (id: string) => void;
-}
-
 const HabitItem = ({
   habit,
-  onIncrement,
-  onDecrement,
+  onToggle,
   onEdit,
   onDelete,
-}: HabitItemProps) => {
-  const { id, name, icon, color, dailyGoal, currentCount = 0, streak } = habit;
+}: {
+  habit: Habit;
+  onToggle: (id: string, e?: React.MouseEvent) => void;
+  onEdit: (habit: Habit, e?: React.MouseEvent) => void;
+  onDelete: (id: string, e?: React.MouseEvent) => void;
+}) => {
+  const isCompletedToday = habit.completedDates.some((date) =>
+    isSameDay(new Date(date), new Date())
+  );
 
-  const incrementCompletion = () => {
-    if (currentCount < dailyGoal) {
-      onIncrement(id);
-    }
-  };
-
-  const decrementCompletion = () => {
-    onDecrement(id);
-  };
-
-  const progressPercentage = (currentCount / dailyGoal) * 100;
-  const isCompleted = currentCount >= dailyGoal;
+  const streak = calculateStreak(habit.completedDates);
+  const shouldComplete = shouldCompleteToday(habit);
 
   return (
-    <div className="bg-card border rounded-xl overflow-hidden hover:border-border/80 transition-colors h-full shadow-sm hover:shadow-md">
-      <div className="flex h-2" style={{ backgroundColor: color }} />
-      <div className="p-4 sm:p-5 flex flex-col h-[calc(100%-0.5rem)]">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white"
-              style={{ backgroundColor: color }}
+    <div
+      className={cn(
+        "group flex items-center p-4 rounded-lg border transition-colors",
+        isCompletedToday ? "bg-muted/30" : "bg-card hover:border-primary/50"
+      )}
+    >
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={(e) => onToggle(habit.id, e)}
+              className={cn(
+                "w-10 h-10 rounded-full flex items-center justify-center mr-4 flex-shrink-0 transition-colors",
+                isCompletedToday
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted hover:bg-primary/20 group-hover:border-primary/50"
+              )}
             >
-              {icon}
-            </div>
-            <h3 className="font-medium truncate max-w-[120px] sm:max-w-[180px]">
-              {name}
-            </h3>
-          </div>
+              {isCompletedToday ? (
+                <Check className="h-5 w-5" />
+              ) : (
+                <div className="h-5 w-5 rounded-full border-2 border-primary/50 group-hover:border-primary" />
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p>
+              {isCompletedToday ? "Mark as incomplete" : "Mark as complete"}
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center text-sm font-medium text-muted-foreground">
-              <Flame className="h-3.5 w-3.5 mr-1 text-orange-500" />
-              <span>{streak}</span>
-            </div>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-40 p-0">
-                <div className="flex flex-col">
-                  <Button
-                    variant="ghost"
-                    className="flex items-center justify-start h-9 px-2"
-                    onClick={() => onEdit(habit)}
-                  >
-                    <Edit className="h-4 w-4 mr-2" />
-                    <span>Edit</span>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="flex items-center justify-start h-9 px-2 text-red-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
-                    onClick={() => onDelete(id)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    <span>Delete</span>
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
+      <div
+        className="flex-1 min-w-0 cursor-pointer"
+        onClick={(e) => {
+          e.stopPropagation();
+          onEdit(habit, e);
+        }}
+      >
+        <div className="flex items-center">
+          <span
+            className="w-6 h-6 flex items-center justify-center rounded-full mr-2 text-sm"
+            style={{ backgroundColor: habit.color, color: "#fff" }}
+          >
+            {habit.icon}
+          </span>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-medium truncate">{habit.name}</h3>
+            {habit.description && (
+              <p className="text-sm text-muted-foreground truncate mt-0.5">
+                {habit.description}
+              </p>
+            )}
           </div>
         </div>
 
-        <div className="space-y-2 mb-4 flex-grow">
-          <div className="flex items-center justify-between">
-            <div className="flex items-baseline text-sm">
-              <span className="font-semibold">{currentCount}</span>
-              <span className="text-muted-foreground ml-1">/ {dailyGoal}</span>
-            </div>
-            <span
-              className={`font-medium text-xs sm:text-sm ${
-                isCompleted ? "text-green-500" : "text-muted-foreground"
-              }`}
-            >
-              {Math.round(progressPercentage)}%
-            </span>
-          </div>
-          <Progress
-            value={progressPercentage}
-            className="h-2 w-full rounded-full"
-            style={isCompleted ? { color: "rgb(34, 197, 94)" } : undefined}
-          />
-        </div>
-
-        <div className="pt-2 mt-auto">
-          {isCompleted ? (
-            <Button
-              onClick={decrementCompletion}
-              size="sm"
-              variant="outline"
-              className="w-full text-xs sm:text-sm border-green-500 text-green-500"
-            >
-              <Check className="h-3.5 w-3.5 mr-1 sm:h-4 sm:w-4 text-green-500" />
-              Unmark Complete
-            </Button>
-          ) : (
-            <Button
-              onClick={incrementCompletion}
-              size="sm"
-              variant="default"
-              className="w-full text-xs sm:text-sm"
-            >
-              <Check className="h-3.5 w-3.5 mr-1 sm:h-4 sm:w-4" />
-              Complete
-            </Button>
+        <div className="flex items-center gap-2 mt-2">
+          {streak > 0 && (
+            <Badge variant="outline" className="flex items-center gap-1">
+              <Flame className="h-3 w-3 text-orange-500" />
+              <span>{streak} day streak</span>
+            </Badge>
+          )}
+          {habit.frequency !== "daily" && (
+            <Badge variant="secondary" className="text-xs">
+              {habit.frequency === "weekly" ? "Weekly" : "Custom days"}
+            </Badge>
+          )}
+          <Badge variant="outline" className="flex items-center gap-1">
+            <Calendar className="h-3 w-3" />
+            {habit.duration}x/{habit.period.slice(0, -1)}
+          </Badge>
+          {habit.reminderEnabled && (
+            <Badge variant="outline" className="flex items-center gap-1">
+              <Bell className="h-3 w-3" />
+              {habit.reminderTime}
+            </Badge>
           )}
         </div>
+      </div>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={(e) => onEdit(habit, e)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={(e) => onDelete(habit.id, e)}
+            className="text-destructive focus:text-destructive"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+};
+
+const HabitCalendar = ({ habit }: { habit: Habit }) => {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const daysToShow = 7;
+
+  const navigateDays = (direction: "prev" | "next") => {
+    const newDate = new Date(currentDate);
+    if (direction === "prev") {
+      newDate.setDate(newDate.getDate() - daysToShow);
+    } else {
+      newDate.setDate(newDate.getDate() + daysToShow);
+    }
+    setCurrentDate(newDate);
+  };
+
+  // Generate dates to display
+  const dates = Array.from({ length: daysToShow }, (_, i) => {
+    const date = new Date(currentDate);
+    date.setDate(currentDate.getDate() - currentDate.getDay() + i);
+    return date;
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-medium">Calendar View</h3>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => navigateDays("prev")}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => navigateDays("next")}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-7 gap-1">
+        {dates.map((date) => {
+          const isCompleted = habit.completedDates.some((completedDate) =>
+            isSameDay(new Date(completedDate), date)
+          );
+
+          return (
+            <TooltipProvider key={date.toISOString()}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex flex-col items-center">
+                    <div className="text-xs text-muted-foreground mb-1">
+                      {format(date, "EEE")}
+                    </div>
+                    <div
+                      className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center text-xs",
+                        isToday(date) &&
+                          !isCompleted &&
+                          "border border-primary",
+                        isCompleted
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted"
+                      )}
+                    >
+                      {format(date, "d")}
+                    </div>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{format(date, "PPP")}</p>
+                  <p className="text-xs">
+                    {isCompleted ? "Completed" : "Not completed"}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const HabitStats = ({ habit }: { habit: Habit }) => {
+  const streak = calculateStreak(habit.completedDates);
+  const completionRate = calculateCompletionRate(habit);
+
+  // Calculate best streak
+  const calculateBestStreak = () => {
+    if (!habit.completedDates.length) return 0;
+
+    const sortedDates = [...habit.completedDates]
+      .map((date) => new Date(date))
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    let currentStreak = 1;
+    let bestStreak = 1;
+
+    for (let i = 1; i < sortedDates.length; i++) {
+      const prevDate = sortedDates[i - 1];
+      const currDate = sortedDates[i];
+      const expectedDate = new Date(prevDate);
+      expectedDate.setDate(prevDate.getDate() + 1);
+
+      if (isSameDay(currDate, expectedDate)) {
+        currentStreak++;
+        bestStreak = Math.max(bestStreak, currentStreak);
+      } else {
+        currentStreak = 1;
+      }
+    }
+
+    return bestStreak;
+  };
+
+  const bestStreak = calculateBestStreak();
+
+  // Calculate total completions
+  const totalCompletions = habit.completedDates.length;
+
+  // Calculate days since creation
+  const daysSinceCreation = Math.max(
+    1,
+    Math.floor(
+      (new Date().getTime() - new Date(habit.createdAt).getTime()) /
+        (1000 * 60 * 60 * 24)
+    )
+  );
+
+  return (
+    <div className="space-y-4">
+      <h3 className="font-medium">Statistics</h3>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-muted/30 p-3 rounded-lg">
+          <div className="text-sm text-muted-foreground">Current Streak</div>
+          <div className="text-2xl font-bold flex items-center mt-1">
+            <Flame className="h-5 w-5 text-orange-500 mr-1" />
+            {streak}
+          </div>
+        </div>
+
+        <div className="bg-muted/30 p-3 rounded-lg">
+          <div className="text-sm text-muted-foreground">Best Streak</div>
+          <div className="text-2xl font-bold mt-1">{bestStreak}</div>
+        </div>
+
+        <div className="bg-muted/30 p-3 rounded-lg">
+          <div className="text-sm text-muted-foreground">Completion Rate</div>
+          <div className="text-2xl font-bold mt-1">{completionRate}%</div>
+          <Progress value={completionRate} className="h-1 mt-2" />
+        </div>
+
+        <div className="bg-muted/30 p-3 rounded-lg">
+          <div className="text-sm text-muted-foreground">Total Completions</div>
+          <div className="text-2xl font-bold mt-1">{totalCompletions}</div>
+        </div>
+      </div>
+
+      <div className="text-xs text-muted-foreground">
+        Tracking since {format(new Date(habit.createdAt), "PP")} (
+        {daysSinceCreation} days)
+      </div>
+    </div>
+  );
+};
+
+const HabitDetail = ({
+  habit,
+  onClose,
+  onEdit,
+  onDelete,
+}: {
+  habit: Habit;
+  onClose: () => void;
+  onEdit: (habit: Habit) => void;
+  onDelete: (id: string) => void;
+}) => {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center mr-3"
+            style={{ backgroundColor: habit.color, color: "#fff" }}
+          >
+            <span className="text-lg">{habit.icon}</span>
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold">{habit.name}</h2>
+            {habit.description && (
+              <p className="text-sm text-muted-foreground">
+                {habit.description}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => onEdit(habit)}>
+            <Edit className="h-4 w-4 mr-1" />
+            Edit
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => {
+              onDelete(habit.id);
+              onClose();
+            }}
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            Delete
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <Badge className="flex items-center gap-1">
+          {CATEGORIES[habit.category].icon} {CATEGORIES[habit.category].label}
+        </Badge>
+
+        <Badge variant="outline">
+          {habit.frequency === "daily" && "Daily"}
+          {habit.frequency === "weekly" && "Weekly"}
+          {habit.frequency === "custom" && "Custom days"}
+        </Badge>
+
+        <Badge variant="outline" className="flex items-center gap-1">
+          <Calendar className="h-3 w-3" />
+          {habit.duration} {habit.duration === 1 ? "time" : "times"} per{" "}
+          {habit.period.slice(0, -1)}
+        </Badge>
+
+        {habit.reminderEnabled && (
+          <Badge variant="outline" className="flex items-center gap-1">
+            <Bell className="h-3 w-3" />
+            {habit.reminderTime}
+          </Badge>
+        )}
+      </div>
+
+      <Tabs defaultValue="calendar">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="calendar" className="flex items-center gap-1">
+            <Calendar className="h-4 w-4" />
+            Calendar
+          </TabsTrigger>
+          <TabsTrigger value="stats" className="flex items-center gap-1">
+            <BarChart3 className="h-4 w-4" />
+            Statistics
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="calendar" className="pt-4">
+          <HabitCalendar habit={habit} />
+        </TabsContent>
+        <TabsContent value="stats" className="pt-4">
+          <HabitStats habit={habit} />
+        </TabsContent>
+      </Tabs>
+
+      <div className="pt-4">
+        <Button onClick={onClose} className="w-full">
+          Close
+        </Button>
       </div>
     </div>
   );
@@ -1098,238 +919,368 @@ const HabitItem = ({
 
 export function HabitTracker() {
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [activeFilter, setActiveFilter] = useState<
+    "all" | "today" | HabitCategory
+  >("all");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null);
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [activeFilter, setActiveFilter] = useState("all");
-  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
-
-  // Add a useEffect to schedule reminders when habits change
+  // Load habits from local storage
   useEffect(() => {
-    habits.forEach((habit) => {
-      if (habit.reminders && habit.reminders.length > 0) {
-        scheduleHabitReminder(habit);
+    const savedHabits = localStorage.getItem(STORAGE_KEY);
+    if (savedHabits) {
+      try {
+        setHabits(JSON.parse(savedHabits));
+      } catch (error) {
+        console.error("Failed to parse saved habits:", error);
       }
-    });
+    }
+  }, []);
+
+  // Save habits to local storage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(habits));
   }, [habits]);
 
-  const handleSaveHabit = (
-    newHabit: Omit<Habit, "id" | "currentCount" | "streak">
+  // Handle creating a new habit
+  const handleCreateHabit = (
+    habitData: Omit<Habit, "id" | "createdAt" | "completedDates">
   ) => {
-    if (editingHabit) {
-      // Update existing habit
-      setHabits((prevHabits) =>
-        prevHabits.map((habit) =>
-          habit.id === editingHabit.id
-            ? {
-                ...habit,
-                ...newHabit,
-                currentCount: habit.currentCount,
-                streak: habit.streak,
-              }
-            : habit
-        )
-      );
-      setEditingHabit(null);
-    } else {
-      // Create new habit
-      const habit: Habit = {
-        ...newHabit,
-        id: Date.now().toString(),
-        currentCount: 0,
-        streak: 0,
-      };
-      setHabits((prev) => [...prev, habit]);
-    }
+    const newHabit: Habit = {
+      ...habitData,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString(),
+      completedDates: [],
+      duration: habitData.duration || 1,
+      period: habitData.period || "days",
+    };
+
+    setHabits([...habits, newHabit]);
+    setIsAddDialogOpen(false);
+
+    toast({
+      title: "Habit created",
+      description: `${newHabit.name} has been added to your habits.`,
+    });
   };
 
-  // Handle habit increment
-  const handleIncrementHabit = (id: string) => {
-    setHabits((prevHabits) =>
-      prevHabits.map((habit) =>
-        habit.id === id
-          ? { ...habit, currentCount: (habit.currentCount || 0) + 1 }
-          : habit
+  // Handle updating a habit
+  const handleUpdateHabit = (
+    habitData: Omit<Habit, "id" | "createdAt" | "completedDates">
+  ) => {
+    if (!selectedHabit) return;
+
+    const updatedHabit: Habit = {
+      ...selectedHabit,
+      ...habitData,
+    };
+
+    setHabits(
+      habits.map((habit) =>
+        habit.id === selectedHabit.id ? updatedHabit : habit
       )
+    );
+
+    setIsEditDialogOpen(false);
+    setSelectedHabit(null);
+
+    toast({
+      title: "Habit updated",
+      description: `${updatedHabit.name} has been updated.`,
+    });
+  };
+
+  // Handle toggling a habit completion
+  const handleToggleHabit = (id: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+
+    setHabits(
+      habits.map((habit) => {
+        if (habit.id !== id) return habit;
+
+        const today = new Date().toISOString().split("T")[0];
+        const isCompletedToday = habit.completedDates.some((date) =>
+          date.startsWith(today)
+        );
+
+        if (isCompletedToday) {
+          // Remove today's completion
+          return {
+            ...habit,
+            completedDates: habit.completedDates.filter(
+              (date) => !date.startsWith(today)
+            ),
+          };
+        } else {
+          // Add today's completion
+          return {
+            ...habit,
+            completedDates: [...habit.completedDates, new Date().toISOString()],
+          };
+        }
+      })
     );
   };
 
-  // Handle habit decrement to allow unmarking completed habits
-  const handleDecrementHabit = (id: string) => {
-    setHabits((prevHabits) =>
-      prevHabits.map((habit) =>
-        habit.id === id
-          ? {
-              ...habit,
-              currentCount: Math.max(0, (habit.currentCount || 0) - 1),
-            }
-          : habit
-      )
-    );
-  };
-
-  // Handle edit habit
-  const handleEditHabit = (habit: Habit) => {
-    setEditingHabit(habit);
-    setIsDialogOpen(true);
-  };
-
-  // Handle delete habit
-  const handleDeleteHabit = (id: string) => {
-    // Limpar o estado de edição se o hábito sendo excluído for o mesmo que está sendo editado
-    if (editingHabit && editingHabit.id === id) {
-      setEditingHabit(null);
+  // Handle deleting a habit
+  const handleDeleteHabit = (id: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
     }
-    setHabits((prevHabits) => prevHabits.filter((habit) => habit.id !== id));
+
+    const habitToDelete = habits.find((habit) => habit.id === id);
+    if (!habitToDelete) return;
+
+    setSelectedHabit(habitToDelete);
+    setIsDeleteDialogOpen(true);
   };
 
-  // Filter habits based on the active filter
+  const confirmDeleteHabit = () => {
+    if (!selectedHabit) return;
+
+    setHabits(habits.filter((habit) => habit.id !== selectedHabit.id));
+
+    toast({
+      title: "Habit deleted",
+      description: `${selectedHabit.name} has been deleted.`,
+    });
+
+    setIsDeleteDialogOpen(false);
+    setSelectedHabit(null);
+  };
+
+  // Handle editing a habit
+  const handleEditHabit = (habit: Habit, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+
+    setSelectedHabit(habit);
+    setIsEditDialogOpen(true);
+  };
+
+  // Filter habits based on active filter
   const filteredHabits = habits.filter((habit) => {
     if (activeFilter === "all") return true;
-    if (activeFilter === "completed")
-      return (habit.currentCount || 0) >= habit.dailyGoal;
-    if (activeFilter === "pending")
-      return (habit.currentCount || 0) < habit.dailyGoal;
-    return true;
+    if (activeFilter === "today") return shouldCompleteToday(habit);
+    return habit.category === activeFilter;
   });
 
-  // Close dialog and reset editing state
-  const handleCloseDialog = () => {
-    setIsDialogOpen(false);
-    setEditingHabit(null);
-  };
+  // Calculate completion stats
+  const completedToday = habits.filter((habit) =>
+    habit.completedDates.some((date) => isSameDay(new Date(date), new Date()))
+  ).length;
+
+  const totalForToday = habits.filter((habit) =>
+    shouldCompleteToday(habit)
+  ).length;
+
+  const completionPercentage =
+    totalForToday > 0 ? Math.round((completedToday / totalForToday) * 100) : 0;
 
   return (
-    <div className="flex flex-col w-full h-full">
-      <div className="border-b py-4">
-        <div className="container flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-medium">My Habits</h2>
-            <p className="text-sm text-muted-foreground">
-              Track and develop consistent habits
-            </p>
-          </div>
-          <Dialog
-            open={isDialogOpen}
-            onOpenChange={(open) => {
-              // Limpar o estado de edição ao abrir o diálogo caso não esteja editando
-              if (open && !editingHabit) {
-                setEditingHabit(null);
-              }
-              setIsDialogOpen(open);
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button
-                variant="default"
-                size="sm"
-                className="gap-1"
-                onClick={() => setEditingHabit(null)}
-              >
-                <IconPlus size={16} />
-                New Habit
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingHabit ? "Edit Habit" : "Create New Habit"}
-                </DialogTitle>
-                <DialogDescription>
-                  {editingHabit
-                    ? "Update your habit details."
-                    : "Add habits to track your daily consistency."}
-                </DialogDescription>
-              </DialogHeader>
-              <HabitForm
-                initialHabit={editingHabit}
-                onSave={handleSaveHabit}
-                onClose={handleCloseDialog}
-              />
-            </DialogContent>
-          </Dialog>
+    <div className="container max-w-3xl mx-auto py-4 px-2">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h1 className="text-2xl font-bold">Habit Tracker</h1>
+          <p className="text-muted-foreground">
+            Track your daily habits and build consistency
+          </p>
         </div>
-      </div>
 
-      <div className="container py-6 flex-1">
-        {habits.length === 0 ? (
-          <div className="bg-background border border-border rounded-xl flex flex-col items-center justify-center py-12 px-4 h-[400px]">
-            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-              <IconBolt size={24} className="text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-medium mb-2">No habits yet</h3>
-            <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto text-center">
-              Start tracking your daily habits to build consistency and reach
-              your goals.
-            </p>
-            <Button
-              onClick={() => setIsDialogOpen(true)}
-              variant="default"
-              size="sm"
-              className="gap-1"
-            >
-              <IconPlus size={16} />
-              Add Your First Habit
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Habit
             </Button>
-          </div>
-        ) : (
-          <>
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-              <div>
-                <h3 className="text-lg font-medium">Active Habits</h3>
-                <p className="text-sm text-muted-foreground">
-                  {filteredHabits.length}{" "}
-                  {filteredHabits.length === 1 ? "habit" : "habits"}{" "}
-                  {activeFilter !== "all" && `(${activeFilter})`}
-                </p>
-              </div>
-
-              <div className="flex items-center">
-                <Select value={activeFilter} onValueChange={setActiveFilter}>
-                  <SelectTrigger className="w-[160px] h-9">
-                    <SelectValue placeholder="Filter by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All habits</SelectItem>
-                    <SelectItem value="completed">Completed today</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px] overflow-y-auto max-h-[70vh]">
+            <DialogTitle className="sr-only">Create a new habit</DialogTitle>
+            <DialogHeader>
+              <h2 className="text-lg font-semibold">Create a new habit</h2>
+              <DialogDescription>
+                Add a new habit to track. Be specific about what you want to
+                achieve.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <HabitForm
+                onSave={handleCreateHabit}
+                onCancel={() => setIsAddDialogOpen(false)}
+              />
             </div>
-
-            {filteredHabits.length === 0 ? (
-              <div className="flex flex-col items-center justify-center text-center p-8 mt-10">
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
-                  <ActivitySquare className="h-10 w-10 text-muted-foreground" />
-                </div>
-                <h3 className="mt-4 text-lg font-semibold">No habits found</h3>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {activeFilter === "completed"
-                    ? "None of your habits have been completed today."
-                    : activeFilter === "pending"
-                    ? "All of your habits have been completed today. Great job!"
-                    : "No habits match the current filter."}
-                </p>
-              </div>
-            ) : (
-              <div className="max-h-[600px] overflow-y-auto pr-2">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-                  {filteredHabits.map((habit) => (
-                    <HabitItem
-                      key={habit.id}
-                      habit={habit}
-                      onIncrement={handleIncrementHabit}
-                      onDecrement={handleDecrementHabit}
-                      onEdit={handleEditHabit}
-                      onDelete={handleDeleteHabit}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        )}
+          </DialogContent>
+        </Dialog>
       </div>
+
+      {habits.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-medium text-muted-foreground">
+              Today's Progress
+            </h2>
+            <span className="text-sm font-medium">
+              {completedToday}/{totalForToday} completed
+            </span>
+          </div>
+          <Progress value={completionPercentage} className="h-2" />
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-2">
+        <Button
+          variant={activeFilter === "all" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setActiveFilter("all")}
+          className="flex-shrink-0"
+        >
+          All
+        </Button>
+        <Button
+          variant={activeFilter === "today" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setActiveFilter("today")}
+          className="flex-shrink-0"
+        >
+          Today
+        </Button>
+
+        {Object.entries(CATEGORIES).map(([key, { label, icon }]) => (
+          <Button
+            key={key}
+            variant={activeFilter === key ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveFilter(key as HabitCategory)}
+            className="flex-shrink-0"
+          >
+            <span className="mr-1">{icon}</span>
+            {label}
+          </Button>
+        ))}
+      </div>
+
+      {habits.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="bg-muted rounded-full p-3 mb-4">
+            <Calendar className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <h3 className="text-lg font-medium mb-1">No habits yet</h3>
+          <p className="text-muted-foreground mb-4 max-w-md">
+            Start tracking your habits to build consistency and achieve your
+            goals.
+          </p>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Your First Habit
+          </Button>
+        </div>
+      ) : filteredHabits.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-8 text-center">
+          <p className="text-muted-foreground">
+            No habits match the current filter.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredHabits.map((habit) => (
+            <div
+              key={habit.id}
+              onClick={() => {
+                setSelectedHabit(habit);
+                setIsDetailDialogOpen(true);
+              }}
+              className="cursor-pointer"
+            >
+              <HabitItem
+                habit={habit}
+                onToggle={handleToggleHabit}
+                onEdit={handleEditHabit}
+                onDelete={handleDeleteHabit}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] overflow-y-auto max-h-[80vh]">
+          <DialogTitle className="sr-only">Edit habit</DialogTitle>
+          <DialogHeader>
+            <h2 className="text-lg font-semibold">Edit habit</h2>
+            <DialogDescription>Make changes to your habit.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            {selectedHabit && (
+              <HabitForm
+                initialHabit={selectedHabit}
+                onSave={handleUpdateHabit}
+                onCancel={() => {
+                  setIsEditDialogOpen(false);
+                  setSelectedHabit(null);
+                }}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Detail Dialog */}
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="max-w-md overflow-y-auto max-h-[80vh]">
+          <DialogTitle className="sr-only">Habit Details</DialogTitle>
+          <DialogHeader>
+            <h2 className="text-lg font-semibold">Habit Details</h2>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            {selectedHabit && (
+              <HabitDetail
+                habit={selectedHabit}
+                onClose={() => {
+                  setIsDetailDialogOpen(false);
+                  setSelectedHabit(null);
+                }}
+                onEdit={(habit) => {
+                  setIsDetailDialogOpen(false);
+                  setSelectedHabit(habit);
+                  setIsEditDialogOpen(true);
+                }}
+                onDelete={handleDeleteHabit}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Habit</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedHabit?.name}"? This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteHabit}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

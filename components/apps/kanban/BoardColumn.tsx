@@ -53,17 +53,17 @@ const BoardColumn = memo(
       <div
         ref={setNodeRef}
         className={cn(
-          "bg-zinc-900/80 rounded-2xl p-4 min-w-[300px] flex flex-col gap-3",
-          "shadow-lg border border-zinc-700/40 backdrop-blur-sm",
+          "bg-background/80 rounded-2xl p-4 min-w-[300px] flex flex-col gap-3",
+          "shadow-lg border border-border/40 backdrop-blur-sm",
           "focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
         )}
         role="region"
         aria-label={`${column.title} column`}
       >
-        <div className="flex items-center justify-between mb-1 pb-2 border-b border-zinc-700/40">
-          <h2 className="font-semibold text-lg text-white tracking-tight truncate">
+        <div className="flex items-center justify-between mb-1 pb-2 border-b border-border/40">
+          <h2 className="font-semibold text-lg text-foreground tracking-tight truncate">
             {column.title}
-            <span className="ml-2 text-sm text-zinc-400">
+            <span className="ml-2 text-sm text-muted-foreground">
               ({column.cards.length})
             </span>
           </h2>
@@ -72,7 +72,7 @@ const BoardColumn = memo(
               <Button
                 size="icon"
                 variant="ghost"
-                className="text-white bg-zinc-800 hover:bg-zinc-700 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="text-foreground bg-muted hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 aria-label={`Add card to ${column.title}`}
               >
                 <Plus className="h-5 w-5" />
@@ -92,7 +92,7 @@ const BoardColumn = memo(
                     onChange={(e) => setNewTitle(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Task title..."
-                    className="bg-zinc-800/80 border-zinc-700/40 text-white placeholder:text-zinc-400"
+                    className="bg-muted/80 border-border/40 text-foreground placeholder:text-muted-foreground"
                     autoFocus
                     aria-label="Task title"
                   />
@@ -100,7 +100,7 @@ const BoardColumn = memo(
                     value={newDescription}
                     onChange={(e) => setNewDescription(e.target.value)}
                     placeholder="Description (optional)..."
-                    className="bg-zinc-800/80 border-zinc-700/40 text-white placeholder:text-zinc-400"
+                    className="bg-muted/80 border-border/40 text-foreground placeholder:text-muted-foreground"
                     aria-label="Task description"
                   />
                 </div>
@@ -108,7 +108,7 @@ const BoardColumn = memo(
                   <Button
                     type="submit"
                     disabled={!newTitle.trim()}
-                    className="bg-zinc-900 text-white hover:bg-zinc-800"
+                    className="bg-background text-foreground hover:bg-muted"
                   >
                     Add Task
                   </Button>

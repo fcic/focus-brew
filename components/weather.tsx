@@ -9,6 +9,9 @@ import {
   CloudFog,
   Loader2,
   AlertCircle,
+  MapPin,
+  Thermometer,
+  Droplets,
 } from "lucide-react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { cn } from "@/lib/utils";
@@ -18,6 +21,12 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from "./ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
 
 // Types
 interface WeatherData {
@@ -92,6 +101,7 @@ export function Weather() {
   const [retryCount, setRetryCount] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   // Local Storage
   const [unit, setUnit] = useLocalStorage<TemperatureUnit>("weather_unit", "C");
@@ -270,27 +280,89 @@ export function Weather() {
   return (
     <TooltipProvider>
       <div className="flex items-center space-x-2 text-xs">
-        <Tooltip>
-          <TooltipTrigger className="flex items-center space-x-1">
-            {getWeatherIcon(weather?.weather[0]?.id ?? null)}
-            <span>
-              {formattedTemperature}°{unit}
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p className="whitespace-pre-line">{tooltipText}</p>
-            {timeSinceUpdate && (
-              <p className="mt-1 text-xs text-zinc-400">
-                Last updated: {timeSinceUpdate}
-              </p>
+        <Popover open={dialogOpen} onOpenChange={setDialogOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 px-2 text-xs flex items-center gap-1 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50"
+              aria-label="Weather details"
+            >
+              {getWeatherIcon(weather?.weather[0]?.id ?? null)}
+              <span>
+                {formattedTemperature}°{unit}
+              </span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="bg-popover/90 backdrop-blur-md rounded-md border border-border mt-1 p-1"
+            align="end"
+            sideOffset={4}
+            alignOffset={-4}
+          >
+            {weather && (
+              <div className="space-y-1">
+                <div className="group flex items-center text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm">
+                  <div className="flex items-center gap-2">
+                    {getWeatherIcon(weather.weather[0]?.id ?? null)}
+                    <span className="capitalize">
+                      {weather.weather[0].description}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="group flex items-center justify-between text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm">
+                  <div className="flex items-center gap-2">
+                    <Thermometer className="h-3.5 w-3.5" />
+                    <span>Temperature</span>
+                  </div>
+                  <span>
+                    {formattedTemperature}°{unit}
+                  </span>
+                </div>
+
+                <div className="group flex items-center justify-between text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm">
+                  <div className="flex items-center gap-2">
+                    <Droplets className="h-3.5 w-3.5" />
+                    <span>Humidity</span>
+                  </div>
+                  <span>{weather.main.humidity}%</span>
+                </div>
+
+                <div className="group flex items-center justify-between text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm">
+                  <div className="flex items-center gap-2">
+                    <Thermometer className="h-3.5 w-3.5" />
+                    <span>Feels Like</span>
+                  </div>
+                  <span>
+                    {Math.round(weather.main.feels_like)}°{unit}
+                  </span>
+                </div>
+
+                <div className="group flex items-center justify-between text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-3.5 w-3.5" />
+                    <span>Location</span>
+                  </div>
+                  <span>{weather.name}</span>
+                </div>
+
+                {timeSinceUpdate && (
+                  <div className="px-2 py-1 text-xs text-muted-foreground">
+                    Last updated: {timeSinceUpdate}
+                  </div>
+                )}
+              </div>
             )}
-          </TooltipContent>
-        </Tooltip>
+          </PopoverContent>
+        </Popover>
 
         {error ? (
           <Tooltip>
-            <TooltipTrigger>
-              <AlertCircle className="h-3.5 w-3.5 text-red-400" />
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
+                <AlertCircle className="h-3.5 w-3.5 text-red-400" />
+              </Button>
             </TooltipTrigger>
             <TooltipContent>
               <p>{error}</p>

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, memo } from "react";
-import { Plus, Trash2, CheckCircle2, Circle } from "lucide-react";
+import { useState, useRef, useEffect, useCallback, memo, useMemo } from "react";
+import { Plus, Trash2, CheckCircle2, Circle, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLocalStorage } from "@/hooks/use-local-storage";
@@ -29,6 +29,7 @@ interface TodoItemProps {
   todo: Todo;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
+  index: number;
 }
 
 const springAnimation = {
@@ -37,8 +38,9 @@ const springAnimation = {
   damping: 30,
 } as const;
 
-const TodoItem = memo(({ todo, onToggle, onDelete }: TodoItemProps) => {
+const TodoItem = memo(({ todo, onToggle, onDelete, index }: TodoItemProps) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   const handleKeyDown = (e: React.KeyboardEvent, action: () => void) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -63,8 +65,13 @@ const TodoItem = memo(({ todo, onToggle, onDelete }: TodoItemProps) => {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-        transition={springAnimation}
+        transition={{
+          ...springAnimation,
+          delay: index * 0.05,
+        }}
         className="group flex items-center justify-between p-3 bg-white/30 dark:bg-zinc-800/30 backdrop-blur-sm rounded-lg border border-zinc-300/20 dark:border-zinc-700/20 hover:bg-white/40 dark:hover:bg-zinc-800/40 transition-colors"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
         <div className="flex items-center space-x-3 flex-1 min-w-0">
           <Button
@@ -76,16 +83,19 @@ const TodoItem = memo(({ todo, onToggle, onDelete }: TodoItemProps) => {
             aria-label={
               todo.completed ? "Mark as incomplete" : "Mark as complete"
             }
+            aria-pressed={todo.completed}
           >
-            {todo.completed ? (
-              <CheckCircle2 className="h-5 w-5 text-primary transition-colors" />
-            ) : (
-              <Circle className="h-5 w-5 text-zinc-400 dark:text-zinc-500 transition-colors" />
-            )}
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+              {todo.completed ? (
+                <CheckCircle2 className="h-5 w-5 text-primary transition-colors" />
+              ) : (
+                <Circle className="h-5 w-5 text-zinc-400 dark:text-zinc-500 transition-colors" />
+              )}
+            </motion.div>
           </Button>
           <span
             className={cn(
-              "text-sm truncate",
+              "text-sm truncate transition-all duration-200",
               todo.completed && "line-through text-zinc-400 dark:text-zinc-500"
             )}
             title={todo.text}
@@ -93,24 +103,34 @@ const TodoItem = memo(({ todo, onToggle, onDelete }: TodoItemProps) => {
             {todo.text}
           </span>
         </div>
-        <motion.div
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          className="opacity-0 group-hover:opacity-100 transition-opacity"
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleDeleteClick}
-            onKeyDown={(e) =>
-              handleKeyDown(e, () => setIsDeleteDialogOpen(true))
-            }
-            className="rounded-full focus-visible:ring-2 focus-visible:ring-offset-2"
-            aria-label="Delete todo"
-          >
-            <Trash2 className="h-4 w-4 text-red-500" />
-          </Button>
-        </motion.div>
+        <AnimatePresence>
+          {(isHovered || todo.completed) && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.15 }}
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleDeleteClick}
+                onKeyDown={(e) =>
+                  handleKeyDown(e, () => setIsDeleteDialogOpen(true))
+                }
+                className="rounded-full focus-visible:ring-2 focus-visible:ring-offset-2"
+                aria-label="Delete todo"
+              >
+                <motion.div
+                  whileHover={{ scale: 1.1, color: "rgb(239, 68, 68)" }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <Trash2 className="h-4 w-4 text-red-500/70" />
+                </motion.div>
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.li>
 
       <AlertDialog
@@ -146,14 +166,19 @@ const EmptyState = memo(() => {
   return (
     <motion.div
       key="empty-state"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={springAnimation}
       className="flex flex-col items-center justify-center text-zinc-500 dark:text-zinc-400 text-sm py-12 space-y-2"
     >
-      <div className="w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4">
+      <motion.div
+        className="w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+      >
         <CheckCircle2 className="w-8 h-8 text-zinc-400 dark:text-zinc-600" />
-      </div>
+      </motion.div>
       <p className="font-medium">No tasks yet</p>
       <p className="text-xs text-zinc-400 dark:text-zinc-500">
         Add your first task above to get started
@@ -226,65 +251,88 @@ export const TodoApp = () => {
     }
   };
 
-  const sortedTodos = todos.sort((a, b) => {
-    if (a.completed !== b.completed) {
-      return a.completed ? 1 : -1;
-    }
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
+  const sortedTodos = useMemo(() => {
+    return [...todos].sort((a, b) => {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [todos]);
 
   return (
-    <div className="h-full flex flex-col p-6 space-y-6">
-      <div>
-        <form
-          className="flex space-x-2"
-          onSubmit={handleSubmit}
-          role="form"
-          aria-label="Add todo form"
-        >
-          <Input
-            ref={inputRef}
-            placeholder="Add a new task..."
-            value={newTodo}
-            onChange={(e) => setNewTodo(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="flex-1 bg-white/50 dark:bg-zinc-800/50 border-zinc-300/30 dark:border-zinc-700/30 focus-visible:ring-2 focus-visible:ring-offset-2"
-            disabled={isSubmitting}
-            aria-label="New todo input"
-          />
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button
-              type="submit"
-              size="icon"
-              className="rounded-lg focus-visible:ring-2 focus-visible:ring-offset-2"
-              disabled={isSubmitting || !newTodo.trim()}
-              aria-label="Add todo"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="sr-only">Add</span>
-            </Button>
-          </motion.div>
-        </form>
-      </div>
+    <div className="h-full flex flex-col p-4 bg-white/10 dark:bg-zinc-900/10 backdrop-blur-md">
+      <h1 className="text-lg font-semibold mb-4">Tasks</h1>
 
-      <div className="flex-1 overflow-auto -mx-6 px-6">
-        <AnimatePresence mode="popLayout">
-          {todos.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <ul className="space-y-3" role="list" aria-label="Todo list">
-              {sortedTodos.map((todo) => (
+      <form onSubmit={handleSubmit} className="mb-4">
+        <div className="flex space-x-2">
+          <div className="relative flex-1">
+            <Input
+              ref={inputRef}
+              type="text"
+              placeholder="Add a new task..."
+              value={newTodo}
+              onChange={(e) => setNewTodo(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="pr-10 bg-white/30 dark:bg-zinc-800/30 border-zinc-300/30 dark:border-zinc-700/30 focus-visible:ring-primary/20"
+              aria-label="New task"
+              disabled={isSubmitting}
+            />
+            {newTodo.trim() && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setNewTodo("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full"
+                aria-label="Clear input"
+              >
+                <X className="h-3 w-3 text-zinc-400" />
+              </Button>
+            )}
+          </div>
+          <Button
+            type="submit"
+            disabled={!newTodo.trim() || isSubmitting}
+            className="bg-primary/90 hover:bg-primary transition-colors"
+          >
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add
+            </motion.div>
+          </Button>
+        </div>
+      </form>
+
+      <div className="flex-1 overflow-auto">
+        {todos.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <motion.ul className="space-y-2" layout>
+            <AnimatePresence initial={false}>
+              {sortedTodos.map((todo, index) => (
                 <TodoItem
                   key={todo.id}
                   todo={todo}
                   onToggle={handleToggleTodo}
                   onDelete={handleDeleteTodo}
+                  index={index}
                 />
               ))}
-            </ul>
-          )}
-        </AnimatePresence>
+            </AnimatePresence>
+          </motion.ul>
+        )}
       </div>
+
+      {todos.length > 0 && (
+        <div className="mt-4 flex justify-between text-xs text-zinc-500 dark:text-zinc-400">
+          <span>
+            {todos.length} task{todos.length !== 1 ? "s" : ""}
+          </span>
+          <span>{todos.filter((t) => t.completed).length} completed</span>
+        </div>
+      )}
     </div>
   );
 };

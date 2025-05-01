@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import { Progress } from "@/components/ui/progress";
 import Image from "next/image";
+import { cn } from "@/lib/utils";
 
 interface BootloaderProps {
   onComplete: () => void;
@@ -62,11 +63,7 @@ export const Bootloader = ({
 
   return (
     <motion.div
-      className="fixed inset-0 flex flex-col items-center justify-center"
-      style={{
-        backgroundColor: "#000000",
-        color: "#ffffff",
-      }}
+      className="fixed inset-0 flex flex-col items-center justify-center bg-background text-foreground"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -79,7 +76,7 @@ export const Bootloader = ({
       >
         <div className="relative w-32 h-32 mb-8">
           <Image
-            src="/logo.svg"
+            src={theme === "dark" ? "/logo-light.svg" : "/logo-dark.svg"}
             alt="FocusBrew"
             fill
             style={{ objectFit: "contain" }}
@@ -89,7 +86,7 @@ export const Bootloader = ({
 
         <div className="w-64 mb-4 relative overflow-hidden rounded-full">
           <motion.div
-            className="absolute inset-0 bg-gradient-to-r from-purple-500 via-blue-500 to-green-500"
+            className="absolute inset-0 bg-gradient-to-r from-primary/70 via-blue-500 to-green-500"
             animate={{
               x: ["-100%", "100%"],
             }}
@@ -100,11 +97,11 @@ export const Bootloader = ({
             }}
             style={{ opacity: 0.6, mixBlendMode: "overlay" }}
           />
-          <Progress value={progress} className="h-2 bg-gray-800" />
+          <Progress value={progress} className="h-2 bg-muted" />
         </div>
 
         <motion.p
-          className="text-sm text-white/70 mt-2"
+          className="text-sm text-foreground/70 mt-2"
           animate={{ opacity: [0.5, 1, 0.5] }}
           transition={{
             duration: 2,

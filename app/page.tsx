@@ -18,6 +18,8 @@ import { type SettingsTab } from "@/lib/constants";
 import { Bootloader } from "@/components/boot/Bootloader";
 import { stopAllAmbientSounds } from "@/components/apps/ambient-sounds";
 import { useTheme } from "next-themes";
+import { LoadingFallback } from "@/components/ui/loading-fallback";
+import { CommandPalette } from "@/components/command-palette";
 
 // Lazy load components
 const TodoApp = lazy(() =>
@@ -57,18 +59,11 @@ const HabitTracker = lazy(() =>
   }))
 );
 
-// Simplified loading fallback
-const LoadingFallback = () => (
-  <div className="flex items-center justify-center w-full h-full opacity-70">
-    Loading...
-  </div>
-);
-
 const DEFAULT_WINDOW_SIZES = {
   default: { width: 700, height: 500 },
   kanban: { width: 1000, height: 600 },
   youtube: { width: 580, height: 800 },
-  ambient: { width: 850, height: 760 },
+  ambient: { width: 1000, height: 800 },
   pomodoro: { width: 700, height: 550 },
   notepad: { width: 800, height: 650 },
   habit: { width: 900, height: 800 },
@@ -95,6 +90,9 @@ interface WindowState extends Omit<AppWindowType, "id"> {
 function useWindowManager() {
   const [windows, setWindows] = useLocalStorage<WindowState[]>("windows", []);
   const windowsRef = useRef<WindowState[]>(windows);
+  const [minimizedWindows, setMinimizedWindows] = useState<Set<string>>(
+    new Set()
+  );
 
   // Keep ref updated
   useEffect(() => {
@@ -103,53 +101,11 @@ function useWindowManager() {
 
   const resetAllWindows = useCallback(() => {
     setWindows([]);
+    setMinimizedWindows(new Set());
     if (typeof window !== "undefined") {
       localStorage.removeItem("windows");
     }
   }, [setWindows]);
-
-  const openApp = useCallback(
-    (appId: AppId | string) => {
-      const validAppId = appId as AppId;
-      const currentWindows = windowsRef.current;
-
-      if (!currentWindows.some((w) => w.id === validAppId)) {
-        const zIndex = currentWindows.length;
-        const defaultSize =
-          DEFAULT_WINDOW_SIZES[
-            validAppId as keyof typeof DEFAULT_WINDOW_SIZES
-          ] || DEFAULT_WINDOW_SIZES.default;
-
-        setWindows((prev) => [
-          ...prev,
-          {
-            id: validAppId,
-            position: { x: 50 + zIndex * 20, y: 50 + zIndex * 20 },
-            size: defaultSize,
-          },
-        ]);
-      } else {
-        bringToFront(validAppId);
-      }
-    },
-    [setWindows]
-  );
-
-  const closeApp = useCallback(
-    (appId: AppId) => {
-      try {
-        // Stop ambient sounds if closing the ambient sounds app
-        if (appId === "ambient") {
-          stopAllAmbientSounds();
-        }
-
-        setWindows((prev) => prev.filter((w) => w.id !== appId));
-      } catch (error) {
-        console.error("Error closing app:", error);
-      }
-    },
-    [setWindows]
-  );
 
   const bringToFront = useCallback(
     (appId: AppId) => {
@@ -160,6 +116,75 @@ function useWindowManager() {
         const windowsWithoutApp = prev.filter((w) => w.id !== appId);
         return [...windowsWithoutApp, appWindow];
       });
+    },
+    [setWindows]
+  );
+
+  const openApp = useCallback(
+    (appId: AppId | string) => {
+      const validAppId = appId as AppId;
+      const currentWindows = windowsRef.current;
+
+      // Se a janela já existe e está minimizada, restaura ela
+      if (minimizedWindows.has(validAppId)) {
+        setMinimizedWindows((prev) => {
+          const next = new Set(prev);
+          next.delete(validAppId);
+          return next;
+        });
+        bringToFront(validAppId);
+        return;
+      }
+
+      // Se a janela já existe, apenas traz para frente
+      if (currentWindows.some((w) => w.id === validAppId)) {
+        bringToFront(validAppId);
+        return;
+      }
+
+      // Se não existe, cria uma nova janela
+      const zIndex = currentWindows.length;
+      const defaultSize =
+        DEFAULT_WINDOW_SIZES[validAppId as keyof typeof DEFAULT_WINDOW_SIZES] ||
+        DEFAULT_WINDOW_SIZES.default;
+
+      setWindows((prev) => [
+        ...prev,
+        {
+          id: validAppId,
+          position: { x: 50 + zIndex * 20, y: 50 + zIndex * 20 },
+          size: defaultSize,
+        },
+      ]);
+    },
+    [setWindows, minimizedWindows, bringToFront]
+  );
+
+  const minimizeApp = useCallback((appId: AppId) => {
+    setMinimizedWindows((prev) => {
+      const next = new Set(prev);
+      next.add(appId);
+      return next;
+    });
+  }, []);
+
+  const closeApp = useCallback(
+    (appId: AppId) => {
+      try {
+        // Stop ambient sounds if closing the ambient sounds app
+        if (appId === "ambient") {
+          stopAllAmbientSounds();
+        }
+
+        setWindows((prev) => prev.filter((w) => w.id !== appId));
+        setMinimizedWindows((prev) => {
+          const next = new Set(prev);
+          next.delete(appId);
+          return next;
+        });
+      } catch (error) {
+        console.error("Error closing app:", error);
+      }
     },
     [setWindows]
   );
@@ -184,6 +209,8 @@ function useWindowManager() {
     bringToFront,
     updateWindow,
     resetAllWindows,
+    minimizeApp,
+    minimizedWindows,
   };
 }
 
@@ -195,6 +222,7 @@ export default function Home() {
   const [font, setFont] = useLocalStorage("font", "font-satoshi");
   const { theme = "dark", setTheme } = useTheme();
   const [isBooting, setIsBooting] = useState(true);
+  const settingsTabRef = useRef<SettingsTab | null>(null);
 
   const {
     windows,
@@ -203,7 +231,32 @@ export default function Home() {
     bringToFront,
     updateWindow,
     resetAllWindows,
+    minimizeApp,
+    minimizedWindows,
   } = useWindowManager();
+
+  // Create handlers for the openApp and openSettingsTab functions
+  const handleOpenApp = useCallback(
+    (appId: AppId) => {
+      openApp(appId);
+    },
+    [openApp]
+  );
+
+  const handleOpenSettingsTab = useCallback(
+    (tab: SettingsTab) => {
+      openApp("settings");
+      settingsTabRef.current = tab;
+
+      // Dispatch an event to tell the settings component which tab to open
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent("open-settings-tab", { detail: tab })
+        );
+      }, 100);
+    },
+    [openApp]
+  );
 
   // Memoize app content for better performance
   const getAppContent = useCallback(
@@ -211,49 +264,49 @@ export default function Home() {
       switch (appId) {
         case "todo":
           return (
-            <Suspense fallback={<LoadingFallback />}>
+            <Suspense fallback={<LoadingFallback variant="app" />}>
               <TodoApp />
             </Suspense>
           );
         case "kanban":
           return (
-            <Suspense fallback={<LoadingFallback />}>
+            <Suspense fallback={<LoadingFallback variant="app" />}>
               <KanbanBoard />
             </Suspense>
           );
         case "pomodoro":
           return (
-            <Suspense fallback={<LoadingFallback />}>
+            <Suspense fallback={<LoadingFallback variant="app" />}>
               <PomodoroTimer />
             </Suspense>
           );
         case "notepad":
           return (
-            <Suspense fallback={<LoadingFallback />}>
+            <Suspense fallback={<LoadingFallback variant="app" />}>
               <Notepad />
             </Suspense>
           );
         case "ambient":
           return (
-            <Suspense fallback={<LoadingFallback />}>
+            <Suspense fallback={<LoadingFallback variant="app" />}>
               <AmbientSounds />
             </Suspense>
           );
         case "youtube":
           return (
-            <Suspense fallback={<LoadingFallback />}>
+            <Suspense fallback={<LoadingFallback variant="app" />}>
               <YouTubePlayer />
             </Suspense>
           );
         case "habit":
           return (
-            <Suspense fallback={<LoadingFallback />}>
+            <Suspense fallback={<LoadingFallback variant="app" />}>
               <HabitTracker />
             </Suspense>
           );
         case "settings":
           return (
-            <Suspense fallback={<LoadingFallback />}>
+            <Suspense fallback={<LoadingFallback variant="app" />}>
               <Settings
                 wallpaper={wallpaper}
                 setWallpaper={setWallpaper}
@@ -309,6 +362,8 @@ export default function Home() {
           title={APP_TITLES[win.id]}
           onClose={createCloseHandler(win.id)}
           onFocus={createFocusHandler(win.id)}
+          onMinimize={() => minimizeApp(win.id)}
+          isMinimized={minimizedWindows.has(win.id)}
           zIndex={i}
           position={win.position}
           size={win.size}
@@ -323,31 +378,15 @@ export default function Home() {
       createCloseHandler,
       createFocusHandler,
       createUpdateHandler,
+      minimizeApp,
+      minimizedWindows,
     ]
   );
 
+  // Add a dedicated function for opening settings
   const handleOpenSettings = useCallback(() => {
     openApp("settings");
   }, [openApp]);
-
-  const handleOpenApp = useCallback(
-    (appId: AppId) => {
-      openApp(appId);
-    },
-    [openApp]
-  );
-
-  const handleOpenSettingsTab = useCallback(
-    (tab: SettingsTab) => {
-      openApp("settings");
-      setTimeout(() => {
-        window.dispatchEvent(
-          new CustomEvent("open-settings-tab", { detail: tab })
-        );
-      }, 100);
-    },
-    [openApp]
-  );
 
   // Render desktop content
   const desktopContent = (
@@ -359,22 +398,32 @@ export default function Home() {
         backgroundPosition: "center",
       }}
     >
-      <Desktop>
-        <AnimatePresence>{windowElements}</AnimatePresence>
-      </Desktop>
-      <Suspense fallback={null}>
+      <Suspense>
         <MenuBar
-          openApp={handleOpenApp}
-          openSettingsTab={handleOpenSettingsTab}
-        />
-      </Suspense>
-      <Suspense fallback={null}>
-        <Dock
           openApp={handleOpenApp}
           openSettings={handleOpenSettings}
           activeApps={windows.map((w) => w.id)}
         />
       </Suspense>
+
+      <Desktop>
+        <AnimatePresence>{windowElements}</AnimatePresence>
+      </Desktop>
+
+      <Suspense>
+        <Dock
+          openApp={handleOpenApp}
+          openSettings={handleOpenSettings}
+          activeApps={windows.map((w) => w.id)}
+          minimizedApps={minimizedWindows}
+        />
+      </Suspense>
+
+      <CommandPalette
+        openApp={handleOpenApp}
+        openSettings={handleOpenSettings}
+        activeApps={windows.map((w) => w.id)}
+      />
     </div>
   );
 

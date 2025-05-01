@@ -39,6 +39,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { toast } from "@/hooks/use-toast";
 
 interface Note {
   id: string;
@@ -51,13 +52,15 @@ interface Note {
 const AUTOSAVE_DELAY = 1000; // 1 second
 
 export function Notepad() {
-  const [notes, setNotes] = useLocalStorage<Note[]>("notes", []);
+  const [notes, setNotes] = useLocalStorage<Note[]>("notepad-notes", []);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | null>(null);
-  const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"saving" | "saved" | "idle">(
+    "idle"
+  );
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
 
   const selectedNote = selectedNoteId
     ? notes.find((note) => note.id === selectedNoteId)
@@ -117,7 +120,7 @@ export function Notepad() {
 
     setNotes([...notes, newNote]);
     setSelectedNoteId(newNote.id);
-    setSaveStatus(null);
+    setSaveStatus("idle");
 
     // Add a slight delay to ensure the DOM has updated before focusing
     setTimeout(() => {
@@ -189,369 +192,367 @@ export function Notepad() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [editor, selectedNoteId, createNewNote, updateNoteContent]);
 
-  const deleteNote = useCallback((id: string) => {
+  const deleteNote = (id: string) => {
     setNoteToDelete(id);
     setIsDeleteDialogOpen(true);
-  }, []);
+  };
 
-  const confirmDeleteNote = useCallback(() => {
+  const confirmDeleteNote = () => {
     if (noteToDelete) {
-      setNotes(notes.filter((note) => note.id !== noteToDelete));
       if (selectedNoteId === noteToDelete) {
         setSelectedNoteId(null);
       }
+      setNotes(notes.filter((note) => note.id !== noteToDelete));
       setNoteToDelete(null);
+      setIsDeleteDialogOpen(false);
     }
-    setIsDeleteDialogOpen(false);
-  }, [notes, noteToDelete, selectedNoteId, setNotes]);
+  };
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
-        <div className="flex items-center gap-2 flex-1 max-w-[300px]">
-          <div className="relative flex-1">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder={`Search notes... (${formatShortcut("L")})`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8"
-              onFocus={() => setIsSearching(true)}
-              onBlur={() => setIsSearching(false)}
-            />
-          </div>
-          <Button onClick={createNewNote} size="sm" className="shrink-0">
-            <Plus className="h-4 w-4 mr-1" />
-            New ({formatShortcut("B")})
-          </Button>
-        </div>
-        {selectedNote && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              {saveStatus === "saving"
-                ? "Saving..."
-                : saveStatus === "saved"
-                ? "Saved"
-                : ""}
-            </span>
-            <div className="flex items-center gap-1">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => editor?.commands.undo()}
-                disabled={!editor?.can().undo()}
-              >
-                <Undo className="h-4 w-4" />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => editor?.commands.redo()}
-                disabled={!editor?.can().redo()}
-              >
-                <Redo className="h-4 w-4" />
-              </Button>
+    <div className="flex h-full border-border bg-background">
+      <motion.div
+        className="w-72 border-r border-border flex flex-col"
+        animate={{
+          width: isSearching || filteredNotes.length > 0 ? "33.333333%" : "0%",
+        }}
+        transition={{ duration: 0.2 }}
+      >
+        <div className="p-3 border-b border-border flex justify-between items-center">
+          <div className="flex items-center gap-2 flex-1 max-w-[300px]">
+            <div className="relative flex-1">
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={`Search notes... (${formatShortcut("L")})`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8"
+                onFocus={() => setIsSearching(true)}
+                onBlur={() => setIsSearching(false)}
+              />
             </div>
+            <Button onClick={createNewNote} size="sm" className="shrink-0">
+              <Plus className="h-4 w-4 mr-1" />
+              New ({formatShortcut("B")})
+            </Button>
           </div>
-        )}
-      </div>
-
-      <div className="flex flex-1 overflow-hidden">
-        <motion.div
-          className="w-1/3 border-r border-zinc-200 dark:border-zinc-800"
-          animate={{
-            width:
-              isSearching || filteredNotes.length > 0 ? "33.333333%" : "0%",
-          }}
-          transition={{ duration: 0.2 }}
-        >
-          <ScrollArea className="h-full">
-            <AnimatePresence>
-              {filteredNotes.length === 0 ? (
-                <motion.div
-                  key="empty-notes"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="p-4 text-center text-zinc-500"
+          {selectedNote && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {saveStatus === "saving"
+                  ? "Saving..."
+                  : saveStatus === "saved"
+                  ? "Saved"
+                  : ""}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => editor?.commands.undo()}
+                  disabled={!editor?.can().undo()}
                 >
-                  {searchQuery
-                    ? "No matching notes found"
-                    : "No notes yet. Create one to get started!"}
-                </motion.div>
-              ) : (
-                <div className="p-2 space-y-2">
-                  {filteredNotes.map((note) => (
-                    <motion.div
-                      key={`note-item-${note.id}`}
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -5 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <Card
-                        className={cn(
-                          "cursor-pointer transition-all hover:shadow-md",
-                          selectedNoteId === note.id &&
-                            "border-primary/50 shadow-md"
-                        )}
-                        onClick={() => setSelectedNoteId(note.id)}
-                      >
-                        <CardContent className="p-3">
-                          <div className="flex justify-between items-start gap-2">
-                            <div className="min-w-0 flex-1">
-                              <h3 className="font-medium truncate mb-1">
-                                {note.title || "Untitled Note"}
-                              </h3>
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <span>
-                                  {new Date(note.updatedAt).toLocaleDateString(
-                                    undefined,
-                                    {
-                                      month: "short",
-                                      day: "numeric",
-                                      year: "numeric",
-                                    }
-                                  )}
-                                </span>
-                                <span>•</span>
-                                <span>
-                                  {new Date(note.updatedAt).toLocaleTimeString(
-                                    undefined,
-                                    {
-                                      hour: "numeric",
-                                      minute: "2-digit",
-                                    }
-                                  )}
-                                </span>
-                              </div>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteNote(note.id);
-                              }}
-                              className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
-                            >
-                              <Trash className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </AnimatePresence>
-          </ScrollArea>
-        </motion.div>
-
-        <div className="flex-1 flex flex-col min-w-0">
-          {selectedNote ? (
-            <>
-              <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
-                <Input
-                  value={selectedNote.title}
-                  onChange={(e) =>
-                    updateNoteTitle(selectedNote.id, e.target.value)
-                  }
-                  placeholder="Note title"
-                  className="font-medium mb-3"
-                />
-
-                <div className="flex items-center gap-1">
-                  <Toggle
-                    size="sm"
-                    pressed={editor?.isActive("bold")}
-                    onPressedChange={() =>
-                      editor?.chain().focus().toggleBold().run()
-                    }
-                    className="data-[state=on]:bg-primary/20"
-                  >
-                    <Bold className="h-3.5 w-3.5" />
-                  </Toggle>
-                  <Toggle
-                    size="sm"
-                    pressed={editor?.isActive("italic")}
-                    onPressedChange={() =>
-                      editor?.chain().focus().toggleItalic().run()
-                    }
-                    className="data-[state=on]:bg-primary/20"
-                  >
-                    <Italic className="h-3.5 w-3.5" />
-                  </Toggle>
-                  <Toggle
-                    size="sm"
-                    pressed={editor?.isActive("heading", { level: 1 })}
-                    onPressedChange={() =>
-                      editor?.chain().focus().toggleHeading({ level: 1 }).run()
-                    }
-                    className="data-[state=on]:bg-primary/20"
-                  >
-                    <Heading1 className="h-3.5 w-3.5" />
-                  </Toggle>
-                  <Toggle
-                    size="sm"
-                    pressed={editor?.isActive("heading", { level: 2 })}
-                    onPressedChange={() =>
-                      editor?.chain().focus().toggleHeading({ level: 2 }).run()
-                    }
-                    className="data-[state=on]:bg-primary/20"
-                  >
-                    <Heading2 className="h-3.5 w-3.5" />
-                  </Toggle>
-                  <Toggle
-                    size="sm"
-                    pressed={editor?.isActive("bulletList")}
-                    onPressedChange={() =>
-                      editor?.chain().focus().toggleBulletList().run()
-                    }
-                    className="data-[state=on]:bg-primary/20"
-                  >
-                    <List className="h-3.5 w-3.5" />
-                  </Toggle>
-                  <Toggle
-                    size="sm"
-                    pressed={editor?.isActive("orderedList")}
-                    onPressedChange={() =>
-                      editor?.chain().focus().toggleOrderedList().run()
-                    }
-                    className="data-[state=on]:bg-primary/20"
-                  >
-                    <ListOrdered className="h-3.5 w-3.5" />
-                  </Toggle>
-                  <Toggle
-                    size="sm"
-                    pressed={editor?.isActive("blockquote")}
-                    onPressedChange={() =>
-                      editor?.chain().focus().toggleBlockquote().run()
-                    }
-                    className="data-[state=on]:bg-primary/20"
-                  >
-                    <Quote className="h-3.5 w-3.5" />
-                  </Toggle>
-                  <Toggle
-                    size="sm"
-                    pressed={editor?.isActive("codeBlock")}
-                    onPressedChange={() =>
-                      editor?.chain().focus().toggleCodeBlock().run()
-                    }
-                    className="data-[state=on]:bg-primary/20"
-                  >
-                    <Code className="h-3.5 w-3.5" />
-                  </Toggle>
-                </div>
-              </div>
-
-              <ScrollArea className="flex-1">
-                <EditorContent
-                  editor={editor}
-                  className="prose dark:prose-invert max-w-none editor-content"
-                />
-                <style jsx global>{`
-                  .editor-content .ProseMirror {
-                    min-height: 150px;
-                    line-height: 1.6;
-                    padding: 1rem;
-                  }
-
-                  .editor-content .ProseMirror p {
-                    margin-bottom: 1rem;
-                  }
-
-                  .editor-content .ProseMirror h1 {
-                    font-size: 1.75rem;
-                    margin-top: 1.5rem;
-                    margin-bottom: 1rem;
-                    font-weight: 600;
-                  }
-
-                  .editor-content .ProseMirror h2 {
-                    font-size: 1.5rem;
-                    margin-top: 1.25rem;
-                    margin-bottom: 0.75rem;
-                    font-weight: 600;
-                  }
-
-                  .editor-content .ProseMirror ul,
-                  .editor-content .ProseMirror ol {
-                    padding-left: 1.5rem;
-                    margin-bottom: 1rem;
-                  }
-
-                  .editor-content .ProseMirror li {
-                    margin-bottom: 0.25rem;
-                  }
-
-                  .editor-content .ProseMirror blockquote {
-                    border-left: 3px solid var(--primary);
-                    padding-left: 1rem;
-                    margin: 1.5rem 0;
-                    font-style: italic;
-                    color: var(--muted-foreground);
-                  }
-
-                  .editor-content .ProseMirror code {
-                    background-color: var(--muted);
-                    color: var(--foreground);
-                    padding: 0.2em 0.4em;
-                    border-radius: 0.25rem;
-                    font-size: 0.875em;
-                  }
-
-                  .editor-content .ProseMirror pre {
-                    background: var(--muted);
-                    color: var(--foreground);
-                    font-family: "JetBrainsMono", monospace;
-                    padding: 0.75rem 1rem;
-                    border-radius: 0.5rem;
-                    margin: 1rem 0;
-                  }
-
-                  .editor-content .ProseMirror pre code {
-                    color: inherit;
-                    padding: 0;
-                    background: none;
-                    font-size: 0.875rem;
-                  }
-
-                  .editor-content .is-editor-empty:first-child::before {
-                    content: attr(data-placeholder);
-                    float: left;
-                    color: var(--muted-foreground);
-                    pointer-events: none;
-                    height: 0;
-                  }
-
-                  .editor-content
-                    .ProseMirror
-                    p.is-editor-empty:first-child::before {
-                    color: var(--muted-foreground);
-                    content: attr(data-placeholder);
-                    float: left;
-                    height: 0;
-                    pointer-events: none;
-                  }
-                `}</style>
-              </ScrollArea>
-            </>
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-4">
-              <div className="text-center">
-                <p className="mb-2">Select a note or create a new one</p>
-                <p className="text-sm">
-                  Press{" "}
-                  <kbd className="px-2 py-1 bg-muted rounded">
-                    {formatShortcut("B")}
-                  </kbd>{" "}
-                  to create a new note
-                </p>
+                  <Undo className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => editor?.commands.redo()}
+                  disabled={!editor?.can().redo()}
+                >
+                  <Redo className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           )}
         </div>
+
+        <ScrollArea className="flex-1">
+          <AnimatePresence>
+            {filteredNotes.length === 0 ? (
+              <motion.div
+                key="empty-notes"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="p-4 text-center text-zinc-500"
+              >
+                {searchQuery
+                  ? "No matching notes found"
+                  : "No notes yet. Create one to get started!"}
+              </motion.div>
+            ) : (
+              <div className="p-3 space-y-2">
+                {filteredNotes.map((note) => (
+                  <motion.div
+                    key={`note-item-${note.id}`}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -5 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Card
+                      onClick={() => setSelectedNoteId(note.id)}
+                      className={cn(
+                        "cursor-pointer transition-all hover:shadow-md",
+                        selectedNoteId === note.id
+                          ? "border-primary/50 bg-primary/5"
+                          : "border-border bg-background hover:border-border/80"
+                      )}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-medium truncate mb-1">
+                              {note.title || "Untitled Note"}
+                            </h3>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>
+                                {new Date(note.updatedAt).toLocaleDateString(
+                                  undefined,
+                                  {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
+                                  }
+                                )}
+                              </span>
+                              <span>•</span>
+                              <span>
+                                {new Date(note.updatedAt).toLocaleTimeString(
+                                  undefined,
+                                  {
+                                    hour: "numeric",
+                                    minute: "2-digit",
+                                  }
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteNote(note.id);
+                            }}
+                            className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </AnimatePresence>
+        </ScrollArea>
+      </motion.div>
+
+      <div className="flex-1 flex flex-col min-w-0">
+        {selectedNote ? (
+          <>
+            <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
+              <Input
+                value={selectedNote.title}
+                onChange={(e) =>
+                  updateNoteTitle(selectedNote.id, e.target.value)
+                }
+                placeholder="Note title"
+                className="font-medium mb-3"
+              />
+
+              <div className="flex items-center gap-1">
+                <Toggle
+                  size="sm"
+                  pressed={editor?.isActive("bold")}
+                  onPressedChange={() =>
+                    editor?.chain().focus().toggleBold().run()
+                  }
+                  className="data-[state=on]:bg-primary/20"
+                >
+                  <Bold className="h-3.5 w-3.5" />
+                </Toggle>
+                <Toggle
+                  size="sm"
+                  pressed={editor?.isActive("italic")}
+                  onPressedChange={() =>
+                    editor?.chain().focus().toggleItalic().run()
+                  }
+                  className="data-[state=on]:bg-primary/20"
+                >
+                  <Italic className="h-3.5 w-3.5" />
+                </Toggle>
+                <Toggle
+                  size="sm"
+                  pressed={editor?.isActive("heading", { level: 1 })}
+                  onPressedChange={() =>
+                    editor?.chain().focus().toggleHeading({ level: 1 }).run()
+                  }
+                  className="data-[state=on]:bg-primary/20"
+                >
+                  <Heading1 className="h-3.5 w-3.5" />
+                </Toggle>
+                <Toggle
+                  size="sm"
+                  pressed={editor?.isActive("heading", { level: 2 })}
+                  onPressedChange={() =>
+                    editor?.chain().focus().toggleHeading({ level: 2 }).run()
+                  }
+                  className="data-[state=on]:bg-primary/20"
+                >
+                  <Heading2 className="h-3.5 w-3.5" />
+                </Toggle>
+                <Toggle
+                  size="sm"
+                  pressed={editor?.isActive("bulletList")}
+                  onPressedChange={() =>
+                    editor?.chain().focus().toggleBulletList().run()
+                  }
+                  className="data-[state=on]:bg-primary/20"
+                >
+                  <List className="h-3.5 w-3.5" />
+                </Toggle>
+                <Toggle
+                  size="sm"
+                  pressed={editor?.isActive("orderedList")}
+                  onPressedChange={() =>
+                    editor?.chain().focus().toggleOrderedList().run()
+                  }
+                  className="data-[state=on]:bg-primary/20"
+                >
+                  <ListOrdered className="h-3.5 w-3.5" />
+                </Toggle>
+                <Toggle
+                  size="sm"
+                  pressed={editor?.isActive("blockquote")}
+                  onPressedChange={() =>
+                    editor?.chain().focus().toggleBlockquote().run()
+                  }
+                  className="data-[state=on]:bg-primary/20"
+                >
+                  <Quote className="h-3.5 w-3.5" />
+                </Toggle>
+                <Toggle
+                  size="sm"
+                  pressed={editor?.isActive("codeBlock")}
+                  onPressedChange={() =>
+                    editor?.chain().focus().toggleCodeBlock().run()
+                  }
+                  className="data-[state=on]:bg-primary/20"
+                >
+                  <Code className="h-3.5 w-3.5" />
+                </Toggle>
+              </div>
+            </div>
+
+            <ScrollArea className="flex-1">
+              <EditorContent
+                editor={editor}
+                className="prose dark:prose-invert max-w-none editor-content"
+              />
+              <style jsx global>{`
+                .editor-content .ProseMirror {
+                  min-height: 150px;
+                  line-height: 1.6;
+                  padding: 1rem;
+                }
+
+                .editor-content .ProseMirror p {
+                  margin-bottom: 1rem;
+                }
+
+                .editor-content .ProseMirror h1 {
+                  font-size: 1.75rem;
+                  margin-top: 1.5rem;
+                  margin-bottom: 1rem;
+                  font-weight: 600;
+                }
+
+                .editor-content .ProseMirror h2 {
+                  font-size: 1.5rem;
+                  margin-top: 1.25rem;
+                  margin-bottom: 0.75rem;
+                  font-weight: 600;
+                }
+
+                .editor-content .ProseMirror ul,
+                .editor-content .ProseMirror ol {
+                  padding-left: 1.5rem;
+                  margin-bottom: 1rem;
+                }
+
+                .editor-content .ProseMirror li {
+                  margin-bottom: 0.25rem;
+                }
+
+                .editor-content .ProseMirror blockquote {
+                  border-left: 3px solid var(--primary);
+                  padding-left: 1rem;
+                  margin: 1.5rem 0;
+                  font-style: italic;
+                  color: var(--muted-foreground);
+                }
+
+                .editor-content .ProseMirror code {
+                  background-color: var(--muted);
+                  color: var(--foreground);
+                  padding: 0.2em 0.4em;
+                  border-radius: 0.25rem;
+                  font-size: 0.875em;
+                }
+
+                .editor-content .ProseMirror pre {
+                  background: var(--muted);
+                  color: var(--foreground);
+                  font-family: "JetBrainsMono", monospace;
+                  padding: 0.75rem 1rem;
+                  border-radius: 0.5rem;
+                  margin: 1rem 0;
+                }
+
+                .editor-content .ProseMirror pre code {
+                  color: inherit;
+                  padding: 0;
+                  background: none;
+                  font-size: 0.875rem;
+                }
+
+                .editor-content .is-editor-empty:first-child::before {
+                  content: attr(data-placeholder);
+                  float: left;
+                  color: var(--muted-foreground);
+                  pointer-events: none;
+                  height: 0;
+                }
+
+                .editor-content
+                  .ProseMirror
+                  p.is-editor-empty:first-child::before {
+                  color: var(--muted-foreground);
+                  content: attr(data-placeholder);
+                  float: left;
+                  height: 0;
+                  pointer-events: none;
+                }
+              `}</style>
+            </ScrollArea>
+          </>
+        ) : (
+          <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-4">
+            <div className="text-center">
+              <p className="mb-2">Select a note or create a new one</p>
+              <p className="text-sm">
+                Press{" "}
+                <kbd className="px-2 py-1 bg-muted rounded">
+                  {formatShortcut("B")}
+                </kbd>{" "}
+                to create a new note
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       <AlertDialog

@@ -69,7 +69,10 @@ export function SettingsGeneralTab() {
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleReset}>
+                <AlertDialogAction
+                  onClick={handleReset}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
                   Reset Settings
                 </AlertDialogAction>
               </AlertDialogFooter>

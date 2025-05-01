@@ -467,7 +467,7 @@ export function YouTubePlayer() {
       };
 
   return (
-    <Card className="max-w-4xl mx-auto bg-zinc-950/90 backdrop-blur-sm border-zinc-800/50 p-4 space-y-4 h-full flex flex-col">
+    <Card className="max-w-4xl mx-auto bg-background/90 backdrop-blur-sm border-border/50 p-4 space-y-4 h-full flex flex-col">
       {/* YouTube Player */}
       {playlist[currentIndex] && (
         <div className="relative rounded-lg overflow-hidden bg-black">
@@ -496,13 +496,13 @@ export function YouTubePlayer() {
           {(playerState.error || playerState.loading) && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm">
               {playerState.error ? (
-                <div className="text-red-400 text-center p-4">
+                <div className="text-destructive text-center p-4">
                   <span className="block text-lg mb-2">⚠️</span>
                   {playerState.error}
                 </div>
               ) : (
-                <div className="text-zinc-400 text-center">
-                  <div className="animate-spin w-8 h-8 border-2 border-zinc-600 border-t-zinc-200 rounded-full mb-2" />
+                <div className="text-muted-foreground text-center">
+                  <div className="animate-spin w-8 h-8 border-2 border-muted border-t-foreground rounded-full mb-2" />
                   <span className="text-sm">Loading...</span>
                 </div>
               )}
@@ -512,13 +512,13 @@ export function YouTubePlayer() {
       )}
 
       {/* Progress and Controls Container */}
-      <div className="space-y-4 bg-zinc-900/50 p-4 rounded-lg border border-zinc-800/50">
+      <div className="space-y-4 bg-muted/50 p-4 rounded-lg border border-border/50">
         {/* Title and Time */}
         <div className="flex justify-between items-center text-sm">
-          <div className="font-medium text-zinc-200 truncate pr-4">
+          <div className="font-medium text-foreground truncate pr-4">
             {playlist[currentIndex]?.title || "No track selected"}
           </div>
-          <div className="text-zinc-400 flex items-center space-x-2 text-xs">
+          <div className="text-muted-foreground flex items-center space-x-2 text-xs">
             <span>{formatTime(playerState.progress)}</span>
             <span>/</span>
             <span>{formatTime(playerState.duration)}</span>
@@ -536,7 +536,7 @@ export function YouTubePlayer() {
             className="w-full"
           />
           <div className="absolute -bottom-4 left-0 w-full opacity-0 group-hover:opacity-100 transition-opacity text-xs text-center">
-            <div className="bg-zinc-800 text-zinc-300 px-2 py-1 rounded inline-block">
+            <div className="bg-muted text-muted-foreground px-2 py-1 rounded inline-block">
               {formatTime(playerState.progress)}
             </div>
           </div>
@@ -550,7 +550,7 @@ export function YouTubePlayer() {
               variant="ghost"
               size="icon"
               onClick={toggleMute}
-              className="hover:bg-zinc-800"
+              className="hover:bg-muted"
             >
               {playerState.isMuted ? (
                 <VolumeX className="w-4 h-4" />
@@ -577,7 +577,7 @@ export function YouTubePlayer() {
               variant="ghost"
               onClick={handlePrev}
               disabled={playlist.length < 2}
-              className="hover:bg-zinc-800"
+              className="hover:bg-muted"
             >
               <SkipBack className="w-4 h-4" />
             </Button>
@@ -595,7 +595,7 @@ export function YouTubePlayer() {
                 });
               }}
               disabled={!playlist[currentIndex]}
-              className="bg-zinc-200 hover:bg-zinc-300 text-zinc-900"
+              className="bg-foreground hover:bg-foreground/90 text-background"
             >
               {playerState.playing ? (
                 <Pause className="w-5 h-5" />
@@ -608,7 +608,7 @@ export function YouTubePlayer() {
               variant="ghost"
               onClick={handleNext}
               disabled={playlist.length < 2}
-              className="hover:bg-zinc-800"
+              className="hover:bg-muted"
             >
               <SkipForward className="w-4 h-4" />
             </Button>
@@ -617,19 +617,17 @@ export function YouTubePlayer() {
           {/* Right Controls */}
           <div className="flex items-center gap-2">
             <Button
+              size="icon"
               variant="ghost"
-              size="sm"
               onClick={() =>
                 setPlayerState((prev) => ({
                   ...prev,
                   showVideo: !prev.showVideo,
                 }))
               }
-              disabled={!playlist[currentIndex]}
-              className="hover:bg-zinc-800"
+              className="hover:bg-muted"
             >
-              <Video className="w-4 h-4 mr-2" />
-              {playerState.showVideo ? "Hide" : "Show"}
+              <Video className="w-4 h-4" />
             </Button>
           </div>
         </div>
@@ -664,17 +662,17 @@ export function YouTubePlayer() {
                 handleAdd();
               }
             }}
-            className="flex-1 min-w-0 bg-zinc-900/50 border-zinc-800/50"
+            className="flex-1 min-w-0 bg-muted/50 border-border/50"
             disabled={playerState.loading}
           />
           <Button
             onClick={handleAdd}
             disabled={!extractYouTubeId(newUrl) || playerState.loading}
-            className="bg-zinc-800 hover:bg-zinc-700"
+            className="bg-muted hover:bg-muted/80"
           >
             {playerState.loading ? (
               <>
-                <div className="animate-spin w-4 h-4 border-2 border-zinc-600 border-t-zinc-200 rounded-full mr-2" />
+                <div className="animate-spin w-4 h-4 border-2 border-muted border-t-foreground rounded-full mr-2" />
                 Adding...
               </>
             ) : (
@@ -684,7 +682,7 @@ export function YouTubePlayer() {
         </div>
 
         {/* Playlist */}
-        <ScrollArea className="flex-1 w-full rounded-md border border-zinc-800/50 bg-zinc-900/50">
+        <ScrollArea className="flex-1 w-full rounded-md border border-border/50 bg-muted/50">
           <ul className="space-y-1 p-2">
             {playlist.map((item, idx) => (
               <PlaylistItemComponent
@@ -710,7 +708,7 @@ export function YouTubePlayer() {
         </ScrollArea>
 
         {/* Keyboard Shortcuts */}
-        <div className="mt-4 text-xs text-zinc-500 grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <div className="mt-4 text-xs text-muted-foreground grid grid-cols-2 sm:grid-cols-3 gap-2">
           <div>Space: Play/Pause</div>
           <div>←/→: Seek 10s</div>
           <div>Alt+←/→: Prev/Next</div>

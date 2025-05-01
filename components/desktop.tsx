@@ -13,7 +13,7 @@ export function Desktop({ children }: DesktopProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="absolute inset-0 pt-7 pb-20 px-4 overflow-hidden bg-gradient-to-br from-background to-muted/20"
+      className="absolute inset-0 pt-7 pb-20 px-4 overflow-hidden bg-gradient-to-br from-black/5 to-black/10 dark:from-background dark:to-muted/20"
     >
       <div className="relative w-full h-full">
         <div
