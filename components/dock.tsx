@@ -101,7 +101,8 @@ const DockItem = memo(
       [onClick]
     );
 
-    const shortcutLabel = app.shortcut ? ` (${app.shortcut})` : "";
+    // Get the formatted shortcut text for the current platform
+    const shortcutText = app.getShortcutText ? app.getShortcutText() : "";
 
     return (
       <Tooltip open={tooltipOpen} onOpenChange={setTooltipOpen}>
@@ -151,7 +152,9 @@ const DockItem = memo(
                   "w-full h-full p-0 transition-colors duration-150",
                   "flex items-center justify-center"
                 )}
-                aria-label={`Open ${app.label}${shortcutLabel}`}
+                aria-label={`Open ${app.label}${
+                  shortcutText ? ` (${shortcutText})` : ""
+                }`}
                 onClick={() => {
                   onClick();
                   setTooltipOpen(false);
@@ -198,9 +201,9 @@ const DockItem = memo(
           style={{ zIndex: 9999 }}
         >
           <span className="text-xs font-medium">{app.label}</span>
-          {app.shortcut && (
+          {shortcutText && (
             <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-white/20 bg-black/50 px-1.5 font-mono text-[10px] font-medium text-white/80 opacity-100">
-              <span className="text-xs">{app.shortcut}</span>
+              <span className="text-xs">{shortcutText}</span>
             </kbd>
           )}
         </TooltipContent>

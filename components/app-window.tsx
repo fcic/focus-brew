@@ -79,7 +79,7 @@ const WindowControl = ({
 const useKeyboardShortcuts = (onClose: () => void) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.metaKey && e.key === "w") {
+      if ((e.metaKey || e.ctrlKey) && e.key === "w") {
         e.preventDefault();
         onClose();
       }

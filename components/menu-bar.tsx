@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { motion } from "framer-motion";
 import { ExchangeRate } from "@/components/exchange-rate";
-import { cn } from "@/lib/utils";
+import { cn, formatShortcut } from "@/lib/utils";
 import { AppId, SettingsTab, APP_ITEMS, SETTINGS_APP } from "@/lib/constants";
 
 interface MenuBarProps {
@@ -69,17 +69,22 @@ export function MenuBar({ openApp, openSettingsTab, className }: MenuBarProps) {
           return;
         }
 
+        // Handle About shortcut
+        if (e.key === "8") {
+          e.preventDefault();
+          openSettingsTab("about");
+          return;
+        }
+
         // Handle app shortcuts
-        const appItem = APP_ITEMS.find(
-          (item) => item.shortcutKey === e.key.toUpperCase()
-        );
+        const appItem = APP_ITEMS.find((item) => item.shortcutKey === e.key);
         if (appItem) {
           e.preventDefault();
           openApp(appItem.id);
         }
       }
     },
-    [openApp]
+    [openApp, openSettingsTab]
   );
 
   useEffect(() => {
@@ -136,7 +141,9 @@ export function MenuBar({ openApp, openSettingsTab, className }: MenuBarProps) {
                   >
                     <div className="h-4 w-4 mr-2">{item.icon}</div>
                     {item.label}
-                    <DropdownMenuShortcut>{item.shortcut}</DropdownMenuShortcut>
+                    <DropdownMenuShortcut>
+                      {item.getShortcutText ? item.getShortcutText() : ""}
+                    </DropdownMenuShortcut>
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
@@ -147,7 +154,9 @@ export function MenuBar({ openApp, openSettingsTab, className }: MenuBarProps) {
                   <div className="h-4 w-4 mr-2">{SETTINGS_APP.icon}</div>
                   {SETTINGS_APP.label}
                   <DropdownMenuShortcut>
-                    {SETTINGS_APP.shortcut}
+                    {SETTINGS_APP.getShortcutText
+                      ? SETTINGS_APP.getShortcutText()
+                      : ""}
                   </DropdownMenuShortcut>
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
@@ -160,7 +169,7 @@ export function MenuBar({ openApp, openSettingsTab, className }: MenuBarProps) {
             >
               <Info className="h-4 w-4 mr-2" />
               About
-              <DropdownMenuShortcut>⌘?</DropdownMenuShortcut>
+              <DropdownMenuShortcut>{formatShortcut("8")}</DropdownMenuShortcut>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

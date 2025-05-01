@@ -384,9 +384,11 @@ export function YouTubePlayer() {
           }
           break;
         case "KeyM":
+          // Não conflita com atalhos do navegador
           toggleMute();
           break;
         case "KeyV":
+          // Não conflita com atalhos do navegador
           setPlayerState((prev) => ({ ...prev, showVideo: !prev.showVideo }));
           break;
       }

@@ -72,3 +72,37 @@ export function groupBy<T>(array: T[], key: keyof T): Record<string, T[]> {
     };
   }, {} as Record<string, T[]>);
 }
+
+/**
+ * Utility functions
+ */
+
+/**
+ * Determines if the current platform is macOS
+ */
+export function isMac(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return navigator.platform.toLowerCase().includes("mac");
+}
+
+/**
+ * Determines if the current platform is Windows
+ */
+export function isWindows(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return navigator.platform.toLowerCase().includes("win");
+}
+
+/**
+ * Returns the appropriate modifier key symbol based on the operating system
+ */
+export function getModifierKey(): string {
+  return isMac() ? "⌘" : "Ctrl";
+}
+
+/**
+ * Returns formatted keyboard shortcut text with the correct modifier for the platform
+ */
+export function formatShortcut(key: string): string {
+  return `${getModifierKey()}+${key}`;
+}

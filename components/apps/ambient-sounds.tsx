@@ -881,9 +881,9 @@ export function AmbientSounds() {
             <StopCircle className="w-4 h-4 mr-2" />
             Stop All
           </Button>
-          <div className="text-xs text-zinc-500">
-            <kbd className="px-2 py-1 bg-zinc-800 rounded">Space</kbd> Toggle
-            Sound
+          <div className="text-xs text-zinc-500 flex gap-2">
+            <kbd className="px-2 py-1 bg-zinc-800 rounded">Space</kbd>
+            <span>Toggle Sound</span>
           </div>
         </div>
       </div>

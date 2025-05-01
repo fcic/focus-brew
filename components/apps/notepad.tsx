@@ -27,7 +27,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Toggle } from "@/components/ui/toggle";
-import { cn } from "@/lib/utils";
+import { cn, formatShortcut } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -100,43 +100,6 @@ export function Notepad() {
     }
   }, [selectedNoteId, editor, selectedNote]);
 
-  // Add keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.metaKey) {
-        switch (e.key.toLowerCase()) {
-          case "f":
-            e.preventDefault();
-            setIsSearching(true);
-            break;
-          case "s":
-            e.preventDefault();
-            if (selectedNoteId && editor) {
-              updateNoteContent(selectedNoteId, editor.getHTML());
-              setSaveStatus("saved");
-            }
-            break;
-          case "n":
-            e.preventDefault();
-            createNewNote();
-            break;
-          case "z":
-            if (e.shiftKey) {
-              e.preventDefault();
-              editor?.commands.redo();
-            } else {
-              e.preventDefault();
-              editor?.commands.undo();
-            }
-            break;
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [editor, selectedNoteId]);
-
   const filteredNotes = notes.filter(
     (note) =>
       note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -189,6 +152,43 @@ export function Notepad() {
     [setNotes]
   );
 
+  // Add keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey) {
+        switch (e.key.toLowerCase()) {
+          case "l":
+            e.preventDefault();
+            setIsSearching(true);
+            break;
+          case "s":
+            e.preventDefault();
+            if (selectedNoteId && editor) {
+              updateNoteContent(selectedNoteId, editor.getHTML());
+              setSaveStatus("saved");
+            }
+            break;
+          case "b":
+            e.preventDefault();
+            createNewNote();
+            break;
+          case "z":
+            if (e.shiftKey) {
+              e.preventDefault();
+              editor?.commands.redo();
+            } else {
+              e.preventDefault();
+              editor?.commands.undo();
+            }
+            break;
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [editor, selectedNoteId, createNewNote, updateNoteContent]);
+
   const deleteNote = useCallback((id: string) => {
     setNoteToDelete(id);
     setIsDeleteDialogOpen(true);
@@ -212,7 +212,7 @@ export function Notepad() {
           <div className="relative flex-1">
             <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search notes... (⌘F)"
+              placeholder={`Search notes... (${formatShortcut("L")})`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-8"
@@ -222,7 +222,7 @@ export function Notepad() {
           </div>
           <Button onClick={createNewNote} size="sm" className="shrink-0">
             <Plus className="h-4 w-4 mr-1" />
-            New (⌘N)
+            New ({formatShortcut("B")})
           </Button>
         </div>
         {selectedNote && (
@@ -542,8 +542,11 @@ export function Notepad() {
               <div className="text-center">
                 <p className="mb-2">Select a note or create a new one</p>
                 <p className="text-sm">
-                  Press <kbd className="px-2 py-1 bg-muted rounded">⌘N</kbd> to
-                  create a new note
+                  Press{" "}
+                  <kbd className="px-2 py-1 bg-muted rounded">
+                    {formatShortcut("B")}
+                  </kbd>{" "}
+                  to create a new note
                 </p>
               </div>
             </div>
