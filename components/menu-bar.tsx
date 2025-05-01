@@ -91,9 +91,14 @@ export function MenuBar({ openApp, openSettingsTab, className }: MenuBarProps) {
     <motion.div
       className={cn(
         "fixed top-0 left-0 right-0 h-7 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl",
-        "border-b border-zinc-200/30 dark:border-zinc-800/30 flex items-center justify-between px-4 z-50",
+        "border-b border-zinc-200/30 dark:border-zinc-800/30 flex items-center justify-between px-4",
         className
       )}
+      style={{
+        zIndex: 9999,
+        position: "fixed",
+        isolation: "isolate",
+      }}
       initial={{ y: -10, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.3 }}
@@ -110,14 +115,19 @@ export function MenuBar({ openApp, openSettingsTab, className }: MenuBarProps) {
               <Coffee className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuContent
+            align="start"
+            className="w-56"
+            sideOffset={4}
+            style={{ zIndex: 10000 }}
+          >
             <DropdownMenuLabel>Applications</DropdownMenuLabel>
 
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <span className="flex items-center">Apps</span>
               </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
+              <DropdownMenuSubContent style={{ zIndex: 10000 }}>
                 {APP_ITEMS.map((item) => (
                   <DropdownMenuItem
                     key={item.id}

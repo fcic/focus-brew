@@ -195,6 +195,7 @@ const DockItem = memo(
           side="top"
           className="flex items-center gap-4 bg-black/80 backdrop-blur-md text-white border-white/10 rounded-lg px-3 py-1.5"
           sideOffset={8}
+          style={{ zIndex: 9999 }}
         >
           <span className="text-xs font-medium">{app.label}</span>
           {app.shortcut && (
@@ -270,7 +271,10 @@ export function Dock({ openApp, openSettings, activeApps }: DockProps) {
   const allApps = [...regularApps, settingsApp];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 flex justify-center mb-4">
+    <div
+      className="fixed bottom-0 left-0 right-0 flex justify-center mb-4"
+      style={{ zIndex: 9999 }}
+    >
       <motion.div
         initial={{ y: 50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -280,6 +284,7 @@ export function Dock({ openApp, openSettings, activeApps }: DockProps) {
           damping: 30,
         }}
         className="px-3 py-2 rounded-2xl bg-black/20 backdrop-blur-xl border border-white/10 shadow-lg"
+        style={{ isolation: "isolate" }}
         role="toolbar"
         aria-label="Application dock"
         onMouseMove={handleMouseMove}

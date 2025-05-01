@@ -143,7 +143,14 @@ export function AppWindow({
   onUpdate,
 }: AppWindowProps) {
   const windowRef = useRef<HTMLDivElement>(null);
-  const [internalPosition, setInternalPosition] = useState<Position>(position);
+  const [internalPosition, setInternalPosition] = useState<Position>(() => {
+    // Ensure initial position is not behind the menu bar
+    const menuBarHeight = 28;
+    return {
+      x: position.x,
+      y: Math.max(menuBarHeight, position.y),
+    };
+  });
   const [internalSize, setInternalSize] = useState<Size>(size);
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -168,7 +175,12 @@ export function AppWindow({
       position.x !== internalPosition.x ||
       position.y !== internalPosition.y
     ) {
-      setInternalPosition(position);
+      // Ensure position updates also respect the menu bar limit
+      const menuBarHeight = 28;
+      setInternalPosition({
+        x: position.x,
+        y: Math.max(menuBarHeight, position.y),
+      });
     }
   }, [position]);
 
@@ -252,6 +264,7 @@ export function AppWindow({
 
       // Prevent default behaviors that might interfere with dragging
       e.preventDefault();
+      e.stopPropagation();
     },
     [onFocus]
   );
@@ -310,6 +323,12 @@ export function AppWindow({
             newPos.y
           );
           newPos.y = Math.min(window.innerHeight - titleBarHeight, newPos.y);
+        }
+
+        // Apply menu-bar constraint only when needed - avoid restricting if the window is already below the menu bar
+        const menuBarHeight = 28; // 7px height + some padding
+        if (newPos.y < menuBarHeight) {
+          newPos.y = menuBarHeight;
         }
 
         // Update the position
