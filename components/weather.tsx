@@ -186,6 +186,9 @@ export function Weather() {
   useEffect(() => {
     const handleUnitChange = (event: WeatherUnitChangeEvent) => {
       setUnit(event.detail);
+      // Force refetch weather data when unit changes
+      setLastUpdated(null);
+      fetchWeather();
     };
 
     window.addEventListener(
@@ -199,7 +202,7 @@ export function Weather() {
         handleUnitChange as EventListener
       );
     };
-  }, [setUnit]);
+  }, [setUnit, fetchWeather]);
 
   // Listen for refresh events from menu bar
   useEffect(() => {
