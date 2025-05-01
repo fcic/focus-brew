@@ -12,7 +12,7 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from "@/components/ui/tooltip";
-import { Pause, Play, RotateCcw, Volume2 } from "lucide-react";
+import { Pause, Play, RotateCcw, RepeatIcon, Volume2 } from "lucide-react";
 import { sendPomodoroNotification } from "@/lib/notification";
 
 type TimerMode = "pomodoro" | "shortBreak" | "longBreak";
@@ -22,6 +22,7 @@ interface TimerSettings {
   shortBreak: number;
   longBreak: number;
   volume: number;
+  loopAudio: boolean;
 }
 
 const DEFAULT_SETTINGS: TimerSettings = {
@@ -29,6 +30,7 @@ const DEFAULT_SETTINGS: TimerSettings = {
   shortBreak: 5 * 60, // 5 minutes
   longBreak: 15 * 60, // 15 minutes
   volume: 50,
+  loopAudio: false,
 };
 
 const SPRING_ANIMATION = {
@@ -51,8 +53,16 @@ export function PomodoroTimer() {
   const [completedPomodoros, setCompletedPomodoros] = useState(0);
 
   // Audio setup
-  const alarmSound = useMemo(() => new Audio("/sounds/alarm.mp3"), []);
-  alarmSound.volume = settings.volume / 100;
+  const alarmSound = useMemo(() => {
+    const audio = new Audio("/sounds/alarm.mp3");
+    audio.volume = settings.volume / 100;
+    audio.loop = settings.loopAudio;
+    return audio;
+  }, [settings.loopAudio]);
+
+  useEffect(() => {
+    alarmSound.volume = settings.volume / 100;
+  }, [alarmSound, settings.volume]);
 
   // Calculate progress percentage
   const progress = useMemo(() => {
@@ -96,6 +106,15 @@ export function PomodoroTimer() {
     [alarmSound, setSettings]
   );
 
+  // Handle loop toggle
+  const handleLoopToggle = useCallback(() => {
+    setSettings((prev) => {
+      const newLoopAudio = !prev.loopAudio;
+      alarmSound.loop = newLoopAudio;
+      return { ...prev, loopAudio: newLoopAudio };
+    });
+  }, [alarmSound, setSettings]);
+
   // Timer effect
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -126,7 +145,14 @@ export function PomodoroTimer() {
       }
     }
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      // Stop audio when unmounting or when timer changes
+      if (alarmSound.loop) {
+        alarmSound.pause();
+        alarmSound.currentTime = 0;
+      }
+    };
   }, [
     isRunning,
     timeLeft,
@@ -232,27 +258,55 @@ export function PomodoroTimer() {
         </Button>
       </div>
 
-      {/* Volume control */}
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="flex items-center gap-4 w-48">
-              <Volume2 className="h-4 w-4 text-muted-foreground" />
-              <Slider
-                value={[settings.volume]}
-                onValueChange={handleVolumeChange}
-                max={100}
-                step={1}
-                className="flex-1"
-                aria-label="Alarm volume"
-              />
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Alarm Volume: {settings.volume}%</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      {/* Volume and audio settings */}
+      <div className="flex flex-col gap-4 w-48">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-4">
+                <Volume2 className="h-4 w-4 text-muted-foreground" />
+                <Slider
+                  value={[settings.volume]}
+                  onValueChange={handleVolumeChange}
+                  max={100}
+                  step={1}
+                  className="flex-1"
+                  aria-label="Alarm volume"
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Alarm Volume: {settings.volume}%</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLoopToggle}
+                className={cn(
+                  "flex items-center gap-2",
+                  settings.loopAudio && "bg-primary/20"
+                )}
+              >
+                <RepeatIcon className="h-4 w-4" />
+                {settings.loopAudio ? "Loop On" : "Loop Off"}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                {settings.loopAudio
+                  ? "Alarm will loop until stopped"
+                  : "Alarm will play once"}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
 
       {/* Session counter */}
       <div className="text-sm text-muted-foreground">
