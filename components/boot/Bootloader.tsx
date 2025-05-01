@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useTheme } from "next-themes";
 import { Progress } from "@/components/ui/progress";
 import Image from "next/image";
 
@@ -16,7 +16,7 @@ export const Bootloader = ({
   minimumDisplayTime = 2000,
 }: BootloaderProps) => {
   const [progress, setProgress] = useState(0);
-  const [theme] = useLocalStorage("theme", "dark");
+  const { theme } = useTheme();
 
   useEffect(() => {
     const startTime = Date.now();

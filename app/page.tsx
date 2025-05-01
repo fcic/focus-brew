@@ -17,6 +17,7 @@ import { useLocalStorage } from "@/hooks/use-local-storage";
 import { type SettingsTab } from "@/lib/constants";
 import { Bootloader } from "@/components/boot/Bootloader";
 import { stopAllAmbientSounds } from "@/components/apps/ambient-sounds";
+import { useTheme } from "next-themes";
 
 // Lazy load components
 const TodoApp = lazy(() =>
@@ -192,7 +193,7 @@ export default function Home() {
     "/wallpapers/default.webp"
   );
   const [font, setFont] = useLocalStorage("font", "font-satoshi");
-  const [theme, setTheme] = useLocalStorage("theme", "dark");
+  const { theme = "dark", setTheme } = useTheme();
   const [isBooting, setIsBooting] = useState(true);
 
   const {

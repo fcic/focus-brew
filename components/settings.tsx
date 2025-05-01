@@ -131,9 +131,10 @@ export function Settings({
   setWallpaper,
   font: propFont,
   setFont,
-  theme,
-  setTheme,
+  theme: propTheme,
+  setTheme: setPropTheme,
 }: SettingsProps) {
+  const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(
     null
@@ -365,9 +366,9 @@ export function Settings({
                   <SettingsAppearanceTab
                     font={propFont}
                     setFont={setFont}
-                    theme={theme}
+                    theme={theme || "dark"}
                     setTheme={setTheme}
-                    setSystemTheme={setTheme}
+                    setSystemTheme={setPropTheme}
                     base={currencyState.base}
                     setBase={(base: string) =>
                       setState((prev: SettingsState) => ({

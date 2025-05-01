@@ -149,7 +149,14 @@ export function SettingsAppearanceTab({
               value={theme}
               onValueChange={(value) => {
                 setTheme(value);
-                setSystemTheme(value);
+                // When theme changes, we need to store it and update DOM
+                if (typeof window !== "undefined") {
+                  // Force theme change to take effect immediately
+                  document.documentElement.classList.remove("light", "dark");
+                  if (value !== "system") {
+                    document.documentElement.classList.add(value);
+                  }
+                }
               }}
               className="flex flex-wrap gap-2"
             >
