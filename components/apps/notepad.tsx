@@ -213,7 +213,8 @@ export function Notepad() {
       <motion.div
         className="w-72 border-r border-border flex flex-col"
         animate={{
-          width: isSearching || filteredNotes.length > 0 ? "33.333333%" : "0%",
+          width:
+            isSearching || filteredNotes.length > 0 ? "33.333333%" : "18rem",
         }}
         transition={{ duration: 0.2 }}
       >

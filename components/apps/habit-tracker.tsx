@@ -68,6 +68,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { sendHabitReminderNotification } from "@/lib/notification";
+import {
+  NotificationSettings,
+  getNotificationSettings,
+} from "@/lib/notification";
 
 // Types
 type FrequencyType = "daily" | "weekly" | "custom";
@@ -279,8 +284,15 @@ const HabitForm = ({
   const [reminderEnabled, setReminderEnabled] = useState(
     initialHabit?.reminderEnabled || false
   );
+  const getCurrentTimeString = () => {
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, "0");
+    const minutes = now.getMinutes().toString().padStart(2, "0");
+    return `${hours}:${minutes}`;
+  };
+
   const [reminderTime, setReminderTime] = useState(
-    initialHabit?.reminderTime || "09:00"
+    initialHabit?.reminderTime || getCurrentTimeString()
   );
   const [duration, setDuration] = useState(initialHabit?.duration || 1);
   const [period, setPeriod] = useState<"days" | "weeks" | "months">(
@@ -918,6 +930,29 @@ const HabitDetail = ({
 };
 
 export function HabitTracker() {
+  // Adding error handling for useMeasureWidth
+  useEffect(() => {
+    // Capture errors that may occur during rendering
+    const handleError = (event: ErrorEvent) => {
+      // Ignore errors related to useMeasureWidth
+      const errorText = event.message;
+      if (
+        errorText.includes("useMeasureWidth") ||
+        errorText.includes("next-logo") ||
+        errorText.includes("dev-tools-indicator")
+      ) {
+        return;
+      }
+      console.error("Error in useEffect:", event.error);
+    };
+
+    window.addEventListener("error", handleError);
+
+    return () => {
+      window.removeEventListener("error", handleError);
+    };
+  }, []);
+
   const [habits, setHabits] = useState<Habit[]>([]);
   const [activeFilter, setActiveFilter] = useState<
     "all" | "today" | HabitCategory
@@ -927,23 +962,132 @@ export function HabitTracker() {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null);
+  const [lastReminderCheck, setLastReminderCheck] = useState<Date>(new Date());
 
   // Load habits from local storage
   useEffect(() => {
     const savedHabits = localStorage.getItem(STORAGE_KEY);
     if (savedHabits) {
       try {
-        setHabits(JSON.parse(savedHabits));
+        const parsedHabits = JSON.parse(savedHabits);
+        // Only update the state if there are habits to load and the current state is empty
+        if (parsedHabits && parsedHabits.length > 0 && habits.length === 0) {
+          setHabits(parsedHabits);
+        }
       } catch (error) {
         console.error("Failed to parse saved habits:", error);
       }
     }
-  }, []);
+  }, [habits.length]);
 
   // Save habits to local storage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(habits));
   }, [habits]);
+
+  // Check for habit reminders periodically (every minute)
+  useEffect(() => {
+    // Function to check if a habit should have a reminder sent
+    const checkHabitReminders = async () => {
+      const now = new Date();
+
+      // Don't update state here to avoid render loop
+      // Check if enough time has passed since last check
+      if (now.getTime() - lastReminderCheck.getTime() < 30000) {
+        return; // Exit early if we checked recently (last 30 seconds)
+      }
+
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+
+      // Get notification settings to see if notifications are enabled
+      const settings = getNotificationSettings();
+
+      // If notifications are disabled globally or for habits, just update last check time
+      if (!settings.enabled || !settings.habitReminders) {
+        setLastReminderCheck(now);
+        return;
+      }
+
+      // Check all habits that have reminders enabled
+      for (const habit of habits) {
+        if (
+          habit.reminderEnabled &&
+          habit.reminderTime &&
+          shouldCompleteToday(habit)
+        ) {
+          try {
+            const [hourStr, minuteStr] = habit.reminderTime.split(":");
+            const reminderHour = parseInt(hourStr, 10);
+            const reminderMinute = parseInt(minuteStr, 10);
+
+            // Check if within time window for notification (up to 1 minute after)
+            if (
+              (currentHour === reminderHour &&
+                currentMinute === reminderMinute) ||
+              (currentHour === reminderHour &&
+                currentMinute === reminderMinute + 1)
+            ) {
+              // Avoid sending the same notification multiple times
+              const reminderKey = `reminder_sent_${
+                habit.id
+              }_${now.toDateString()}`;
+              const alreadySent = localStorage.getItem(reminderKey);
+
+              if (!alreadySent) {
+                // Send notification and mark as sent
+                await sendHabitReminderNotification(habit.name);
+                localStorage.setItem(reminderKey, "true");
+
+                // Clear the marker after 2 minutes to avoid duplicate sending
+                setTimeout(() => {
+                  localStorage.removeItem(reminderKey);
+                }, 120000);
+              }
+            }
+          } catch (error) {
+            console.error("Error processing habit reminder:", error);
+          }
+        }
+      }
+
+      // Update last check time after processing all habits
+      setLastReminderCheck(now);
+    };
+
+    // Check immediately on component mount
+    checkHabitReminders();
+
+    // Set up interval to check every 30 seconds
+    const intervalId = setInterval(checkHabitReminders, 30000);
+
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
+  }, [habits, lastReminderCheck, shouldCompleteToday]);
+
+  // Listen for notification settings changes
+  useEffect(() => {
+    const handleNotificationSettingsChange = (
+      e: CustomEvent<NotificationSettings>
+    ) => {
+      // Just log that the settings were updated
+      console.log("Notification settings updated:", e.detail);
+      // We don't trigger any action here because notification settings
+      // will be used directly by methods that send notifications
+    };
+
+    window.addEventListener(
+      "notification_settings_changed",
+      handleNotificationSettingsChange as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "notification_settings_changed",
+        handleNotificationSettingsChange as EventListener
+      );
+    };
+  }, []); // Empty dependency array to ensure we only add the listener once
 
   // Handle creating a new habit
   const handleCreateHabit = (

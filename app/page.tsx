@@ -125,7 +125,7 @@ function useWindowManager() {
       const validAppId = appId as AppId;
       const currentWindows = windowsRef.current;
 
-      // Se a janela já existe e está minimizada, restaura ela e traz para frente
+      // If the window already exists and is minimized, restore it and bring it to front
       if (minimizedWindows.has(validAppId)) {
         setMinimizedWindows((prev) => {
           const next = new Set(prev);
@@ -133,7 +133,7 @@ function useWindowManager() {
           return next;
         });
 
-        // Certifique-se de que a janela será trazida para frente após ser restaurada
+        // Make sure the window is brought to front after being restored
         setTimeout(() => {
           bringToFront(validAppId);
         }, 10);
@@ -141,13 +141,13 @@ function useWindowManager() {
         return;
       }
 
-      // Se a janela já existe, apenas traz para frente
+      // If the window already exists, just bring it to front
       if (currentWindows.some((w) => w.id === validAppId)) {
         bringToFront(validAppId);
         return;
       }
 
-      // Se não existe, cria uma nova janela
+      // If it doesn't exist, create a new window
       const zIndex = currentWindows.length;
       const defaultSize =
         DEFAULT_WINDOW_SIZES[validAppId as keyof typeof DEFAULT_WINDOW_SIZES] ||
@@ -395,13 +395,20 @@ export default function Home() {
 
   // Add function to close all apps
   const closeAllApps = useCallback(() => {
-    // Copy list of app IDs to avoid modification during iteration
-    const appsToClose = [...windows.map((w) => w.id)];
+    // Get all app IDs, including minimized ones
+    const openApps = windows.map((w) => w.id);
+
+    // Include minimized apps
+    const minimizedApps = Array.from(minimizedWindows) as AppId[];
+
+    // Create a combined list of all apps to close
+    const allAppsToClose = [...new Set([...openApps, ...minimizedApps])];
+
     // Close each app
-    appsToClose.forEach((appId) => {
+    allAppsToClose.forEach((appId) => {
       closeApp(appId);
     });
-  }, [windows, closeApp]);
+  }, [windows, closeApp, minimizedWindows]);
 
   // Render desktop content
   const desktopContent = (

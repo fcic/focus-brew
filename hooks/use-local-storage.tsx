@@ -18,19 +18,19 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
       }
 
       try {
-        // Tenta fazer o parse do valor
+        // Try to parse the value
         const parsedItem = JSON.parse(item) as T;
 
-        // Validação básica
+        // Basic validation
         if (parsedItem === null || parsedItem === undefined) {
-          console.warn(`Valor inválido no localStorage para a chave "${key}"`);
+          console.warn(`Invalid value in localStorage for key "${key}"`);
           return initialValue;
         }
 
         return parsedItem;
       } catch (e) {
         console.warn(`Error parsing localStorage key "${key}":`, e);
-        // Remove o item inválido do localStorage
+        // Remove the invalid item from localStorage
         localStorage.removeItem(key);
         return initialValue;
       }
@@ -40,7 +40,7 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
     }
   });
 
-  // Use um ref para armazenar a versão atual do valor para evitar problemas com closures
+  // Use a ref to store the current version of the value to avoid issues with closures
   const valueRef = useRef(storedValue);
   useEffect(() => {
     valueRef.current = storedValue;
@@ -55,17 +55,17 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
         const valueToStore =
           value instanceof Function ? value(valueRef.current) : value;
 
-        // Validação básica antes de salvar
+        // Basic validation before saving
         if (valueToStore === undefined) {
           console.warn(
-            `Tentativa de salvar undefined no localStorage para a chave "${key}"`
+            `Attempt to save undefined in localStorage for key "${key}"`
           );
           return;
         }
 
-        // Verifica se o valor mudou para evitar atualizações desnecessárias
+        // Check if the value has changed to avoid unnecessary updates
         if (JSON.stringify(valueRef.current) === JSON.stringify(valueToStore)) {
-          return; // Não atualiza se o valor for idêntico
+          return; // Don't update if the value is identical
         }
 
         // Save state
@@ -86,7 +86,7 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
         );
       }
     },
-    [key] // Remove storedValue da dependência para evitar loops
+    [key] // Remove storedValue from dependency to avoid loops
   );
 
   return [storedValue, setValue] as const;

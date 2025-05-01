@@ -13,7 +13,13 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
 import { Pause, Play, RotateCcw, RepeatIcon, Volume2 } from "lucide-react";
-import { sendPomodoroNotification } from "@/lib/notification";
+import {
+  sendPomodoroNotification,
+  checkNotificationPermission,
+  getNotificationSettings,
+  NotificationSettings,
+} from "@/lib/notification";
+import { toast } from "@/lib/toast";
 
 type TimerMode = "pomodoro" | "shortBreak" | "longBreak";
 
@@ -51,17 +57,33 @@ export function PomodoroTimer() {
   const [timeLeft, setTimeLeft] = useState(settings.pomodoro);
   const [isRunning, setIsRunning] = useState(false);
   const [completedPomodoros, setCompletedPomodoros] = useState(0);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   // Audio setup
   const alarmSound = useMemo(() => {
+    if (typeof window === "undefined") return null;
     const audio = new Audio("/sounds/alarm.mp3");
     audio.volume = settings.volume / 100;
     audio.loop = settings.loopAudio;
     return audio;
-  }, [settings.loopAudio]);
+  }, [settings.loopAudio, settings.volume]);
+
+  // Check notification permission on mount
+  useEffect(() => {
+    // Check notification permission on mount
+    checkNotificationPermission()
+      .then((hasPermission) => {
+        setNotificationsEnabled(hasPermission);
+      })
+      .catch((error) => {
+        console.error("Error verifying notification permission:", error);
+      });
+  }, []);
 
   useEffect(() => {
-    alarmSound.volume = settings.volume / 100;
+    if (alarmSound) {
+      alarmSound.volume = settings.volume / 100;
+    }
   }, [alarmSound, settings.volume]);
 
   // Calculate progress percentage
@@ -101,7 +123,9 @@ export function PomodoroTimer() {
     (value: number[]) => {
       const newVolume = value[0];
       setSettings((prev) => ({ ...prev, volume: newVolume }));
-      alarmSound.volume = newVolume / 100;
+      if (alarmSound) {
+        alarmSound.volume = newVolume / 100;
+      }
     },
     [alarmSound, setSettings]
   );
@@ -110,58 +134,90 @@ export function PomodoroTimer() {
   const handleLoopToggle = useCallback(() => {
     setSettings((prev) => {
       const newLoopAudio = !prev.loopAudio;
-      alarmSound.loop = newLoopAudio;
+      if (alarmSound) {
+        alarmSound.loop = newLoopAudio;
+      }
       return { ...prev, loopAudio: newLoopAudio };
     });
   }, [alarmSound, setSettings]);
 
+  // Request notification permission
+  const requestNotificationPermission = useCallback(async () => {
+    try {
+      const hasPermission = await checkNotificationPermission();
+      setNotificationsEnabled(hasPermission);
+
+      if (hasPermission) {
+        toast.success("Notifications enabled", {
+          description: "You will receive notifications when timer completes.",
+        });
+      } else {
+        toast.error("Notification permission denied", {
+          description:
+            "Please enable notifications in your browser settings to get timer alerts.",
+        });
+      }
+    } catch (error) {
+      console.error("Error requesting notification permission:", error);
+    }
+  }, []);
+
   // Timer effect
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    if (!isRunning) return;
 
-    if (isRunning && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((time) => time - 1);
-      }, 1000);
-    } else if (timeLeft === 0) {
-      setIsRunning(false);
-      alarmSound.play();
+    const interval = setInterval(() => {
+      setTimeLeft((prevTimeLeft) => {
+        if (prevTimeLeft <= 1) {
+          // Timer is done
+          // Play sound if enabled
+          if (alarmSound) {
+            alarmSound.play().catch((error) => {
+              console.error("Error playing audio:", error);
+            });
+          }
 
-      if (mode === "pomodoro") {
-        setCompletedPomodoros((count) => count + 1);
-        const nextMode =
-          completedPomodoros % 4 === 3 ? "longBreak" : "shortBreak";
-        // Send notification when pomodoro ends
-        sendPomodoroNotification("work", settings.shortBreak / 60);
-        handleSwitchMode(nextMode);
-      } else if (mode === "shortBreak") {
-        // Send notification when short break ends
-        sendPomodoroNotification("break", settings.pomodoro / 60);
-        handleSwitchMode("pomodoro");
-      } else if (mode === "longBreak") {
-        // Send notification when long break ends
-        sendPomodoroNotification("longBreak", settings.pomodoro / 60);
-        handleSwitchMode("pomodoro");
-      }
-    }
+          // Send notification
+          sendPomodoroNotification(
+            mode === "pomodoro"
+              ? "work"
+              : mode === "shortBreak"
+              ? "break"
+              : "longBreak",
+            mode === "pomodoro"
+              ? settings.shortBreak / 60
+              : settings.pomodoro / 60
+          ).catch((error) => {
+            console.error("Error sending notification:", error);
+          });
 
-    return () => {
-      clearInterval(interval);
-      // Stop audio when unmounting or when timer changes
-      if (alarmSound.loop) {
-        alarmSound.pause();
-        alarmSound.currentTime = 0;
-      }
-    };
+          // Update pomodoro count and switch modes
+          if (mode === "pomodoro") {
+            setCompletedPomodoros((count) => count + 1);
+            const nextMode =
+              completedPomodoros % 4 === 3 ? "longBreak" : "shortBreak";
+            handleSwitchMode(nextMode);
+          } else {
+            handleSwitchMode("pomodoro");
+          }
+
+          // Stop the timer
+          setIsRunning(false);
+          return settings[mode === "pomodoro" ? "shortBreak" : "pomodoro"];
+        }
+        return prevTimeLeft - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
   }, [
     isRunning,
     timeLeft,
     mode,
-    completedPomodoros,
+    settings,
     alarmSound,
+    completedPomodoros,
     handleSwitchMode,
-    settings.shortBreak,
-    settings.pomodoro,
   ]);
 
   // Add keyboard shortcuts
@@ -186,6 +242,32 @@ export function PomodoroTimer() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isRunning, handleStartTimer, handlePauseTimer, handleResetTimer]);
+
+  // Listen for notification settings changes
+  useEffect(() => {
+    const handleNotificationSettingsChange = (
+      e: CustomEvent<NotificationSettings>
+    ) => {
+      setNotificationsEnabled(e.detail.enabled);
+    };
+
+    // Use settings without creating cyclic dependencies
+    const settings = getNotificationSettings();
+
+    // Only check permission if settings indicate notifications are enabled
+    if (settings.enabled) {
+      checkNotificationPermission()
+        .then((hasPermission) => {
+          setNotificationsEnabled(hasPermission);
+        })
+        .catch((error) => {
+          console.error("Error checking notification permission:", error);
+        });
+    } else if (notificationsEnabled) {
+      // Disable notifications only if they are currently enabled
+      setNotificationsEnabled(false);
+    }
+  }, [notificationsEnabled]); // Add notificationsEnabled as a dependency to avoid unnecessary updates
 
   return (
     <div className="flex flex-col items-center gap-6 p-6" role="timer">

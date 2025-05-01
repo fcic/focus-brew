@@ -5,71 +5,110 @@ import { Bell, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { toast, showNotificationPermissionToast } from "@/lib/toast";
+import { toast } from "@/lib/toast";
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { isBrowserNotificationSupported } from "@/lib/notification";
+import {
+  isBrowserNotificationSupported,
+  getNotificationSettings,
+  saveNotificationSettings,
+  NotificationSettings as NotificationSettingsType,
+  sendNotification,
+  checkNotificationPermission,
+  resetNotificationSettings,
+} from "@/lib/notification";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export type NotificationSettings = {
-  enabled: boolean;
-  habitReminders: boolean;
-  pomodoroNotifications: boolean;
-};
-
-const LOCAL_STORAGE_KEY = "focusbrew_notification_settings";
-
 export function NotificationSettings() {
-  const [settings, setSettings] = useState<NotificationSettings>({
-    enabled: false,
+  const [settings, setSettings] = useState<NotificationSettingsType>({
+    enabled: true,
     habitReminders: true,
     pomodoroNotifications: true,
   });
   const [notificationsSupported, setNotificationsSupported] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  // Check if browser supports notifications
+  // Check if the browser supports notifications
   useEffect(() => {
     setNotificationsSupported(isBrowserNotificationSupported());
   }, []);
 
   // Load settings from localStorage
   useEffect(() => {
-    const savedSettings = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (savedSettings) {
-      setSettings(JSON.parse(savedSettings));
+    const savedSettings = getNotificationSettings();
+
+    // If the saved settings have notifications disabled, but this is the first load,
+    // we'll reset to the default enabled state
+    if (
+      !savedSettings.enabled &&
+      !localStorage.getItem("notification_settings_initialized")
+    ) {
+      localStorage.setItem("notification_settings_initialized", "true");
+      resetNotificationSettings();
+      setSettings({
+        enabled: true,
+        habitReminders: true,
+        pomodoroNotifications: true,
+      });
+    } else {
+      setSettings(savedSettings);
     }
+
+    // Automatically request permission if notifications are enabled by default
+    // but we don't have permission yet
+    const checkAndRequestPermission = async () => {
+      if (savedSettings.enabled && isBrowserNotificationSupported()) {
+        await checkNotificationPermission();
+      }
+    };
+
+    checkAndRequestPermission();
   }, []);
 
-  // Save settings to localStorage
+  // Save settings to localStorage when they change
   useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(settings));
+    saveNotificationSettings(settings);
   }, [settings]);
 
   const requestNotificationPermission = async () => {
+    setLoading(true);
+
     if (!notificationsSupported) {
       toast.error("Notifications not supported", {
         description: "Your browser does not support notifications.",
       });
+      setLoading(false);
       return;
     }
 
     try {
-      const permission = await Notification.requestPermission();
-      showNotificationPermissionToast(permission);
+      const permission = await checkNotificationPermission();
 
-      if (permission === "granted") {
+      if (permission) {
         setSettings((prev) => ({ ...prev, enabled: true }));
+        toast.success("Notifications enabled", {
+          description: "You will receive notifications when needed.",
+        });
+      } else {
+        toast.error("Permission denied", {
+          description:
+            "You denied permission for notifications. Please enable them in your browser settings.",
+        });
       }
     } catch (error) {
+      console.error("Error requesting permission:", error);
       toast.error("Error enabling notifications", {
         description:
-          "There was an error while requesting notification permissions.",
+          "An error occurred while requesting permission for notifications.",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -82,6 +121,49 @@ export function NotificationSettings() {
         description: "You will no longer receive notifications.",
       });
     }
+  };
+
+  const testBrowserNotification = async () => {
+    if (!settings.enabled) {
+      toast.error("Notifications are disabled", {
+        description: "Enable notifications first.",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const sent = await sendNotification("Notification Test", {
+        body: "This is a test notification from FocusBrew.",
+        requireInteraction: false,
+      });
+
+      if (sent) {
+        toast.success("Notification sent", {
+          description: "The notification was sent successfully.",
+        });
+      } else {
+        toast.error("Failed to send notification", {
+          description: "Check browser permissions.",
+        });
+      }
+    } catch (error) {
+      console.error("Error sending notification:", error);
+      toast.error("Error sending notification", {
+        description: "An error occurred while sending the notification.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetSettings = () => {
+    resetNotificationSettings();
+    const defaultSettings = getNotificationSettings();
+    setSettings(defaultSettings);
+    toast.success("Notification settings reset", {
+      description: "Notification settings have been reset to defaults.",
+    });
   };
 
   return (
@@ -106,7 +188,7 @@ export function NotificationSettings() {
           <div className="space-y-1">
             <Label>Enable Notifications</Label>
             <p className="text-sm text-muted-foreground">
-              Allow FocusBrew to send you notifications
+              Allow FocusBrew to send notifications to you
             </p>
           </div>
           <Button
@@ -114,7 +196,7 @@ export function NotificationSettings() {
             size="sm"
             onClick={toggleNotifications}
             className="space-x-2"
-            disabled={!notificationsSupported}
+            disabled={!notificationsSupported || loading}
           >
             {settings.enabled ? (
               <>
@@ -135,7 +217,7 @@ export function NotificationSettings() {
             <div className="space-y-1">
               <Label>Habit Reminders</Label>
               <p className="text-sm text-muted-foreground">
-                Get reminded when it&apos;s time to complete your habits
+                Receive reminders when it's time to complete your habits
               </p>
             </div>
             <Switch
@@ -143,7 +225,7 @@ export function NotificationSettings() {
               onCheckedChange={(checked) =>
                 setSettings((prev) => ({ ...prev, habitReminders: checked }))
               }
-              disabled={!settings.enabled || !notificationsSupported}
+              disabled={!settings.enabled || !notificationsSupported || loading}
             />
           </div>
 
@@ -162,11 +244,30 @@ export function NotificationSettings() {
                   pomodoroNotifications: checked,
                 }))
               }
-              disabled={!settings.enabled || !notificationsSupported}
+              disabled={!settings.enabled || !notificationsSupported || loading}
             />
           </div>
         </div>
       </CardContent>
+      <CardFooter className="flex flex-wrap gap-2">
+        <Button
+          variant="secondary"
+          onClick={testBrowserNotification}
+          disabled={!settings.enabled || !notificationsSupported || loading}
+          className="flex-1 min-w-[120px]"
+          size="sm"
+        >
+          Test Notification
+        </Button>
+        <Button
+          variant="destructive"
+          onClick={resetSettings}
+          className="flex-1 min-w-[120px]"
+          size="sm"
+        >
+          Reset Notification Settings
+        </Button>
+      </CardFooter>
     </Card>
   );
 }

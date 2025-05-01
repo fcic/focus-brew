@@ -14,11 +14,11 @@ const MIN_WINDOW_SIZE = {
   height: 200,
 } as const;
 
-// Constantes para os limites da janela
+// Constants for window boundaries
 const MENU_BAR_HEIGHT = 28;
-const DOCK_HEIGHT = 96; // Altura da dock + margem inferior
-const WINDOW_PADDING = 8; // Pequena margem para não colar nas bordas
-const TOTAL_VERTICAL_PADDING = WINDOW_PADDING * 2; // Padding para todas as direções
+const DOCK_HEIGHT = 96; // Dock height + bottom margin
+const WINDOW_PADDING = 8; // Small margin to avoid sticking to edges
+const TOTAL_VERTICAL_PADDING = WINDOW_PADDING * 2; // Padding for all directions
 
 type Position = { x: number; y: number };
 type Size = { width: number; height: number };

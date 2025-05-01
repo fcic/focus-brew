@@ -17,12 +17,21 @@ export const Bootloader = ({
   minimumDisplayTime = 2000,
 }: BootloaderProps) => {
   const [progress, setProgress] = useState(0);
+  const [mounted, setMounted] = useState(false);
   const { theme, systemTheme } = useTheme();
 
+  // Mount state to handle client-side only rendering for theme detection
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Determine which logo to use based on the effective theme
-  const effectiveTheme = theme === "system" ? systemTheme : theme;
-  const logoPath =
-    effectiveTheme === "dark" ? "/logo-light.svg" : "/logo-dark.svg";
+  // Only client-side to avoid hydration mismatch
+  const logoPath = mounted
+    ? (theme === "system" ? systemTheme : theme) === "dark"
+      ? "/logo-light.svg"
+      : "/logo-dark.svg"
+    : "/logo-dark.svg"; // Default for server rendering
 
   useEffect(() => {
     const startTime = Date.now();
@@ -80,13 +89,16 @@ export const Bootloader = ({
         className="flex flex-col items-center"
       >
         <div className="relative w-32 h-32 mb-8">
-          <Image
-            src={logoPath}
-            alt="FocusBrew"
-            fill
-            style={{ objectFit: "contain" }}
-            priority
-          />
+          {mounted && (
+            <Image
+              src={logoPath}
+              alt="FocusBrew"
+              width={128}
+              height={128}
+              style={{ objectFit: "contain" }}
+              priority
+            />
+          )}
         </div>
 
         <div className="w-64 mb-4 relative overflow-hidden rounded-full">
