@@ -3,7 +3,6 @@
 import type React from "react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { X, Minus, Plus } from "lucide-react";
@@ -709,7 +708,7 @@ export function AppWindow({
             role="dialog"
             aria-modal="true"
           >
-            <Card className="flex flex-col h-full overflow-hidden outline-none ring-0 border-zinc-100/20 dark:border-zinc-800/20 border border-zinc-300/30 dark:border-zinc-700/30">
+            <Card className="flex flex-col h-full overflow-hidden outline-none ring-0 border-zinc-100/20 border dark:border-zinc-700/30">
               <CardHeader
                 className={cn(
                   "p-0 space-y-0 select-none cursor-move flex flex-row items-center justify-between border-b border-zinc-100/20 dark:border-zinc-800/20 window-header",

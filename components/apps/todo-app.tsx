@@ -196,9 +196,14 @@ export const TodoApp = () => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
+    // Tempo de espera para garantir que o DOM esteja pronto
+    const timeoutId = setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
   }, []);
 
   const handleAddTodo = useCallback(async () => {
