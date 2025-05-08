@@ -62,7 +62,7 @@ const CarCard = memo(({ card, onDelete }: CarCardProps) => {
         {...attributes}
         {...listeners}
         className={cn(
-          "bg-background rounded-lg border transition-colors duration-150 p-3 flex flex-col gap-1 group focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+          "bg-background rounded-lg border transition-colors duration-150 p-3 flex flex-col gap-1 group",
           isDragging
             ? "border-accent shadow-lg"
             : "border-border hover:border-border/80"

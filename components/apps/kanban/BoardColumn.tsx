@@ -54,8 +54,7 @@ const BoardColumn = memo(
         ref={setNodeRef}
         className={cn(
           "bg-background/80 rounded-2xl p-4 min-w-[300px] flex flex-col gap-3",
-          "shadow-lg border border-border/40 backdrop-blur-sm",
-          "focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
+          "shadow-lg border border-border/40 backdrop-blur-sm"
         )}
         role="region"
         aria-label={`${column.title} column`}
