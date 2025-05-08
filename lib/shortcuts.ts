@@ -1,13 +1,13 @@
 import { formatShortcut } from "./utils";
 
 /**
- * Atalhos de teclado para os aplicativos
+ * Keyboard shortcuts for applications
  *
- * Concentramos aqui todos os atalhos para facilitar a manutenção
- * e evitar conflitos com atalhos de navegador e sistema operacional
+ * We gather all shortcuts here to facilitate maintenance
+ * and avoid conflicts with browser and operating system shortcuts
  */
 export const KEYBOARD_SHORTCUTS = {
-  // Atalhos para abrir aplicativos
+  // Shortcuts to open applications
   OPEN_APPS: {
     TODO: formatShortcut("1"), // Ctrl/Cmd + 1
     KANBAN: formatShortcut("2"), // Ctrl/Cmd + 2
@@ -20,40 +20,40 @@ export const KEYBOARD_SHORTCUTS = {
     ABOUT: formatShortcut("8"), // Ctrl/Cmd + 8
   },
 
-  // Atalhos dentro do aplicativo Notepad
+  // Shortcuts for the Notepad application
   NOTEPAD: {
-    SEARCH: formatShortcut("L"), // Ctrl/Cmd + L (alterado de F para evitar conflito)
+    SEARCH: formatShortcut("L"), // Ctrl/Cmd + L (changed from F to avoid conflict)
     SAVE: formatShortcut("S"), // Ctrl/Cmd + S
-    NEW_NOTE: formatShortcut("B"), // Ctrl/Cmd + B (alterado de N para evitar conflito)
+    NEW_NOTE: formatShortcut("B"), // Ctrl/Cmd + B (changed from N to avoid conflict)
     UNDO: formatShortcut("Z"), // Ctrl/Cmd + Z
     REDO: formatShortcut("Shift+Z"), // Ctrl/Cmd + Shift + Z
   },
 
-  // Atalhos dentro do aplicativo Pomodoro
+  // Shortcuts for the Pomodoro application
   POMODORO: {
-    START_PAUSE: "Space", // Espaço
+    START_PAUSE: "Space", // Space
     RESET: formatShortcut("R"), // Ctrl/Cmd + R
   },
 
-  // Atalhos dentro do aplicativo YouTube Player
+  // Shortcuts for the YouTube Player application
   YOUTUBE: {
-    PLAY_PAUSE: "Space", // Espaço
-    SEEK_BACK: "←", // Seta Esquerda
-    SEEK_FORWARD: "→", // Seta Direita
-    PREV: "Alt+←", // Alt + Seta Esquerda
-    NEXT: "Alt+→", // Alt + Seta Direita
+    PLAY_PAUSE: "Space", // Space
+    SEEK_BACK: "←", // Left Arrow
+    SEEK_FORWARD: "→", // Right Arrow
+    PREV: "Alt+←", // Alt + Left Arrow
+    NEXT: "Alt+→", // Alt + Right Arrow
     MUTE: "M", // M
     TOGGLE_VIDEO: "V", // V
   },
 
-  // Atalhos dentro do aplicativo Ambient Sounds
+  // Shortcuts for the Ambient Sounds application
   AMBIENT: {
-    TOGGLE_SOUND: "Space", // Espaço
-    SET_VOLUME: "1-9", // Teclas 1-9
-    CHANGE_TAB: "Alt+1-5", // Alt + Teclas 1-5
+    TOGGLE_SOUND: "Space", // Space
+    SET_VOLUME: "1-9", // Keys 1-9
+    CHANGE_TAB: "Alt+1-5", // Alt + Keys 1-5
   },
 
-  // Geral
+  // General
   GENERAL: {
     CLOSE_WINDOW: formatShortcut("W"), // Ctrl/Cmd + W
   },
