@@ -351,7 +351,7 @@ const HeroHeader = () => {
                   className="flex items-center gap-2 hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all duration-300"
                   onClick={() =>
                     window.open(
-                      "https://github.com/focusbrew/focusbrew",
+                      "https://github.com/birobirobiro/focus-brew",
                       "_blank"
                     )
                   }
@@ -787,7 +787,7 @@ function FocusBrewLanding() {
                 className="relative rounded-xl flex items-center gap-2 bg-background border-primary/20 hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all duration-300"
                 onClick={() =>
                   window.open(
-                    "https://github.com/focusbrew/focusbrew",
+                    "https://github.com/birobirobiro/focus-brew",
                     "_blank"
                   )
                 }

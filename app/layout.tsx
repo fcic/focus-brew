@@ -2,6 +2,7 @@ import { type ReactNode } from "react";
 import { type Metadata } from "next";
 import { Nunito, Roboto_Slab } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 import "./globals.css";
 import "./fonts.css";
 import { Toaster } from "@/components/ui/sonner";
@@ -74,6 +75,7 @@ export default function RootLayout({ children }: Readonly<RootLayoutProps>) {
         >
           {children}
           <Toaster />
+          <GoogleAnalytics />
         </ThemeProvider>
       </body>
     </html>

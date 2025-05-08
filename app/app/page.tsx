@@ -66,7 +66,7 @@ const DEFAULT_WINDOW_SIZES = {
   ambient: { width: 1100, height: 1000 },
   pomodoro: { width: 700, height: 550 },
   notepad: { width: 800, height: 650 },
-  habit: { width: 900, height: 800 },
+  habit: { width: 450, height: 800 },
   settings: { width: 850, height: 650 },
 } as const;
 

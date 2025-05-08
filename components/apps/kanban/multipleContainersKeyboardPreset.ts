@@ -1,4 +1,4 @@
-import { KeyboardCoordinateGetter } from "@dnd-kit/core";
+import { KeyboardCoordinateGetter, DroppableContainer } from "@dnd-kit/core";
 
 export const coordinateGetter: KeyboardCoordinateGetter = (
   event,
@@ -7,27 +7,30 @@ export const coordinateGetter: KeyboardCoordinateGetter = (
   const { active, droppableContainers, droppableRects } = context;
   const { key } = event;
 
-  if (!active || !droppableContainers.length) {
+  if (!active || !droppableContainers.size) {
     return;
   }
 
-  const activeIndex = droppableContainers.findIndex(
-    ({ id }) => id === active.id
+  // Convert Map to Array for easier manipulation
+  const containers = Array.from(droppableContainers.values());
+
+  const activeIndex = containers.findIndex(
+    (container) => container.id === active.id
   );
 
-  const activeContainer = droppableContainers.find(
-    ({ id }) => id === active.data.current?.sortable.containerId
+  const activeContainer = containers.find(
+    (container) => container.id === active.data.current?.sortable.containerId
   );
 
-  const activeContainerIndex = droppableContainers.findIndex(
-    ({ id }) => id === activeContainer?.id
+  const activeContainerIndex = containers.findIndex(
+    (container) => container.id === activeContainer?.id
   );
 
   switch (key) {
     case "ArrowRight": {
       const nextContainerIndex = activeContainerIndex + 1;
-      if (nextContainerIndex < droppableContainers.length) {
-        const nextContainer = droppableContainers[nextContainerIndex];
+      if (nextContainerIndex < containers.length) {
+        const nextContainer = containers[nextContainerIndex];
         const rect = droppableRects.get(nextContainer.id);
 
         if (rect) {
@@ -42,7 +45,7 @@ export const coordinateGetter: KeyboardCoordinateGetter = (
     case "ArrowLeft": {
       const nextContainerIndex = activeContainerIndex - 1;
       if (nextContainerIndex >= 0) {
-        const nextContainer = droppableContainers[nextContainerIndex];
+        const nextContainer = containers[nextContainerIndex];
         const rect = droppableRects.get(nextContainer.id);
 
         if (rect) {
@@ -56,8 +59,8 @@ export const coordinateGetter: KeyboardCoordinateGetter = (
     }
     case "ArrowDown": {
       const nextIndex = activeIndex + 1;
-      if (nextIndex < droppableContainers.length) {
-        const nextContainer = droppableContainers[nextIndex];
+      if (nextIndex < containers.length) {
+        const nextContainer = containers[nextIndex];
         const rect = droppableRects.get(nextContainer.id);
 
         if (rect) {
@@ -72,7 +75,7 @@ export const coordinateGetter: KeyboardCoordinateGetter = (
     case "ArrowUp": {
       const nextIndex = activeIndex - 1;
       if (nextIndex >= 0) {
-        const nextContainer = droppableContainers[nextIndex];
+        const nextContainer = containers[nextIndex];
         const rect = droppableRects.get(nextContainer.id);
 
         if (rect) {

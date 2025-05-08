@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import { Progress } from "@/components/ui/progress";
@@ -19,6 +19,8 @@ export const Bootloader = ({
   const [progress, setProgress] = useState(0);
   const [mounted, setMounted] = useState(false);
   const { theme, systemTheme } = useTheme();
+  const completedRef = useRef(false);
+  const startTimeRef = useRef(Date.now());
 
   // Mount state to handle client-side only rendering for theme detection
   useEffect(() => {
@@ -34,9 +36,9 @@ export const Bootloader = ({
     : "/logo-dark.svg"; // Default for server rendering
 
   useEffect(() => {
-    const startTime = Date.now();
+    startTimeRef.current = Date.now();
+    completedRef.current = false;
     let frameId: number;
-    let completed = false;
 
     const animateProgress = () => {
       // Gradually increase progress
@@ -44,28 +46,35 @@ export const Bootloader = ({
         const newProgress = Math.min(prev + 0.7, 100);
 
         // Check if we've reached 100% and minimum time has passed
-        if (newProgress >= 100 && !completed) {
-          completed = true;
-          const elapsedTime = Date.now() - startTime;
+        if (newProgress >= 100 && !completedRef.current) {
+          completedRef.current = true;
+          const elapsedTime = Date.now() - startTimeRef.current;
 
           // If minimum display time hasn't passed, wait for it
           if (elapsedTime < minimumDisplayTime) {
-            setTimeout(onComplete, minimumDisplayTime - elapsedTime);
+            setTimeout(() => {
+              // Use a separate function to call onComplete to avoid potential issues
+              onComplete();
+            }, minimumDisplayTime - elapsedTime);
           } else {
-            onComplete();
+            // Use setTimeout to ensure this doesn't happen during rendering
+            setTimeout(() => {
+              onComplete();
+            }, 0);
           }
           return 100;
         }
 
-        // Continue animation if not yet complete
-        if (!completed) {
-          frameId = requestAnimationFrame(animateProgress);
-        }
-
         return newProgress;
       });
+
+      // Continue animation if not yet complete
+      if (!completedRef.current) {
+        frameId = requestAnimationFrame(animateProgress);
+      }
     };
 
+    // Start the animation in the next frame
     frameId = requestAnimationFrame(animateProgress);
 
     return () => {

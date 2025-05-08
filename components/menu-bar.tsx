@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Coffee, Info } from "lucide-react";
+import { Coffee, Info, Github } from "lucide-react";
 import { Weather } from "@/components/weather";
 import {
   Menubar,
@@ -96,6 +96,10 @@ export function MenuBar({
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
   }, [handleKeyPress]);
+
+  const openGitHub = useCallback(() => {
+    window.open("https://github.com/birobirobiro/focus-brew", "_blank");
+  }, []);
 
   return (
     <motion.div
@@ -233,6 +237,19 @@ export function MenuBar({
                   <span>About</span>
                 </div>
                 <MenubarShortcut>{formatShortcut("8")}</MenubarShortcut>
+              </MenubarItem>
+
+              {/* GitHub */}
+              <MenubarItem
+                onClick={openGitHub}
+                className="text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 cursor-pointer px-2 py-1.5 rounded-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="h-4 w-4 text-primary/70 group-hover:text-primary">
+                    <Github className="h-4 w-4" />
+                  </span>
+                  <span>GitHub</span>
+                </div>
               </MenubarItem>
             </MenubarContent>
           </MenubarMenu>

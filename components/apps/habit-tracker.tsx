@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { format, startOfToday, subDays, isSameDay, isToday } from "date-fns";
 import {
   Check,
@@ -16,6 +16,8 @@ import {
   ChevronRight,
   Bell,
   MoreHorizontal,
+  Filter,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -56,8 +58,6 @@ import {
 } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -70,7 +70,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { sendHabitReminderNotification } from "@/lib/notification";
 import {
-  NotificationSettings,
+  type NotificationSettings,
   getNotificationSettings,
 } from "@/lib/notification";
 
@@ -328,39 +328,47 @@ const HabitForm = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-2">
-        <Label htmlFor="name">Name</Label>
+        <Label htmlFor="name" className="text-sm font-medium">
+          Name
+        </Label>
         <Input
           id="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Habit name"
           required
+          className="h-10 border-0 bg-muted focus-visible:ring-0 focus-visible:ring-offset-0"
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="description">Description (optional)</Label>
+        <Label htmlFor="description" className="text-sm font-medium">
+          Description (optional)
+        </Label>
         <Textarea
           id="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="What's this habit about?"
           rows={2}
+          className="border-0 bg-muted resize-none focus-visible:ring-0 focus-visible:ring-offset-0"
         />
       </div>
 
-      <div className="space-y-2">
-        <Label>Icon</Label>
+      <div className="space-y-3">
+        <Label className="text-sm font-medium">Icon</Label>
         <div className="grid grid-cols-8 gap-2">
           {HABIT_ICONS.map((habitIcon) => (
             <button
               key={habitIcon}
               type="button"
               className={cn(
-                "h-10 w-10 rounded-md flex items-center justify-center text-lg",
-                icon === habitIcon ? "ring-2 ring-primary" : "hover:bg-muted"
+                "h-10 w-10 flex items-center justify-center text-lg transition-all",
+                icon === habitIcon
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted hover:bg-muted/80"
               )}
               onClick={() => setIcon(habitIcon)}
             >
@@ -370,16 +378,16 @@ const HabitForm = ({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>Color</Label>
+      <div className="space-y-3">
+        <Label className="text-sm font-medium">Color</Label>
         <div className="grid grid-cols-8 gap-2">
           {HABIT_COLORS.map((habitColor) => (
             <button
               key={habitColor}
               type="button"
               className={cn(
-                "h-8 w-8 rounded-full",
-                color === habitColor ? "ring-2 ring-primary ring-offset-2" : ""
+                "h-8 w-8 transition-all",
+                color === habitColor ? "ring-2 ring-offset-2" : ""
               )}
               style={{ backgroundColor: habitColor }}
               onClick={() => setColor(habitColor)}
@@ -389,12 +397,14 @@ const HabitForm = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="category">Category</Label>
+        <Label htmlFor="category" className="text-sm font-medium">
+          Category
+        </Label>
         <Select
           value={category}
           onValueChange={(value: HabitCategory) => setCategory(value)}
         >
-          <SelectTrigger>
+          <SelectTrigger className="h-10 border-0 bg-muted focus:ring-0">
             <SelectValue placeholder="Select a category" />
           </SelectTrigger>
           <SelectContent>
@@ -411,12 +421,14 @@ const HabitForm = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="frequency">Frequency</Label>
+        <Label htmlFor="frequency" className="text-sm font-medium">
+          Frequency
+        </Label>
         <Select
           value={frequency}
           onValueChange={(value: FrequencyType) => setFrequency(value)}
         >
-          <SelectTrigger>
+          <SelectTrigger className="h-10 border-0 bg-muted focus:ring-0">
             <SelectValue placeholder="Select frequency" />
           </SelectTrigger>
           <SelectContent>
@@ -429,14 +441,14 @@ const HabitForm = ({
 
       {frequency === "custom" && (
         <div className="space-y-2">
-          <Label>Days of the week</Label>
+          <Label className="text-sm font-medium">Days of the week</Label>
           <div className="flex flex-wrap gap-2">
             {DAYS_OF_WEEK.map((day) => (
               <button
                 key={day.value}
                 type="button"
                 className={cn(
-                  "px-3 py-1 rounded-full text-xs font-medium",
+                  "px-3 py-1 text-xs font-medium",
                   customDays.includes(day.value)
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted hover:bg-muted/80"
@@ -456,7 +468,7 @@ const HabitForm = ({
       )}
 
       <div className="space-y-2">
-        <Label>Duration</Label>
+        <Label className="text-sm font-medium">Duration</Label>
         <div className="flex gap-2">
           <div className="flex-1">
             <Input
@@ -464,7 +476,7 @@ const HabitForm = ({
               min="1"
               value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}
-              className="w-full"
+              className="h-10 border-0 bg-muted focus-visible:ring-0 focus-visible:ring-offset-0"
             />
           </div>
           <Select
@@ -473,7 +485,7 @@ const HabitForm = ({
               setPeriod(value)
             }
           >
-            <SelectTrigger className="w-[120px]">
+            <SelectTrigger className="w-[120px] h-10 border-0 bg-muted focus:ring-0">
               <SelectValue placeholder="Period" />
             </SelectTrigger>
             <SelectContent>
@@ -490,7 +502,9 @@ const HabitForm = ({
 
       <div className="space-y-2 pt-2">
         <div className="flex items-center justify-between">
-          <Label htmlFor="reminder">Reminder</Label>
+          <Label htmlFor="reminder" className="text-sm font-medium">
+            Reminder
+          </Label>
           <Switch
             id="reminder"
             checked={reminderEnabled}
@@ -500,25 +514,28 @@ const HabitForm = ({
 
         {reminderEnabled && (
           <div className="pt-2">
-            <Label htmlFor="reminderTime">Time</Label>
+            <Label htmlFor="reminderTime" className="text-sm font-medium">
+              Time
+            </Label>
             <Input
               id="reminderTime"
               type="time"
               value={reminderTime}
               onChange={(e) => setReminderTime(e.target.value)}
-              className="mt-1"
+              className="mt-1 h-10 border-0 bg-muted focus-visible:ring-0 focus-visible:ring-offset-0"
             />
           </div>
         )}
       </div>
 
       <DialogFooter className="pt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
         <Button
           type="submit"
           disabled={frequency === "custom" && customDays.length === 0}
+          className="bg-primary hover:bg-primary/90"
         >
           {initialHabit ? "Update" : "Create"} Habit
         </Button>
@@ -532,11 +549,13 @@ const HabitItem = ({
   onToggle,
   onEdit,
   onDelete,
+  onViewDetails,
 }: {
   habit: Habit;
   onToggle: (id: string, e?: React.MouseEvent) => void;
   onEdit: (habit: Habit, e?: React.MouseEvent) => void;
   onDelete: (id: string, e?: React.MouseEvent) => void;
+  onViewDetails: (habit: Habit, e?: React.MouseEvent) => void;
 }) => {
   const isCompletedToday = habit.completedDates.some((date) =>
     isSameDay(new Date(date), new Date())
@@ -548,107 +567,127 @@ const HabitItem = ({
   return (
     <div
       className={cn(
-        "group flex items-center p-4 rounded-lg border transition-colors",
-        isCompletedToday ? "bg-muted/30" : "bg-card hover:border-primary/50"
+        "group flex items-center p-3 transition-colors",
+        isCompletedToday ? "bg-muted/30" : "hover:bg-muted/10",
+        "border-b border-border/50 last:border-b-0"
       )}
     >
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={(e) => onToggle(habit.id, e)}
-              className={cn(
-                "w-10 h-10 rounded-full flex items-center justify-center mr-4 flex-shrink-0 transition-colors",
-                isCompletedToday
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted hover:bg-primary/20 group-hover:border-primary/50"
-              )}
-            >
-              {isCompletedToday ? (
-                <Check className="h-5 w-5" />
-              ) : (
-                <div className="h-5 w-5 rounded-full border-2 border-primary/50 group-hover:border-primary" />
-              )}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            <p>
-              {isCompletedToday ? "Mark as incomplete" : "Mark as complete"}
-            </p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-
-      <div
-        className="flex-1 min-w-0 cursor-pointer"
-        onClick={(e) => {
-          e.stopPropagation();
-          onEdit(habit, e);
-        }}
+      <button
+        onClick={(e) => onToggle(habit.id, e)}
+        className="flex-shrink-0 mr-3"
+        aria-label={
+          isCompletedToday ? "Mark as incomplete" : "Mark as complete"
+        }
       >
+        {isCompletedToday ? (
+          <div
+            className="h-6 w-6 flex items-center justify-center text-white"
+            style={{ backgroundColor: habit.color }}
+          >
+            <Check className="h-4 w-4" />
+          </div>
+        ) : (
+          <div className="h-6 w-6 border-2 border-muted-foreground/30 flex items-center justify-center">
+            <div
+              className="h-3 w-3 opacity-0 group-hover:opacity-20 transition-opacity"
+              style={{ backgroundColor: habit.color }}
+            ></div>
+          </div>
+        )}
+      </button>
+
+      <div className="flex-1 min-w-0 cursor-pointer">
         <div className="flex items-center">
           <span
-            className="w-6 h-6 flex items-center justify-center rounded-full mr-2 text-sm"
-            style={{ backgroundColor: habit.color, color: "#fff" }}
+            className="w-5 h-5 flex items-center justify-center mr-2 text-sm"
+            style={{ color: habit.color }}
           >
             {habit.icon}
           </span>
           <div className="flex-1 min-w-0">
-            <h3 className="font-medium truncate">{habit.name}</h3>
-            {habit.description && (
-              <p className="text-sm text-muted-foreground truncate mt-0.5">
-                {habit.description}
-              </p>
-            )}
+            <h3
+              className={cn(
+                "font-medium truncate",
+                isCompletedToday && "line-through text-muted-foreground"
+              )}
+            >
+              {habit.name}
+            </h3>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 mt-2">
+        {habit.description && (
+          <p className="text-xs text-muted-foreground truncate mt-1 ml-7">
+            {habit.description}
+          </p>
+        )}
+
+        <div className="flex items-center gap-2 mt-2 ml-7">
           {streak > 0 && (
-            <Badge variant="outline" className="flex items-center gap-1">
-              <Flame className="h-3 w-3 text-orange-500" />
-              <span>{streak} day streak</span>
-            </Badge>
+            <div className="text-xs flex items-center gap-1 text-orange-500">
+              <Flame className="h-3 w-3" />
+              <span>{streak}d</span>
+            </div>
           )}
           {habit.frequency !== "daily" && (
-            <Badge variant="secondary" className="text-xs">
-              {habit.frequency === "weekly" ? "Weekly" : "Custom days"}
-            </Badge>
+            <div className="text-xs text-muted-foreground">
+              {habit.frequency === "weekly" ? "Weekly" : "Custom"}
+            </div>
           )}
-          <Badge variant="outline" className="flex items-center gap-1">
+          <div className="text-xs flex items-center gap-1 text-muted-foreground">
             <Calendar className="h-3 w-3" />
             {habit.duration}x/{habit.period.slice(0, -1)}
-          </Badge>
+          </div>
           {habit.reminderEnabled && (
-            <Badge variant="outline" className="flex items-center gap-1">
+            <div className="text-xs flex items-center gap-1 text-muted-foreground">
               <Bell className="h-3 w-3" />
               {habit.reminderTime}
-            </Badge>
+            </div>
           )}
         </div>
       </div>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={(e) => onEdit(habit, e)}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={(e) => onDelete(habit.id, e)}
-            className="text-destructive focus:text-destructive"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={(e) => onViewDetails(habit, e)}
+          className="h-8 w-8 flex-shrink-0 opacity-70 hover:opacity-100 hover:bg-muted/80"
+          aria-label="View details"
+        >
+          <Info className="h-4 w-4" />
+        </Button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 flex-shrink-0 opacity-50 hover:opacity-100"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={(e) => onEdit(habit, e)}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDelete(habit.id, e);
+              }}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 };
@@ -677,10 +716,10 @@ const HabitCalendar = ({ habit }: { habit: Habit }) => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-medium">Calendar View</h3>
+        <h3 className="text-sm font-medium">Calendar View</h3>
         <div className="flex items-center gap-1">
           <Button
-            variant="outline"
+            variant="ghost"
             size="icon"
             className="h-8 w-8"
             onClick={() => navigateDays("prev")}
@@ -688,7 +727,7 @@ const HabitCalendar = ({ habit }: { habit: Habit }) => {
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <Button
-            variant="outline"
+            variant="ghost"
             size="icon"
             className="h-8 w-8"
             onClick={() => navigateDays("next")}
@@ -698,7 +737,7 @@ const HabitCalendar = ({ habit }: { habit: Habit }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-1 bg-muted/30 p-3">
         {dates.map((date) => {
           const isCompleted = habit.completedDates.some((completedDate) =>
             isSameDay(new Date(completedDate), date)
@@ -714,14 +753,15 @@ const HabitCalendar = ({ habit }: { habit: Habit }) => {
                     </div>
                     <div
                       className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center text-xs",
+                        "w-8 h-8 flex items-center justify-center text-xs",
                         isToday(date) &&
                           !isCompleted &&
-                          "border border-primary",
-                        isCompleted
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted"
+                          "border border-primary/50",
+                        isCompleted ? "text-white" : "bg-muted/50"
                       )}
+                      style={{
+                        backgroundColor: isCompleted ? habit.color : undefined,
+                      }}
                     >
                       {format(date, "d")}
                     </div>
@@ -790,31 +830,31 @@ const HabitStats = ({ habit }: { habit: Habit }) => {
 
   return (
     <div className="space-y-4">
-      <h3 className="font-medium">Statistics</h3>
+      <h3 className="text-sm font-medium">Statistics</h3>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-muted/30 p-3 rounded-lg">
-          <div className="text-sm text-muted-foreground">Current Streak</div>
-          <div className="text-2xl font-bold flex items-center mt-1">
-            <Flame className="h-5 w-5 text-orange-500 mr-1" />
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-muted/30 p-3">
+          <div className="text-xs text-muted-foreground">Current Streak</div>
+          <div className="text-xl font-bold flex items-center mt-1">
+            <Flame className="h-4 w-4 text-orange-500 mr-1" />
             {streak}
           </div>
         </div>
 
-        <div className="bg-muted/30 p-3 rounded-lg">
-          <div className="text-sm text-muted-foreground">Best Streak</div>
-          <div className="text-2xl font-bold mt-1">{bestStreak}</div>
+        <div className="bg-muted/30 p-3">
+          <div className="text-xs text-muted-foreground">Best Streak</div>
+          <div className="text-xl font-bold mt-1">{bestStreak}</div>
         </div>
 
-        <div className="bg-muted/30 p-3 rounded-lg">
-          <div className="text-sm text-muted-foreground">Completion Rate</div>
-          <div className="text-2xl font-bold mt-1">{completionRate}%</div>
+        <div className="bg-muted/30 p-3">
+          <div className="text-xs text-muted-foreground">Completion Rate</div>
+          <div className="text-xl font-bold mt-1">{completionRate}%</div>
           <Progress value={completionRate} className="h-1 mt-2" />
         </div>
 
-        <div className="bg-muted/30 p-3 rounded-lg">
-          <div className="text-sm text-muted-foreground">Total Completions</div>
-          <div className="text-2xl font-bold mt-1">{totalCompletions}</div>
+        <div className="bg-muted/30 p-3">
+          <div className="text-xs text-muted-foreground">Total Completions</div>
+          <div className="text-xl font-bold mt-1">{totalCompletions}</div>
         </div>
       </div>
 
@@ -842,13 +882,13 @@ const HabitDetail = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center">
           <div
-            className="w-10 h-10 rounded-full flex items-center justify-center mr-3"
+            className="w-8 h-8 flex items-center justify-center mr-3"
             style={{ backgroundColor: habit.color, color: "#fff" }}
           >
-            <span className="text-lg">{habit.icon}</span>
+            <span className="text-base">{habit.icon}</span>
           </div>
           <div>
-            <h2 className="text-xl font-semibold">{habit.name}</h2>
+            <h2 className="text-lg font-semibold">{habit.name}</h2>
             {habit.description && (
               <p className="text-sm text-muted-foreground">
                 {habit.description}
@@ -858,9 +898,14 @@ const HabitDetail = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => onEdit(habit)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onEdit(habit)}
+            className="flex items-center"
+          >
             <Edit className="h-4 w-4 mr-1" />
-            Edit
+            <span>Edit</span>
           </Button>
           <Button
             variant="destructive"
@@ -869,15 +914,16 @@ const HabitDetail = ({
               onDelete(habit.id);
               onClose();
             }}
+            className="flex items-center bg-red-500 hover:bg-red-600 text-white"
           >
             <Trash2 className="h-4 w-4 mr-1" />
-            Delete
+            <span>Delete</span>
           </Button>
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <Badge className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge className="bg-muted text-foreground hover:bg-muted">
           {CATEGORIES[habit.category].icon} {CATEGORIES[habit.category].label}
         </Badge>
 
@@ -902,12 +948,18 @@ const HabitDetail = ({
       </div>
 
       <Tabs defaultValue="calendar">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="calendar" className="flex items-center gap-1">
+        <TabsList className="grid w-full grid-cols-2 bg-muted/50">
+          <TabsTrigger
+            value="calendar"
+            className="flex items-center gap-1 data-[state=active]:bg-background"
+          >
             <Calendar className="h-4 w-4" />
             Calendar
           </TabsTrigger>
-          <TabsTrigger value="stats" className="flex items-center gap-1">
+          <TabsTrigger
+            value="stats"
+            className="flex items-center gap-1 data-[state=active]:bg-background"
+          >
             <BarChart3 className="h-4 w-4" />
             Statistics
           </TabsTrigger>
@@ -963,26 +1015,34 @@ export function HabitTracker() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null);
   const [lastReminderCheck, setLastReminderCheck] = useState<Date>(new Date());
+  const [showFilters, setShowFilters] = useState(false);
+  const initialLoadComplete = useRef(false);
 
-  // Load habits from local storage
+  // Load habits from local storage - ONLY ON FIRST MOUNT
   useEffect(() => {
+    if (initialLoadComplete.current) return;
+
     const savedHabits = localStorage.getItem(STORAGE_KEY);
     if (savedHabits) {
       try {
         const parsedHabits = JSON.parse(savedHabits);
-        // Only update the state if there are habits to load and the current state is empty
-        if (parsedHabits && parsedHabits.length > 0 && habits.length === 0) {
+        if (parsedHabits && Array.isArray(parsedHabits)) {
           setHabits(parsedHabits);
         }
       } catch (error) {
         console.error("Failed to parse saved habits:", error);
       }
     }
-  }, [habits.length]);
+
+    initialLoadComplete.current = true;
+  }, []);
 
   // Save habits to local storage
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(habits));
+    // Only save if initial load is done to prevent overwriting with empty array on first mount
+    if (initialLoadComplete.current) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(habits));
+    }
   }, [habits]);
 
   // Check for habit reminders periodically (every minute)
@@ -1018,8 +1078,8 @@ export function HabitTracker() {
         ) {
           try {
             const [hourStr, minuteStr] = habit.reminderTime.split(":");
-            const reminderHour = parseInt(hourStr, 10);
-            const reminderMinute = parseInt(minuteStr, 10);
+            const reminderHour = Number.parseInt(hourStr, 10);
+            const reminderMinute = Number.parseInt(minuteStr, 10);
 
             // Check if within time window for notification (up to 1 minute after)
             if (
@@ -1071,7 +1131,6 @@ export function HabitTracker() {
       e: CustomEvent<NotificationSettings>
     ) => {
       // Just log that the settings were updated
-      console.log("Notification settings updated:", e.detail);
       // We don't trigger any action here because notification settings
       // will be used directly by methods that send notifications
     };
@@ -1152,6 +1211,31 @@ export function HabitTracker() {
           date.startsWith(today)
         );
 
+        // Add haptic feedback if supported
+        if ("vibrate" in navigator) {
+          try {
+            navigator.vibrate(isCompletedToday ? 20 : 40);
+          } catch (error) {
+            console.error("Failed to vibrate:", error);
+          }
+        }
+
+        // Play sound effect (optional)
+        try {
+          const soundEffect = new Audio(
+            isCompletedToday
+              ? "/sounds/things/pop-down.mp3"
+              : "/sounds/things/pop-up.mp3"
+          );
+          soundEffect.volume = 0.2;
+          soundEffect.play().catch((err) => {
+            // Ignore autoplay errors, they're expected if user hasn't interacted yet
+            console.log("Sound could not be played automatically");
+          });
+        } catch (error) {
+          console.error("Failed to play sound:", error);
+        }
+
         if (isCompletedToday) {
           // Remove today's completion
           return {
@@ -1161,7 +1245,13 @@ export function HabitTracker() {
             ),
           };
         } else {
-          // Add today's completion
+          // Add today's completion with a small toast notification
+          toast({
+            title: "Habit completed!",
+            description: `Great job completing "${habit.name}"`,
+            duration: 1500,
+          });
+
           return {
             ...habit,
             completedDates: [...habit.completedDates, new Date().toISOString()],
@@ -1174,26 +1264,48 @@ export function HabitTracker() {
   // Handle deleting a habit
   const handleDeleteHabit = (id: string, e?: React.MouseEvent) => {
     if (e) {
+      e.preventDefault();
       e.stopPropagation();
     }
 
     const habitToDelete = habits.find((habit) => habit.id === id);
     if (!habitToDelete) return;
 
+    // Store the habit to delete
     setSelectedHabit(habitToDelete);
+
+    // Close any open dialogs
+    setIsDetailDialogOpen(false);
+    setIsEditDialogOpen(false);
+
+    // Open delete confirmation dialog
     setIsDeleteDialogOpen(true);
   };
 
   const confirmDeleteHabit = () => {
-    if (!selectedHabit) return;
+    if (!selectedHabit) {
+      return;
+    }
 
-    setHabits(habits.filter((habit) => habit.id !== selectedHabit.id));
+    const habitId = selectedHabit.id;
+    const habitName = selectedHabit.name;
 
+    // Update the habits state
+    const updatedHabits = habits.filter((habit) => habit.id !== habitId);
+    setHabits(updatedHabits);
+
+    // Ensure the habit is persisted to localStorage immediately
+    setTimeout(() => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedHabits));
+    }, 0);
+
+    // Show success toast
     toast({
       title: "Habit deleted",
-      description: `${selectedHabit.name} has been deleted.`,
+      description: `${habitName} has been deleted.`,
     });
 
+    // Close the dialog and clear selected habit
     setIsDeleteDialogOpen(false);
     setSelectedHabit(null);
   };
@@ -1228,94 +1340,104 @@ export function HabitTracker() {
     totalForToday > 0 ? Math.round((completedToday / totalForToday) * 100) : 0;
 
   return (
-    <div className="container max-w-3xl mx-auto py-4 px-2">
-      <div className="flex items-center justify-between mb-4">
+    <div className="max-w-md mx-auto bg-background min-h-screen">
+      <header className="sticky top-0 z-10 bg-background border-b px-4 py-3 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Habit Tracker</h1>
-          <p className="text-muted-foreground">
-            Track your daily habits and build consistency
+          <h1 className="text-xl font-semibold">Habits</h1>
+          <p className="text-xs text-muted-foreground">
+            {format(new Date(), "EEEE, MMMM d")}
           </p>
         </div>
 
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Habit
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px] overflow-y-auto max-h-[70vh]">
-            <DialogTitle className="sr-only">Create a new habit</DialogTitle>
-            <DialogHeader>
-              <h2 className="text-lg font-semibold">Create a new habit</h2>
-              <DialogDescription>
-                Add a new habit to track. Be specific about what you want to
-                achieve.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn("h-8 w-8", showFilters && "bg-muted")}
+          >
+            <Filter className="h-4 w-4" />
+            <span className="sr-only">Filter</span>
+          </Button>
+
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="h-8">
+                <Plus className="h-4 w-4 mr-1" />
+                New
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md overflow-y-auto max-h-[80vh]">
+              <DialogHeader>
+                <DialogTitle>New Habit</DialogTitle>
+                <DialogDescription>
+                  Create a new habit to track your progress.
+                </DialogDescription>
+              </DialogHeader>
               <HabitForm
                 onSave={handleCreateHabit}
                 onCancel={() => setIsAddDialogOpen(false)}
               />
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </header>
 
-      {habits.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-medium text-muted-foreground">
-              Today's Progress
-            </h2>
-            <span className="text-sm font-medium">
-              {completedToday}/{totalForToday} completed
-            </span>
+      {showFilters && (
+        <div className="p-3 bg-muted/30 border-b">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant={activeFilter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveFilter("all")}
+              className="h-7 text-xs"
+            >
+              All
+            </Button>
+            <Button
+              variant={activeFilter === "today" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveFilter("today")}
+              className="h-7 text-xs"
+            >
+              Today
+            </Button>
+
+            {Object.entries(CATEGORIES).map(([key, { label, icon }]) => (
+              <Button
+                key={key}
+                variant={activeFilter === key ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveFilter(key as HabitCategory)}
+                className="h-7 text-xs"
+              >
+                <span className="mr-1">{icon}</span>
+                {label}
+              </Button>
+            ))}
           </div>
-          <Progress value={completionPercentage} className="h-2" />
         </div>
       )}
 
-      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-2">
-        <Button
-          variant={activeFilter === "all" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setActiveFilter("all")}
-          className="flex-shrink-0"
-        >
-          All
-        </Button>
-        <Button
-          variant={activeFilter === "today" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setActiveFilter("today")}
-          className="flex-shrink-0"
-        >
-          Today
-        </Button>
-
-        {Object.entries(CATEGORIES).map(([key, { label, icon }]) => (
-          <Button
-            key={key}
-            variant={activeFilter === key ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveFilter(key as HabitCategory)}
-            className="flex-shrink-0"
-          >
-            <span className="mr-1">{icon}</span>
-            {label}
-          </Button>
-        ))}
-      </div>
+      {totalForToday > 0 && (
+        <div className="px-4 py-3 border-b">
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="text-sm font-medium">Today's Progress</div>
+            <div className="text-sm">
+              {completedToday}/{totalForToday}
+            </div>
+          </div>
+          <Progress value={completionPercentage} className="h-1.5" />
+        </div>
+      )}
 
       {habits.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="bg-muted rounded-full p-3 mb-4">
+        <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+          <div className="bg-muted/50 rounded-full p-3 mb-4">
             <Calendar className="h-6 w-6 text-muted-foreground" />
           </div>
           <h3 className="text-lg font-medium mb-1">No habits yet</h3>
-          <p className="text-muted-foreground mb-4 max-w-md">
+          <p className="text-sm text-muted-foreground mb-4">
             Start tracking your habits to build consistency and achieve your
             goals.
           </p>
@@ -1325,27 +1447,32 @@ export function HabitTracker() {
           </Button>
         </div>
       ) : filteredHabits.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8 text-center">
-          <p className="text-muted-foreground">
+        <div className="flex flex-col items-center justify-center py-8 text-center px-4">
+          <p className="text-muted-foreground mb-2">
             No habits match the current filter.
           </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setActiveFilter("all")}
+          >
+            Show all habits
+          </Button>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="divide-y divide-border/50">
           {filteredHabits.map((habit) => (
-            <div
-              key={habit.id}
-              onClick={() => {
-                setSelectedHabit(habit);
-                setIsDetailDialogOpen(true);
-              }}
-              className="cursor-pointer"
-            >
+            <div key={habit.id}>
               <HabitItem
                 habit={habit}
                 onToggle={handleToggleHabit}
                 onEdit={handleEditHabit}
                 onDelete={handleDeleteHabit}
+                onViewDetails={(habit, e) => {
+                  if (e) e.stopPropagation();
+                  setSelectedHabit(habit);
+                  setIsDetailDialogOpen(true);
+                }}
               />
             </div>
           ))}
@@ -1354,57 +1481,54 @@ export function HabitTracker() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] overflow-y-auto max-h-[80vh]">
-          <DialogTitle className="sr-only">Edit habit</DialogTitle>
+        <DialogContent className="max-w-md overflow-y-auto max-h-[80vh]">
           <DialogHeader>
-            <h2 className="text-lg font-semibold">Edit habit</h2>
+            <DialogTitle>Edit Habit</DialogTitle>
             <DialogDescription>Make changes to your habit.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 pt-4">
-            {selectedHabit && (
-              <HabitForm
-                initialHabit={selectedHabit}
-                onSave={handleUpdateHabit}
-                onCancel={() => {
-                  setIsEditDialogOpen(false);
-                  setSelectedHabit(null);
-                }}
-              />
-            )}
-          </div>
+          {selectedHabit && (
+            <HabitForm
+              initialHabit={selectedHabit}
+              onSave={handleUpdateHabit}
+              onCancel={() => {
+                setIsEditDialogOpen(false);
+                setSelectedHabit(null);
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
       {/* Detail Dialog */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-md overflow-y-auto max-h-[80vh]">
-          <DialogTitle className="sr-only">Habit Details</DialogTitle>
           <DialogHeader>
-            <h2 className="text-lg font-semibold">Habit Details</h2>
+            <DialogTitle>Habit Details</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 pt-4">
-            {selectedHabit && (
-              <HabitDetail
-                habit={selectedHabit}
-                onClose={() => {
-                  setIsDetailDialogOpen(false);
-                  setSelectedHabit(null);
-                }}
-                onEdit={(habit) => {
-                  setIsDetailDialogOpen(false);
-                  setSelectedHabit(habit);
-                  setIsEditDialogOpen(true);
-                }}
-                onDelete={handleDeleteHabit}
-              />
-            )}
-          </div>
+          {selectedHabit && (
+            <HabitDetail
+              habit={selectedHabit}
+              onClose={() => {
+                setIsDetailDialogOpen(false);
+                setSelectedHabit(null);
+              }}
+              onEdit={(habit) => {
+                setIsDetailDialogOpen(false);
+                setSelectedHabit(habit);
+                setIsEditDialogOpen(true);
+              }}
+              onDelete={handleDeleteHabit}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
       <AlertDialog
         open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open);
+          if (!open) setSelectedHabit(null);
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1417,8 +1541,11 @@ export function HabitTracker() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={confirmDeleteHabit}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDeleteHabit();
+              }}
+              className="bg-red-500 text-white hover:bg-red-600"
             >
               Delete
             </AlertDialogAction>
