@@ -1,14 +1,12 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import YouTube, { YouTubeEvent, YouTubeProps } from "react-youtube";
+import ReactPlayer from "react-player/youtube";
 import {
   SkipBack,
   SkipForward,
   Play,
   Pause,
-  Volume2,
-  VolumeX,
   Video,
   Edit2,
   Trash2,
@@ -19,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Slider } from "@/components/ui/slider";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
@@ -32,21 +29,8 @@ interface PlaylistItem {
   addedAt: number; // Timestamp when added
 }
 
-interface PlayerState {
-  progress: number;
-  duration: number;
-  volume: number;
-  isMuted: boolean;
-  showVideo: boolean;
-  playing: boolean;
-  editingTitle: string;
-  error: string | null;
-  loading: boolean;
-}
-
 // Constants
 const DEFAULT_VOLUME = 50;
-const PROGRESS_UPDATE_INTERVAL = 1000;
 const DEFAULT_PLAYLIST: PlaylistItem[] = [
   {
     id: "jfKfPfyJRdk",
@@ -73,13 +57,20 @@ const extractYouTubeId = (url: string): string | null => {
 };
 
 const formatTime = (seconds: number): string => {
-  if (!seconds || isNaN(seconds)) return "0:00";
+  if (!seconds || isNaN(seconds) || !isFinite(seconds)) return "LIVE";
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = Math.floor(seconds % 60)
     .toString()
     .padStart(2, "0");
-  return h > 0 ? `${h}:${m.toString().padStart(2, "0")}:${s}` : `${m}:${s}`;
+  if (h > 0) {
+    return `${h}:${m.toString().padStart(2, "0")}:${s}`;
+  }
+  return `${m.toString().padStart(2, "0")}:${s}`;
+};
+
+const isValidYouTubeId = (id: string | null | undefined) => {
+  return typeof id === "string" && /^[a-zA-Z0-9_-]{11}$/.test(id);
 };
 
 // Components
@@ -110,16 +101,25 @@ const PlaylistItemComponent: React.FC<{
 }) => (
   <li
     className={cn(
-      "flex items-center gap-2 rounded p-1",
+      "flex items-center gap-2 rounded p-1 cursor-pointer group",
       isPlaying && "bg-muted/50 font-bold"
     )}
+    onClick={onPlay}
+    tabIndex={0}
+    onKeyDown={(e) => {
+      if (e.key === "Enter" || e.key === " ") onPlay();
+    }}
+    aria-label={`Play ${item.title}`}
   >
-    <Button size="sm" variant="ghost" onClick={onPlay}>
+    <Button size="sm" variant="ghost" tabIndex={-1}>
       {index + 1}
     </Button>
     <div className="flex items-center flex-1 min-w-0 justify-between">
       {isEditing ? (
-        <div className="flex items-center gap-1 flex-1 min-w-0">
+        <div
+          className="flex items-center gap-1 flex-1 min-w-0"
+          onClick={(e) => e.stopPropagation()}
+        >
           <Input
             value={editingTitle}
             onChange={(e) => onTitleChange(e.target.value)}
@@ -134,21 +134,27 @@ const PlaylistItemComponent: React.FC<{
             size="icon"
             variant="ghost"
             onClick={() => onSave(editingTitle)}
+            tabIndex={-1}
           >
             <Check className="h-4 w-4" />
           </Button>
-          <Button size="icon" variant="ghost" onClick={onCancel}>
+          <Button size="icon" variant="ghost" onClick={onCancel} tabIndex={-1}>
             <X className="h-4 w-4" />
           </Button>
         </div>
       ) : (
         <>
           <span className="truncate flex-1">{item.title}</span>
-          <div className="flex gap-1">
-            <Button size="icon" variant="ghost" onClick={onEdit}>
+          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+            <Button size="icon" variant="ghost" onClick={onEdit} tabIndex={-1}>
               <Edit2 className="h-4 w-4" />
             </Button>
-            <Button size="icon" variant="ghost" onClick={onDelete}>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onDelete}
+              tabIndex={-1}
+            >
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
@@ -166,64 +172,71 @@ export function YouTubePlayer() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [newUrl, setNewUrl] = useState("");
-  const [playerState, setPlayerState] = useState<PlayerState>({
-    progress: 0,
-    duration: 0,
-    volume: DEFAULT_VOLUME,
-    isMuted: false,
-    showVideo: true,
-    playing: false,
-    editingTitle: "",
-    error: null,
-    loading: false,
-  });
+  const [editingTitle, setEditingTitle] = useState("");
 
-  const playerRef = useRef<any>(null);
-  const progressInterval = useRef<NodeJS.Timeout | undefined>(undefined);
+  // Player state
+  const [playing, setPlaying] = useState(true);
+  const [volume, setVolume] = useState(DEFAULT_VOLUME);
+  const [muted, setMuted] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showVideo, setShowVideo] = useState(true);
 
-  const handlePlayerReady = useCallback(
-    (event: YouTubeEvent) => {
-      playerRef.current = event.target;
-      playerRef.current.setVolume(playerState.volume);
-      if (playerState.isMuted) {
-        playerRef.current.mute();
-      }
-      // Set initial duration when player is ready
-      const duration = playerRef.current.getDuration();
-      setPlayerState((prev) => ({ ...prev, duration }));
-    },
-    [playerState.volume, playerState.isMuted]
-  );
+  // Player ref
+  const playerRef = useRef<ReactPlayer | null>(null);
+
+  // Handlers for player controls
+  const handlePlay = useCallback(() => {
+    setPlaying(true);
+  }, []);
+
+  const handlePause = useCallback(() => {
+    setPlaying(false);
+  }, []);
+
+  const handleTogglePlay = useCallback(() => {
+    setPlaying((prev) => !prev);
+  }, []);
+
+  const handleToggleMute = useCallback(() => {
+    setMuted((prev) => !prev);
+  }, []);
+
+  const handleToggleVideo = useCallback(() => {
+    setShowVideo((prev) => !prev);
+  }, []);
+
+  // Error handling
+  const handleError = useCallback((error: any) => {
+    console.error("Player error:", error);
+    setError("An error occurred while playing the video. Please try again.");
+    toast.error("Playback Error", {
+      description:
+        "An error occurred while playing the video. Please try again.",
+    });
+  }, []);
+
+  const handleReady = useCallback(() => {
+    setLoading(false);
+    setError(null);
+  }, []);
+
+  const handleBufferEnd = useCallback(() => {
+    setLoading(false);
+  }, []);
+
+  const handleBufferStart = useCallback(() => {
+    setLoading(true);
+  }, []);
+
+  // Playlist handlers
+  const handlePrev = useCallback(() => {
+    setCurrentIndex((idx) => (idx - 1 + playlist.length) % playlist.length);
+  }, [playlist.length]);
 
   const handleNext = useCallback(() => {
-    const nextIndex = (currentIndex + 1) % playlist.length;
-    setCurrentIndex(nextIndex);
-  }, [currentIndex, playlist.length]);
-
-  const onStateChange = useCallback(
-    (event: YouTubeEvent) => {
-      if (!event) return;
-      const isPlaying = event.data === 1;
-
-      // Update duration when video starts playing
-      if (isPlaying) {
-        const duration = playerRef.current.getDuration();
-        setPlayerState((prev) => ({
-          ...prev,
-          playing: isPlaying,
-          duration,
-          progress: playerRef.current.getCurrentTime(),
-        }));
-      } else {
-        setPlayerState((prev) => ({ ...prev, playing: isPlaying }));
-      }
-
-      if (event.data === 0) {
-        handleNext();
-      }
-    },
-    [handleNext]
-  );
+    setCurrentIndex((idx) => (idx + 1) % playlist.length);
+  }, [playlist.length]);
 
   const handleAdd = useCallback(() => {
     const id = extractYouTubeId(newUrl);
@@ -234,7 +247,17 @@ export function YouTubePlayer() {
       return;
     }
 
-    setPlayerState((prev) => ({ ...prev, loading: true, error: null }));
+    // Duplicate check
+    if (playlist.some((item) => item.id === id)) {
+      toast("This video is already in your playlist!", {
+        description: "You cannot add the same video more than once.",
+        duration: 4000,
+      });
+      setNewUrl("");
+      return;
+    }
+
+    setLoading(true);
 
     // Validate video before adding
     fetch(
@@ -256,7 +279,7 @@ export function YouTubePlayer() {
         ]);
         setNewUrl("");
         toast.success("Video added", {
-          description: "The video has been added to your playlist",
+          description: "The video has been added to your playlist.",
         });
       })
       .catch((error) => {
@@ -265,9 +288,9 @@ export function YouTubePlayer() {
         });
       })
       .finally(() => {
-        setPlayerState((prev) => ({ ...prev, loading: false }));
+        setLoading(false);
       });
-  }, [newUrl, setPlaylist, toast]);
+  }, [newUrl, playlist, setPlaylist]);
 
   const handleRemove = useCallback(
     (idx: number) => {
@@ -276,83 +299,47 @@ export function YouTubePlayer() {
         setCurrentIndex(Math.max(0, idx - 1));
       }
     },
-    [currentIndex, playlist.length, setPlaylist, setCurrentIndex]
+    [currentIndex, playlist.length, setPlaylist]
   );
-
-  const handlePrev = useCallback(() => {
-    setCurrentIndex((idx) => (idx - 1 + playlist.length) % playlist.length);
-  }, [playlist.length, setCurrentIndex]);
-
-  const handleSeek = useCallback((val: number[]) => {
-    if (playerRef.current) {
-      playerRef.current.seekTo(val[0]);
-      setPlayerState((prev) => ({ ...prev, progress: val[0] }));
-    }
-  }, []);
-
-  const handleVolume = useCallback((val: number[]) => {
-    if (playerRef.current) {
-      playerRef.current.setVolume(val[0]);
-      setPlayerState((prev) => ({
-        ...prev,
-        volume: val[0],
-        isMuted: val[0] === 0,
-      }));
-    }
-  }, []);
-
-  const toggleMute = useCallback(() => {
-    if (playerRef.current) {
-      const newMuted = !playerState.isMuted;
-      playerRef.current.setVolume(newMuted ? 0 : playerState.volume);
-      setPlayerState((prev) => ({ ...prev, isMuted: newMuted }));
-    }
-  }, [playerState.isMuted, playerState.volume]);
 
   const handleEditTitle = useCallback(
     (idx: number) => {
       setEditingIndex(idx);
-      setPlayerState((prev) => ({
-        ...prev,
-        editingTitle: playlist[idx].title,
-      }));
+      setEditingTitle(playlist[idx].title);
     },
     [playlist]
   );
 
   const saveEditedTitle = useCallback(() => {
     if (editingIndex === null) return;
-
     setPlaylist((prev) =>
       prev.map((item, idx) =>
         idx === editingIndex
-          ? { ...item, title: playerState.editingTitle || item.title }
+          ? { ...item, title: editingTitle || item.title }
           : item
       )
     );
     setEditingIndex(null);
-  }, [editingIndex, playerState.editingTitle, setPlaylist]);
+  }, [editingIndex, editingTitle, setPlaylist]);
 
   const handleResetAll = useCallback(() => {
-    localStorage.clear();
     setPlaylist(DEFAULT_PLAYLIST);
     setCurrentIndex(0);
-    setPlayerState({
-      progress: 20,
-      duration: 0,
-      volume: DEFAULT_VOLUME,
-      isMuted: false,
-      showVideo: true,
-      playing: false,
-      editingTitle: "",
-      error: null,
-      loading: false,
-    });
+    setPlaying(true);
+    setVolume(DEFAULT_VOLUME);
+    setMuted(false);
+    setShowVideo(true);
     setNewUrl("");
     setEditingIndex(null);
-  }, [setPlaylist, setCurrentIndex]);
+    setEditingTitle("");
+    setLoading(false);
+    setError(null);
+    toast.success("Reset successful", {
+      description: "Playlist and player have been reset.",
+    });
+  }, [setPlaylist]);
 
-  // Add keyboard shortcuts
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
@@ -360,223 +347,114 @@ export function YouTubePlayer() {
       switch (e.code) {
         case "Space":
           e.preventDefault();
-          setPlayerState((prev) => {
-            const newPlaying = !prev.playing;
-            if (playerRef.current) {
-              if (newPlaying) playerRef.current.playVideo();
-              else playerRef.current.pauseVideo();
-            }
-            return { ...prev, playing: newPlaying };
-          });
+          setPlaying((prev) => !prev);
           break;
         case "ArrowLeft":
           if (e.altKey) handlePrev();
-          else if (playerRef.current) {
-            const currentTime = playerRef.current.getCurrentTime();
-            playerRef.current.seekTo(Math.max(0, currentTime - 10));
-          }
           break;
         case "ArrowRight":
           if (e.altKey) handleNext();
-          else if (playerRef.current) {
-            const currentTime = playerRef.current.getCurrentTime();
-            playerRef.current.seekTo(currentTime + 10);
-          }
           break;
         case "KeyM":
-          // Não conflita com atalhos do navegador
-          toggleMute();
+          setMuted((prev) => !prev);
           break;
         case "KeyV":
-          // Não conflita com atalhos do navegador
-          setPlayerState((prev) => ({ ...prev, showVideo: !prev.showVideo }));
+          setShowVideo((prev) => !prev);
           break;
       }
     };
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [handleNext, handlePrev, toggleMute]);
+  }, [handleNext, handlePrev]);
 
-  // Add error handling for player errors
-  const handleError = useCallback(
-    (event: YouTubeEvent) => {
-      const errorMessages: { [key: number]: string } = {
-        2: "Invalid video ID",
-        5: "HTML5 player error",
-        100: "Video not found",
-        101: "Video cannot be played in embedded players",
-        150: "Video cannot be played in embedded players",
-      };
-
-      const errorCode = event.data;
-      const errorMessage =
-        errorMessages[errorCode] || "An error occurred playing the video";
-
-      setPlayerState((prev) => ({
-        ...prev,
-        error: errorMessage,
-        playing: false,
-      }));
-      toast.error("Playback Error", {
-        description: errorMessage,
-      });
-    },
-    [toast]
-  );
-
-  // Update progress more frequently for smoother tracking
-  useEffect(() => {
-    let progressTimer: number;
-
-    if (playerState.playing && playerRef.current) {
-      progressTimer = window.setInterval(() => {
-        const currentTime = playerRef.current.getCurrentTime();
-        const duration = playerRef.current.getDuration();
-
-        setPlayerState((prev) => ({
-          ...prev,
-          progress: currentTime,
-          duration: duration || prev.duration,
-        }));
-      }, 250); // Update every 250ms for smoother progress
-    }
-
-    return () => {
-      if (progressTimer) {
-        window.clearInterval(progressTimer);
-      }
-    };
-  }, [playerState.playing]);
-
-  // Improved player style with better aspect ratio handling
-  const playerStyle: React.CSSProperties = playerState.showVideo
-    ? {
-        display: "block",
-        width: "100%",
-        aspectRatio: "16/9",
-        backgroundColor: "#000",
-      }
-    : {
-        position: "absolute",
-        left: "-9999px",
-        width: 1,
-        height: 1,
-        opacity: 0,
-        pointerEvents: "none",
-      };
+  // Video URL
+  const videoUrl = playlist[currentIndex]?.id
+    ? `https://www.youtube.com/watch?v=${playlist[currentIndex].id}`
+    : "";
 
   return (
     <Card className="max-w-4xl mx-auto bg-background/90 backdrop-blur-sm border-border/50 p-4 space-y-4 h-full flex flex-col">
       {/* YouTube Player */}
-      {playlist[currentIndex] && (
-        <div className="relative rounded-lg overflow-hidden bg-black">
-          <div style={playerStyle} className="relative w-full">
-            <YouTube
-              videoId={playlist[currentIndex].id}
-              opts={{
-                width: "100%",
-                height: "100%",
-                playerVars: {
-                  autoplay: 1,
-                  controls: 0,
-                  modestbranding: 1,
-                  rel: 0,
-                  showinfo: 0,
-                  iv_load_policy: 3,
-                },
-              }}
-              onReady={handlePlayerReady}
-              onStateChange={onStateChange}
-              onError={handleError}
-              className="absolute inset-0 w-full h-full"
-            />
-          </div>
-          {/* Overlay for errors and loading */}
-          {(playerState.error || playerState.loading) && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-              {playerState.error ? (
-                <div className="text-destructive text-center p-4">
-                  <span className="block text-lg mb-2">⚠️</span>
-                  {playerState.error}
-                </div>
-              ) : (
-                <div className="text-muted-foreground text-center">
-                  <div className="animate-spin w-8 h-8 border-2 border-muted border-t-foreground rounded-full mb-2" />
-                  <span className="text-sm">Loading...</span>
-                </div>
+      {playlist[currentIndex] &&
+        isValidYouTubeId(playlist[currentIndex].id) && (
+          <div className="relative rounded-lg overflow-hidden bg-black">
+            <div
+              className={cn(
+                "relative w-full aspect-video",
+                !showVideo && "hidden"
               )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Progress and Controls Container */}
-      <div className="space-y-4 bg-muted/50 p-4 rounded-lg border border-border/50">
-        {/* Title and Time */}
-        <div className="flex justify-between items-center text-sm">
-          <div className="font-medium text-foreground truncate pr-4">
-            {playlist[currentIndex]?.title || "No track selected"}
-          </div>
-          <div className="text-muted-foreground flex items-center space-x-2 text-xs">
-            <span>{formatTime(playerState.progress)}</span>
-            <span>/</span>
-            <span>{formatTime(playerState.duration)}</span>
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="relative group">
-          <Slider
-            value={[playerState.progress]}
-            max={playerState.duration || 100}
-            min={0}
-            step={0.1}
-            onValueChange={handleSeek}
-            className="w-full"
-          />
-          <div className="absolute -bottom-4 left-0 w-full opacity-0 group-hover:opacity-100 transition-opacity text-xs text-center">
-            <div className="bg-muted text-muted-foreground px-2 py-1 rounded inline-block">
-              {formatTime(playerState.progress)}
-            </div>
-          </div>
-        </div>
-
-        {/* Controls */}
-        <div className="flex items-center justify-between">
-          {/* Left Controls */}
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleMute}
-              className="hover:bg-muted"
             >
-              {playerState.isMuted ? (
-                <VolumeX className="w-4 h-4" />
-              ) : (
-                <Volume2 className="w-4 h-4" />
-              )}
-            </Button>
-            <div className="w-24">
-              <Slider
-                value={[playerState.isMuted ? 0 : playerState.volume]}
-                max={100}
-                min={0}
-                step={1}
-                onValueChange={handleVolume}
-                className="w-full"
+              <ReactPlayer
+                ref={playerRef}
+                url={videoUrl}
+                width="100%"
+                height="100%"
+                playing={playing}
+                volume={volume / 100}
+                muted={muted}
+                onPlay={handlePlay}
+                onPause={handlePause}
+                onError={handleError}
+                onReady={handleReady}
+                onBuffer={handleBufferStart}
+                onBufferEnd={handleBufferEnd}
+                onEnded={handleNext}
+                controls={true}
+                config={
+                  {
+                    youtube: {
+                      playerVars: {
+                        modestbranding: 1,
+                        rel: 0,
+                        iv_load_policy: 3,
+                      },
+                    },
+                  } as any
+                }
+                className="absolute inset-0"
               />
             </div>
-          </div>
 
-          {/* Center Controls */}
+            {/* Overlay for errors and loading */}
+            {(error || loading) && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+                {error ? (
+                  <div className="text-destructive text-center p-4">
+                    <span className="block text-lg mb-2">⚠️</span>
+                    {error}
+                  </div>
+                ) : (
+                  <div className="text-muted-foreground text-center">
+                    <div className="animate-spin w-8 h-8 border-2 border-muted border-t-foreground rounded-full mb-2" />
+                    <span className="text-sm">Loading...</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+      {/* Navigation Controls */}
+      <div className="bg-muted/50 p-4 rounded-lg border border-border/50">
+        <div className="flex items-center justify-between">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleToggleVideo}
+            className="hover:bg-muted"
+          >
+            <Video className="w-4 h-4 mr-2" />
+            {showVideo ? "Hide" : "Show"} Video
+          </Button>
+
+          {/* Center Controls for Next/Previous */}
           <div className="flex items-center gap-2">
             <Button
               size="icon"
               variant="ghost"
               onClick={handlePrev}
-              disabled={playlist.length < 2}
+              disabled={playlist.length < 2 || loading}
               className="hover:bg-muted"
             >
               <SkipBack className="w-4 h-4" />
@@ -584,20 +462,11 @@ export function YouTubePlayer() {
             <Button
               size="icon"
               variant="default"
-              onClick={() => {
-                setPlayerState((prev) => {
-                  const newPlaying = !prev.playing;
-                  if (playerRef.current) {
-                    if (newPlaying) playerRef.current.playVideo();
-                    else playerRef.current.pauseVideo();
-                  }
-                  return { ...prev, playing: newPlaying };
-                });
-              }}
-              disabled={!playlist[currentIndex]}
+              onClick={handleTogglePlay}
+              disabled={!playlist[currentIndex] || loading}
               className="bg-foreground hover:bg-foreground/90 text-background"
             >
-              {playerState.playing ? (
+              {playing ? (
                 <Pause className="w-5 h-5" />
               ) : (
                 <Play className="w-5 h-5 ml-0.5" />
@@ -607,28 +476,21 @@ export function YouTubePlayer() {
               size="icon"
               variant="ghost"
               onClick={handleNext}
-              disabled={playlist.length < 2}
+              disabled={playlist.length < 2 || loading}
               className="hover:bg-muted"
             >
               <SkipForward className="w-4 h-4" />
             </Button>
           </div>
 
-          {/* Right Controls */}
-          <div className="flex items-center gap-2">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() =>
-                setPlayerState((prev) => ({
-                  ...prev,
-                  showVideo: !prev.showVideo,
-                }))
-              }
-              className="hover:bg-muted"
-            >
-              <Video className="w-4 h-4" />
-            </Button>
+          <div className="text-sm text-muted-foreground">
+            {playlist[currentIndex]?.title ? (
+              <div className="font-medium truncate max-w-[200px]">
+                {playlist[currentIndex].title}
+              </div>
+            ) : (
+              "No track selected"
+            )}
           </div>
         </div>
       </div>
@@ -654,23 +516,19 @@ export function YouTubePlayer() {
             value={newUrl}
             onChange={(e) => setNewUrl(e.target.value)}
             onKeyDown={(e) => {
-              if (
-                e.key === "Enter" &&
-                !playerState.loading &&
-                extractYouTubeId(newUrl)
-              ) {
+              if (e.key === "Enter" && !loading && extractYouTubeId(newUrl)) {
                 handleAdd();
               }
             }}
             className="flex-1 min-w-0 bg-muted/50 border-border/50"
-            disabled={playerState.loading}
+            disabled={loading}
           />
           <Button
             onClick={handleAdd}
-            disabled={!extractYouTubeId(newUrl) || playerState.loading}
-            className="bg-muted hover:bg-muted/80"
+            disabled={!extractYouTubeId(newUrl) || loading}
+            variant="default"
           >
-            {playerState.loading ? (
+            {loading ? (
               <>
                 <div className="animate-spin w-4 h-4 border-2 border-muted border-t-foreground rounded-full mr-2" />
                 Adding...
@@ -691,17 +549,17 @@ export function YouTubePlayer() {
                 index={idx}
                 isPlaying={idx === currentIndex}
                 isEditing={editingIndex === idx}
-                editingTitle={playerState.editingTitle}
-                onPlay={() => setCurrentIndex(idx)}
+                editingTitle={editingTitle}
+                onPlay={() => {
+                  if (loading) return;
+                  setCurrentIndex(idx);
+                  setPlaying(true);
+                }}
                 onEdit={() => handleEditTitle(idx)}
                 onDelete={() => handleRemove(idx)}
                 onSave={saveEditedTitle}
-                onCancel={() => {
-                  setEditingIndex(null);
-                }}
-                onTitleChange={(title) =>
-                  setPlayerState((prev) => ({ ...prev, editingTitle: title }))
-                }
+                onCancel={() => setEditingIndex(null)}
+                onTitleChange={setEditingTitle}
               />
             ))}
           </ul>
@@ -710,8 +568,7 @@ export function YouTubePlayer() {
         {/* Keyboard Shortcuts */}
         <div className="mt-4 text-xs text-muted-foreground grid grid-cols-2 sm:grid-cols-3 gap-2">
           <div>Space: Play/Pause</div>
-          <div>←/→: Seek 10s</div>
-          <div>Alt+←/→: Prev/Next</div>
+          <div>Alt+←/→: Previous/Next</div>
           <div>M: Mute</div>
           <div>V: Toggle Video</div>
         </div>
