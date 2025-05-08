@@ -160,15 +160,18 @@ const SoundCard = React.memo(function SoundCard({
     <motion.div {...ANIMATION_CONFIG}>
       <div
         className={cn(
-          "p-4 rounded-xl border bg-background/80 backdrop-blur-sm transition-all cursor-pointer",
+          "p-4 rounded-xl border bg-background/80 backdrop-blur-sm transition-all",
           sound.playing
             ? "border-primary/50 shadow-[0_0_15px_rgba(0,0,0,0.05)] dark:shadow-[0_0_15px_rgba(0,0,0,0.25)]"
             : "border-border/50 hover:border-border/80",
           sound.error && "border-destructive/30"
         )}
-        onClick={() => onToggle(sound.id)}
       >
-        <div className="flex items-center gap-3 mb-3">
+        {/* Card header - clickable area for toggling playback */}
+        <div
+          className="flex items-center gap-3 mb-3 cursor-pointer hover:bg-muted/20 p-2 rounded-lg -mx-2 -mt-2 transition-colors"
+          onClick={() => onToggle(sound.id)}
+        >
           <div
             className={cn(
               "p-2 rounded-lg flex items-center justify-center",
@@ -211,8 +214,19 @@ const SoundCard = React.memo(function SoundCard({
           </Button>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Volume2 className="w-4 h-4 text-muted-foreground shrink-0" />
+        {/* Volume control - explicitly non-clickable area with visual separation */}
+        <div
+          className={cn(
+            "flex items-center gap-2 p-2 rounded-md border border-muted/50 mt-1 cursor-default",
+            sound.playing ? "bg-muted/20" : "bg-transparent"
+          )}
+          onClick={handleSliderClick}
+          onMouseDown={handleSliderClick}
+          onMouseUp={handleSliderClick}
+        >
+          <div className="flex items-center gap-1">
+            <Volume2 className="w-4 h-4 text-muted-foreground shrink-0" />
+          </div>
           <Slider
             value={[sound.volume]}
             min={MIN_VOLUME}
@@ -225,10 +239,11 @@ const SoundCard = React.memo(function SoundCard({
             onClick={handleSliderClick}
             onMouseDown={handleSliderClick}
             onMouseUp={handleSliderClick}
-            disabled={!sound.playing || sound.isLoading || !!sound.error}
+            disabled={sound.isLoading || !!sound.error}
             className={cn(
               "flex-1",
-              (sound.isLoading || sound.error) && "opacity-50"
+              (sound.isLoading || sound.error) && "opacity-50",
+              !sound.playing && "opacity-70"
             )}
           />
           <span className="text-xs text-muted-foreground w-8 text-right">
@@ -268,9 +283,6 @@ const MasterVolume = React.memo(function MasterVolume({
             onValueChange={(value) => onVolumeChange(value[0])}
             className="flex-1"
           />
-          <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
-            <span className="text-xs">Space</span>
-          </kbd>
         </div>
       </div>
 
@@ -681,23 +693,26 @@ export function AmbientSounds() {
                 audio.volume =
                   normalizeVolume(sound.volume) * normalizeVolume(masterVolume);
 
-                // Play the sound
-                audio.play().catch((err) => {
-                  console.error(`Error playing sound ${soundId}:`, err);
+                // Play the sound with reduced blocking time
+                const playPromise = audio.play();
+                if (playPromise !== undefined) {
+                  playPromise.catch((err) => {
+                    console.error(`Error playing sound ${soundId}:`, err);
 
-                  setSounds((prev) =>
-                    prev.map((s) =>
-                      s.id === soundId
-                        ? {
-                            ...s,
-                            playing: false,
-                            isLoading: false,
-                            error: `Playback error: ${err.message}`,
-                          }
-                        : s
-                    )
-                  );
-                });
+                    setSounds((prev) =>
+                      prev.map((s) =>
+                        s.id === soundId
+                          ? {
+                              ...s,
+                              playing: false,
+                              isLoading: false,
+                              error: `Playback error: ${err.message}`,
+                            }
+                          : s
+                      )
+                    );
+                  });
+                }
               } catch (err) {
                 console.error(`Exception playing sound ${soundId}:`, err);
               }
@@ -738,16 +753,13 @@ export function AmbientSounds() {
     (soundId: string, value: number) => {
       const newVolume = value;
 
-      // Update audio element volume directly
+      // Update audio element volume directly if sound is playing
       const audio = globalAudioCache[soundId];
       if (audio) {
         try {
           // Convert from UI scale (0-100) to audio scale (0-1)
           const normalizedVolume =
             normalizeVolume(newVolume) * normalizeVolume(masterVolume);
-          console.log(
-            `Setting volume for ${soundId} to ${normalizedVolume} (${newVolume}%)`
-          );
           audio.volume = normalizedVolume;
         } catch (err) {
           console.warn(`Error setting volume for ${soundId}:`, err);
@@ -792,9 +804,6 @@ export function AmbientSounds() {
             try {
               const normalizedVolume =
                 normalizeVolume(sound.volume) * normalizeVolume(volume);
-              console.log(
-                `Updating master volume for ${sound.id} to ${normalizedVolume} (${volume}%)`
-              );
               audio.volume = normalizedVolume;
             } catch (err) {
               console.warn(
@@ -946,13 +955,7 @@ export function AmbientSounds() {
   // Set up keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (
-        e.code === "Space" &&
-        !(e.target as HTMLElement)?.matches?.("input, textarea")
-      ) {
-        e.preventDefault();
-        setMasterVolume((prev) => (prev === 0 ? DEFAULT_VOLUME : 0));
-      }
+      // Remove space key handler to avoid conflicts with other media players
 
       if (
         e.code &&
@@ -1076,6 +1079,27 @@ export function AmbientSounds() {
             activeSoundsCount={activeSoundsCount}
           />
 
+          {/* Multi-sound indicator */}
+          {activeSoundsCount > 0 && (
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 text-primary text-sm">
+              <Layers className="h-4 w-4" />
+              <span>
+                {activeSoundsCount === 1
+                  ? "1 sound playing. You can play multiple sounds at once!"
+                  : `${activeSoundsCount} sounds playing simultaneously.`}
+              </span>
+            </div>
+          )}
+
+          {/* Save Mix controls */}
+          <SaveMix
+            mixName={newMixName}
+            onMixNameChange={setNewMixName}
+            onSave={handleSaveMix}
+            isValid={!!newMixName.trim() && activeSoundsCount > 0}
+            activeSoundsCount={activeSoundsCount}
+          />
+
           {/* Main content - split into two columns on larger screens */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-6">
             {/* Sound browser */}
@@ -1134,14 +1158,6 @@ export function AmbientSounds() {
                 </span>
               </div>
 
-              <SaveMix
-                mixName={newMixName}
-                onMixNameChange={setNewMixName}
-                onSave={handleSaveMix}
-                isValid={newMixName.trim().length > 0}
-                activeSoundsCount={activeSoundsCount}
-              />
-
               {sortedMixes.length > 0 ? (
                 <ScrollArea className="h-[calc(100vh-400px)] min-h-[300px]">
                   <div className="grid grid-cols-1 gap-4 pb-4">
@@ -1184,13 +1200,6 @@ export function AmbientSounds() {
 
           {/* Keyboard shortcuts */}
           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground border-t border-border/30 pt-4 mt-2">
-            <div className="flex items-center gap-1.5">
-              <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px]">
-                Space
-              </kbd>
-              <span>Toggle Sound</span>
-            </div>
-            <span className="text-muted-foreground/40">•</span>
             <div className="flex items-center gap-1.5">
               <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px]">
                 1-9
