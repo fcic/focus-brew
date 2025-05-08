@@ -730,7 +730,7 @@ export function AppWindow({
                   <div className="flex items-center space-x-2">
                     <h2
                       id={`window-title-${id}`}
-                      className="text-sm font-medium text-center max-w-[100px] truncate"
+                      className="text-sm font-medium text-center max-w-xs sm:max-w-md md:max-w-lg"
                     >
                       {title}
                     </h2>

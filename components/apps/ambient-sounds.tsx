@@ -181,7 +181,7 @@ const SoundCard = React.memo(function SoundCard({
             {sound.icon}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="font-medium text-sm truncate">{sound.name}</div>
+            <div className="font-medium text-sm break-words">{sound.name}</div>
             {sound.error && (
               <p className="text-xs text-destructive mt-0.5 truncate">
                 {sound.error}
@@ -1063,6 +1063,10 @@ export function AmbientSounds() {
   return (
     <div className="h-full flex flex-col bg-gradient-to-b from-background to-background/95">
       <div className="container mx-auto p-4 max-w-6xl">
+        {/* Header com título sem truncamento */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-foreground">Ambient Sounds</h1>
+        </div>
         <div className="flex flex-col gap-6">
           {/* Header with master controls */}
           <MasterVolume
@@ -1076,22 +1080,26 @@ export function AmbientSounds() {
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-6">
             {/* Sound browser */}
             <div className="flex flex-col gap-4">
+              {/* Tabs de categoria com scroll horizontal e sem quebra */}
               <Tabs
                 defaultValue={activeTab}
                 onValueChange={(v) => setActiveTab(v as SoundCategory)}
               >
-                <TabsList className="mb-4 flex flex-wrap">
-                  {soundCategories.map((category, index) => (
-                    <TabsTrigger
-                      key={category}
-                      value={category}
-                      className="capitalize"
-                    >
-                      {category}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-
+                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-muted/30 scrollbar-track-transparent">
+                  <TabsList className="mb-4 min-w-max flex-nowrap whitespace-nowrap gap-1 px-1">
+                    {soundCategories.map((category) => (
+                      <TabsTrigger
+                        key={category}
+                        value={category}
+                        className="capitalize whitespace-nowrap mb-1"
+                      >
+                        {category}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </div>
+                {/* Espaço extra entre tabs e cards */}
+                <div className="h-2" />
                 {soundCategories.map((category) => (
                   <TabsContent key={category} value={category} className="mt-0">
                     <ScrollArea className="h-[calc(100vh-400px)] min-h-[300px]">
