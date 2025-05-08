@@ -20,6 +20,7 @@ import {
   NotificationSettings,
 } from "@/lib/notification";
 import { toast } from "@/lib/toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type TimerMode = "pomodoro" | "shortBreak" | "longBreak";
 
@@ -270,130 +271,139 @@ export function PomodoroTimer() {
   }, [notificationsEnabled]); // Add notificationsEnabled as a dependency to avoid unnecessary updates
 
   return (
-    <div className="flex flex-col items-center gap-6 p-6" role="timer">
-      {/* Mode selection */}
-      <div className="flex gap-2">
-        {(["pomodoro", "shortBreak", "longBreak"] as const).map((timerMode) => (
-          <Button
-            key={timerMode}
-            variant={mode === timerMode ? "default" : "outline"}
-            onClick={() => handleSwitchMode(timerMode)}
-            className={cn(
-              "capitalize transition-colors",
-              mode === timerMode && "font-medium"
+    <div
+      className="flex flex-col items-center gap-6 p-6 h-full overflow-hidden"
+      role="timer"
+    >
+      <ScrollArea className="w-full h-full">
+        <div className="flex flex-col items-center gap-6 pb-6">
+          {/* Mode selection */}
+          <div className="flex gap-2">
+            {(["pomodoro", "shortBreak", "longBreak"] as const).map(
+              (timerMode) => (
+                <Button
+                  key={timerMode}
+                  variant={mode === timerMode ? "default" : "outline"}
+                  onClick={() => handleSwitchMode(timerMode)}
+                  className={cn(
+                    "capitalize transition-colors",
+                    mode === timerMode && "font-medium"
+                  )}
+                  aria-label={`Switch to ${timerMode
+                    .replace(/([A-Z])/g, " $1")
+                    .trim()} mode`}
+                >
+                  {timerMode.replace(/([A-Z])/g, " $1").trim()}
+                </Button>
+              )
             )}
-            aria-label={`Switch to ${timerMode
-              .replace(/([A-Z])/g, " $1")
-              .trim()} mode`}
+          </div>
+
+          {/* Timer display */}
+          <div
+            className="relative flex h-48 w-48 items-center justify-center rounded-full border-4 border-border"
+            role="progressbar"
+            aria-valuenow={progress}
+            aria-valuemin={0}
+            aria-valuemax={100}
           >
-            {timerMode.replace(/([A-Z])/g, " $1").trim()}
-          </Button>
-        ))}
-      </div>
+            <motion.div
+              className="absolute inset-1 rounded-full bg-primary/20"
+              style={{
+                scaleX: progress / 100,
+                scaleY: progress / 100,
+                transformOrigin: "center",
+              }}
+              animate={{ scale: progress / 100 }}
+              transition={SPRING_ANIMATION}
+            />
+            <span className="relative text-4xl font-bold tabular-nums">
+              {formattedTime}
+            </span>
+          </div>
 
-      {/* Timer display */}
-      <div
-        className="relative flex h-48 w-48 items-center justify-center rounded-full border-4 border-border"
-        role="progressbar"
-        aria-valuenow={progress}
-        aria-valuemin={0}
-        aria-valuemax={100}
-      >
-        <motion.div
-          className="absolute inset-1 rounded-full bg-primary/20"
-          style={{
-            scaleX: progress / 100,
-            scaleY: progress / 100,
-            transformOrigin: "center",
-          }}
-          animate={{ scale: progress / 100 }}
-          transition={SPRING_ANIMATION}
-        />
-        <span className="relative text-4xl font-bold tabular-nums">
-          {formattedTime}
-        </span>
-      </div>
+          {/* Timer controls */}
+          <div className="flex gap-2">
+            <Button
+              variant={isRunning ? "outline" : "default"}
+              onClick={isRunning ? handlePauseTimer : handleStartTimer}
+              className="min-w-[80px]"
+              aria-label={isRunning ? "Pause timer" : "Start timer"}
+            >
+              {isRunning ? (
+                <Pause className="h-4 w-4 mr-2" />
+              ) : (
+                <Play className="h-4 w-4 mr-2" />
+              )}
+              {isRunning ? "Pause" : "Start"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleResetTimer}
+              className="min-w-[80px]"
+              aria-label="Reset timer"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Reset
+            </Button>
+          </div>
 
-      {/* Timer controls */}
-      <div className="flex gap-2">
-        <Button
-          variant={isRunning ? "outline" : "default"}
-          onClick={isRunning ? handlePauseTimer : handleStartTimer}
-          className="min-w-[80px]"
-          aria-label={isRunning ? "Pause timer" : "Start timer"}
-        >
-          {isRunning ? (
-            <Pause className="h-4 w-4 mr-2" />
-          ) : (
-            <Play className="h-4 w-4 mr-2" />
-          )}
-          {isRunning ? "Pause" : "Start"}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={handleResetTimer}
-          className="min-w-[80px]"
-          aria-label="Reset timer"
-        >
-          <RotateCcw className="h-4 w-4 mr-2" />
-          Reset
-        </Button>
-      </div>
+          {/* Volume and audio settings */}
+          <div className="flex flex-col gap-4 w-48">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-4">
+                    <Volume2 className="h-4 w-4 text-muted-foreground" />
+                    <Slider
+                      value={[settings.volume]}
+                      onValueChange={handleVolumeChange}
+                      max={100}
+                      step={1}
+                      className="flex-1"
+                      aria-label="Alarm volume"
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Alarm Volume: {settings.volume}%</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
-      {/* Volume and audio settings */}
-      <div className="flex flex-col gap-4 w-48">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-4">
-                <Volume2 className="h-4 w-4 text-muted-foreground" />
-                <Slider
-                  value={[settings.volume]}
-                  onValueChange={handleVolumeChange}
-                  max={100}
-                  step={1}
-                  className="flex-1"
-                  aria-label="Alarm volume"
-                />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Alarm Volume: {settings.volume}%</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLoopToggle}
+                    className={cn(
+                      "flex items-center gap-2",
+                      settings.loopAudio && "bg-primary/20"
+                    )}
+                  >
+                    <RepeatIcon className="h-4 w-4" />
+                    {settings.loopAudio ? "Loop On" : "Loop Off"}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    {settings.loopAudio
+                      ? "Alarm will loop until stopped"
+                      : "Alarm will play once"}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLoopToggle}
-                className={cn(
-                  "flex items-center gap-2",
-                  settings.loopAudio && "bg-primary/20"
-                )}
-              >
-                <RepeatIcon className="h-4 w-4" />
-                {settings.loopAudio ? "Loop On" : "Loop Off"}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>
-                {settings.loopAudio
-                  ? "Alarm will loop until stopped"
-                  : "Alarm will play once"}
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-
-      {/* Session counter */}
-      <div className="text-sm text-muted-foreground">
-        Completed Pomodoros: {completedPomodoros}
-      </div>
+          {/* Session counter */}
+          <div className="text-sm text-muted-foreground">
+            Completed Pomodoros: {completedPomodoros}
+          </div>
+        </div>
+      </ScrollArea>
     </div>
   );
 }

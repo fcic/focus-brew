@@ -375,204 +375,212 @@ export function YouTubePlayer() {
 
   return (
     <Card className="max-w-4xl mx-auto bg-background/90 backdrop-blur-sm border-border/50 p-4 space-y-4 h-full flex flex-col">
-      {/* YouTube Player */}
-      {playlist[currentIndex] &&
-        isValidYouTubeId(playlist[currentIndex].id) && (
-          <div className="relative rounded-lg overflow-hidden bg-black">
-            <div
-              className={cn(
-                "relative w-full aspect-video",
-                !showVideo && "hidden"
-              )}
-            >
-              <ReactPlayer
-                ref={playerRef}
-                url={videoUrl}
-                width="100%"
-                height="100%"
-                playing={playing}
-                volume={volume / 100}
-                muted={muted}
-                onPlay={handlePlay}
-                onPause={handlePause}
-                onError={handleError}
-                onReady={handleReady}
-                onBuffer={handleBufferStart}
-                onBufferEnd={handleBufferEnd}
-                onEnded={handleNext}
-                controls={true}
-                config={
-                  {
-                    youtube: {
-                      playerVars: {
-                        modestbranding: 1,
-                        rel: 0,
-                        iv_load_policy: 3,
-                      },
-                    },
-                  } as any
-                }
-                className="absolute inset-0"
-              />
-            </div>
+      <ScrollArea className="flex-1 w-full">
+        <div className="space-y-4 pr-4">
+          {/* YouTube Player */}
+          {playlist[currentIndex] &&
+            isValidYouTubeId(playlist[currentIndex].id) && (
+              <div className="relative rounded-lg overflow-hidden bg-black">
+                <div
+                  className={cn(
+                    "relative w-full aspect-video",
+                    !showVideo && "hidden"
+                  )}
+                >
+                  <ReactPlayer
+                    ref={playerRef}
+                    url={videoUrl}
+                    width="100%"
+                    height="100%"
+                    playing={playing}
+                    volume={volume / 100}
+                    muted={muted}
+                    onPlay={handlePlay}
+                    onPause={handlePause}
+                    onError={handleError}
+                    onReady={handleReady}
+                    onBuffer={handleBufferStart}
+                    onBufferEnd={handleBufferEnd}
+                    onEnded={handleNext}
+                    controls={true}
+                    config={
+                      {
+                        youtube: {
+                          playerVars: {
+                            modestbranding: 1,
+                            rel: 0,
+                            iv_load_policy: 3,
+                          },
+                        },
+                      } as any
+                    }
+                    className="absolute inset-0"
+                  />
+                </div>
 
-            {/* Overlay for errors and loading */}
-            {(error || loading) && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-                {error ? (
-                  <div className="text-destructive text-center p-4">
-                    <span className="block text-lg mb-2">⚠️</span>
-                    {error}
-                  </div>
-                ) : (
-                  <div className="text-muted-foreground text-center">
-                    <div className="animate-spin w-8 h-8 border-2 border-muted border-t-foreground rounded-full mb-2" />
-                    <span className="text-sm">Loading...</span>
+                {/* Overlay for errors and loading */}
+                {(error || loading) && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+                    {error ? (
+                      <div className="text-destructive text-center p-4">
+                        <span className="block text-lg mb-2">⚠️</span>
+                        {error}
+                      </div>
+                    ) : (
+                      <div className="text-muted-foreground text-center">
+                        <div className="animate-spin w-8 h-8 border-2 border-muted border-t-foreground rounded-full mb-2" />
+                        <span className="text-sm">Loading...</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             )}
-          </div>
-        )}
 
-      {/* Navigation Controls */}
-      <div className="bg-muted/50 p-4 rounded-lg border border-border/50">
-        <div className="flex items-center justify-between">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleToggleVideo}
-            className="hover:bg-muted"
-          >
-            <Video className="w-4 h-4 mr-2" />
-            {showVideo ? "Hide" : "Show"} Video
-          </Button>
+          {/* Navigation Controls */}
+          <div className="bg-muted/50 p-4 rounded-lg border border-border/50">
+            <div className="flex items-center justify-between">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleToggleVideo}
+                className="hover:bg-muted"
+              >
+                <Video className="w-4 h-4 mr-2" />
+                {showVideo ? "Hide" : "Show"} Video
+              </Button>
 
-          {/* Center Controls for Next/Previous */}
-          <div className="flex items-center gap-2">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={handlePrev}
-              disabled={playlist.length < 2 || loading}
-              className="hover:bg-muted"
-            >
-              <SkipBack className="w-4 h-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="default"
-              onClick={handleTogglePlay}
-              disabled={!playlist[currentIndex] || loading}
-              className="bg-foreground hover:bg-foreground/90 text-background"
-            >
-              {playing ? (
-                <Pause className="w-5 h-5" />
-              ) : (
-                <Play className="w-5 h-5 ml-0.5" />
-              )}
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={handleNext}
-              disabled={playlist.length < 2 || loading}
-              className="hover:bg-muted"
-            >
-              <SkipForward className="w-4 h-4" />
-            </Button>
-          </div>
-
-          <div className="text-sm text-muted-foreground">
-            {playlist[currentIndex]?.title ? (
-              <div className="font-medium truncate max-w-[200px]">
-                {playlist[currentIndex].title}
+              {/* Center Controls for Next/Previous */}
+              <div className="flex items-center gap-2">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={handlePrev}
+                  disabled={playlist.length < 2 || loading}
+                  className="hover:bg-muted"
+                >
+                  <SkipBack className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="default"
+                  onClick={handleTogglePlay}
+                  disabled={!playlist[currentIndex] || loading}
+                  className="bg-foreground hover:bg-foreground/90 text-background"
+                >
+                  {playing ? (
+                    <Pause className="w-5 h-5" />
+                  ) : (
+                    <Play className="w-5 h-5 ml-0.5" />
+                  )}
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={handleNext}
+                  disabled={playlist.length < 2 || loading}
+                  className="hover:bg-muted"
+                >
+                  <SkipForward className="w-4 h-4" />
+                </Button>
               </div>
-            ) : (
-              "No track selected"
-            )}
+
+              <div className="text-sm text-muted-foreground">
+                {playlist[currentIndex]?.title ? (
+                  <div className="font-medium truncate max-w-[200px]">
+                    {playlist[currentIndex].title}
+                  </div>
+                ) : (
+                  "No track selected"
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Playlist Section */}
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-zinc-200">Playlist</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleResetAll}
+                className="text-xs hover:bg-zinc-800"
+              >
+                Reset All
+              </Button>
+            </div>
+
+            {/* URL Input */}
+            <div className="flex gap-2 mb-4">
+              <Input
+                placeholder="Enter YouTube URL or video ID"
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (
+                    e.key === "Enter" &&
+                    !loading &&
+                    extractYouTubeId(newUrl)
+                  ) {
+                    handleAdd();
+                  }
+                }}
+                className="flex-1 min-w-0 bg-muted/50 border-border/50"
+                disabled={loading}
+              />
+              <Button
+                onClick={handleAdd}
+                disabled={!extractYouTubeId(newUrl) || loading}
+                variant="default"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin w-4 h-4 border-2 border-muted border-t-foreground rounded-full mr-2" />
+                    Adding...
+                  </>
+                ) : (
+                  "Add"
+                )}
+              </Button>
+            </div>
+
+            {/* Playlist */}
+            <ScrollArea className="flex-1 w-full rounded-md border border-border/50 bg-muted/50">
+              <ul className="space-y-1 p-2">
+                {playlist.map((item, idx) => (
+                  <PlaylistItemComponent
+                    key={item.id}
+                    item={item}
+                    index={idx}
+                    isPlaying={idx === currentIndex}
+                    isEditing={editingIndex === idx}
+                    editingTitle={editingTitle}
+                    onPlay={() => {
+                      if (loading) return;
+                      setCurrentIndex(idx);
+                      setPlaying(true);
+                    }}
+                    onEdit={() => handleEditTitle(idx)}
+                    onDelete={() => handleRemove(idx)}
+                    onSave={saveEditedTitle}
+                    onCancel={() => setEditingIndex(null)}
+                    onTitleChange={setEditingTitle}
+                  />
+                ))}
+              </ul>
+            </ScrollArea>
+
+            {/* Keyboard Shortcuts */}
+            <div className="mt-4 text-xs text-muted-foreground grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div>Space: Play/Pause</div>
+              <div>Alt+←/→: Previous/Next</div>
+              <div>M: Mute</div>
+              <div>V: Toggle Video</div>
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Playlist Section */}
-      <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="font-semibold text-zinc-200">Playlist</h3>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleResetAll}
-            className="text-xs hover:bg-zinc-800"
-          >
-            Reset All
-          </Button>
-        </div>
-
-        {/* URL Input */}
-        <div className="flex gap-2 mb-4">
-          <Input
-            placeholder="Enter YouTube URL or video ID"
-            value={newUrl}
-            onChange={(e) => setNewUrl(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !loading && extractYouTubeId(newUrl)) {
-                handleAdd();
-              }
-            }}
-            className="flex-1 min-w-0 bg-muted/50 border-border/50"
-            disabled={loading}
-          />
-          <Button
-            onClick={handleAdd}
-            disabled={!extractYouTubeId(newUrl) || loading}
-            variant="default"
-          >
-            {loading ? (
-              <>
-                <div className="animate-spin w-4 h-4 border-2 border-muted border-t-foreground rounded-full mr-2" />
-                Adding...
-              </>
-            ) : (
-              "Add"
-            )}
-          </Button>
-        </div>
-
-        {/* Playlist */}
-        <ScrollArea className="flex-1 w-full rounded-md border border-border/50 bg-muted/50">
-          <ul className="space-y-1 p-2">
-            {playlist.map((item, idx) => (
-              <PlaylistItemComponent
-                key={item.id}
-                item={item}
-                index={idx}
-                isPlaying={idx === currentIndex}
-                isEditing={editingIndex === idx}
-                editingTitle={editingTitle}
-                onPlay={() => {
-                  if (loading) return;
-                  setCurrentIndex(idx);
-                  setPlaying(true);
-                }}
-                onEdit={() => handleEditTitle(idx)}
-                onDelete={() => handleRemove(idx)}
-                onSave={saveEditedTitle}
-                onCancel={() => setEditingIndex(null)}
-                onTitleChange={setEditingTitle}
-              />
-            ))}
-          </ul>
-        </ScrollArea>
-
-        {/* Keyboard Shortcuts */}
-        <div className="mt-4 text-xs text-muted-foreground grid grid-cols-2 sm:grid-cols-3 gap-2">
-          <div>Space: Play/Pause</div>
-          <div>Alt+←/→: Previous/Next</div>
-          <div>M: Mute</div>
-          <div>V: Toggle Video</div>
-        </div>
-      </div>
+      </ScrollArea>
     </Card>
   );
 }
