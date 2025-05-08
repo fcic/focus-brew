@@ -3,6 +3,7 @@ import { type Metadata } from "next";
 import { Nunito, Roboto_Slab } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
+import { Suspense } from "react";
 import "./globals.css";
 import "./fonts.css";
 import { Toaster } from "@/components/ui/sonner";
@@ -75,7 +76,9 @@ export default function RootLayout({ children }: Readonly<RootLayoutProps>) {
         >
           {children}
           <Toaster />
-          <GoogleAnalytics />
+          <Suspense fallback={null}>
+            <GoogleAnalytics />
+          </Suspense>
         </ThemeProvider>
       </body>
     </html>
