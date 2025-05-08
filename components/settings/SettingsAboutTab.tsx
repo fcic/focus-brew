@@ -48,6 +48,11 @@ const features = [
     icon: "✅",
   },
   {
+    title: "Habit Tracker",
+    description: "Track your habits and stay on top of your day.",
+    icon: "🎯",
+  },
+  {
     title: "Weather",
     description: "Check the current weather right from your menu bar.",
     icon: "🌤️",
