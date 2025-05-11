@@ -237,6 +237,41 @@ export function Settings({
     }
   }, [currencyState]);
 
+  // Filter currencies based on search
+  useEffect(() => {
+    if (baseSearch.trim() === "") {
+      setState((prev: SettingsState) => ({
+        ...prev,
+        filteredBase: currencies,
+      }));
+    } else {
+      const filtered = currencies.filter((c) =>
+        c.toLowerCase().includes(baseSearch.toLowerCase())
+      );
+      setState((prev: SettingsState) => ({
+        ...prev,
+        filteredBase: filtered,
+      }));
+    }
+  }, [baseSearch, currencies, setState]);
+
+  useEffect(() => {
+    if (targetSearch.trim() === "") {
+      setState((prev: SettingsState) => ({
+        ...prev,
+        filteredTarget: currencies,
+      }));
+    } else {
+      const filtered = currencies.filter((c) =>
+        c.toLowerCase().includes(targetSearch.toLowerCase())
+      );
+      setState((prev: SettingsState) => ({
+        ...prev,
+        filteredTarget: filtered,
+      }));
+    }
+  }, [targetSearch, currencies, setState]);
+
   // Handle settings tab events
   useEffect(() => {
     const handler = (e: CustomEvent<TabValue>) => {

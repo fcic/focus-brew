@@ -254,7 +254,8 @@ export function SettingsAppearanceTab({
                     className={cn(
                       "w-28 justify-between border rounded-lg px-3 py-2 bg-background text-sm flex items-center transition-colors",
                       !base && "text-muted-foreground",
-                      openBase && "border-primary/50"
+                      openBase && "border-primary/50",
+                      "hover:bg-accent hover:text-accent-foreground cursor-pointer"
                     )}
                     role="combobox"
                     aria-expanded={openBase}
@@ -263,22 +264,37 @@ export function SettingsAppearanceTab({
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </button>
                 </PopoverTrigger>
-                <PopoverContent className="w-36 p-0">
-                  <Command>
-                    <CommandInput
-                      value={baseSearch}
-                      onValueChange={setBaseSearch}
-                      placeholder="Search..."
-                      className="h-9"
-                    />
-                    <CommandList>
-                      <CommandEmpty>No currency found.</CommandEmpty>
-                      <CommandGroup>
-                        {filteredBase.map((cur) => (
-                          <CommandItem
+                <PopoverContent
+                  className="w-36 p-0"
+                  align="start"
+                  sideOffset={5}
+                  side="bottom"
+                  forceMount
+                >
+                  <div className="overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md">
+                    <div className="flex items-center border-b px-3">
+                      <input
+                        value={baseSearch}
+                        onChange={(e) => setBaseSearch(e.target.value)}
+                        placeholder="Search..."
+                        className="flex h-9 w-full bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                      />
+                    </div>
+                    <div className="max-h-[200px] overflow-y-auto p-1">
+                      {filteredBase.length === 0 ? (
+                        <div className="py-6 text-center text-sm">
+                          No currency found.
+                        </div>
+                      ) : (
+                        filteredBase.map((cur) => (
+                          <div
                             key={cur}
-                            value={cur}
-                            onSelect={() => {
+                            className={cn(
+                              "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+                              "hover:bg-accent hover:text-accent-foreground",
+                              base === cur && "bg-accent text-accent-foreground"
+                            )}
+                            onClick={() => {
                               setBase(cur);
                               setOpenBase(false);
                             }}
@@ -290,11 +306,11 @@ export function SettingsAppearanceTab({
                               )}
                             />
                             {cur.toUpperCase()}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 </PopoverContent>
               </Popover>
 
@@ -306,7 +322,8 @@ export function SettingsAppearanceTab({
                     className={cn(
                       "w-28 justify-between border rounded-lg px-3 py-2 bg-background text-sm flex items-center transition-colors",
                       !target && "text-muted-foreground",
-                      openTarget && "border-primary/50"
+                      openTarget && "border-primary/50",
+                      "hover:bg-accent hover:text-accent-foreground cursor-pointer"
                     )}
                     role="combobox"
                     aria-expanded={openTarget}
@@ -315,22 +332,38 @@ export function SettingsAppearanceTab({
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </button>
                 </PopoverTrigger>
-                <PopoverContent className="w-36 p-0">
-                  <Command>
-                    <CommandInput
-                      value={targetSearch}
-                      onValueChange={setTargetSearch}
-                      placeholder="Search..."
-                      className="h-9"
-                    />
-                    <CommandList>
-                      <CommandEmpty>No currency found.</CommandEmpty>
-                      <CommandGroup>
-                        {filteredTarget.map((cur) => (
-                          <CommandItem
+                <PopoverContent
+                  className="w-36 p-0"
+                  align="start"
+                  sideOffset={5}
+                  side="bottom"
+                  forceMount
+                >
+                  <div className="overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md">
+                    <div className="flex items-center border-b px-3">
+                      <input
+                        value={targetSearch}
+                        onChange={(e) => setTargetSearch(e.target.value)}
+                        placeholder="Search..."
+                        className="flex h-9 w-full bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                      />
+                    </div>
+                    <div className="max-h-[200px] overflow-y-auto p-1">
+                      {filteredTarget.length === 0 ? (
+                        <div className="py-6 text-center text-sm">
+                          No currency found.
+                        </div>
+                      ) : (
+                        filteredTarget.map((cur) => (
+                          <div
                             key={cur}
-                            value={cur}
-                            onSelect={() => {
+                            className={cn(
+                              "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+                              "hover:bg-accent hover:text-accent-foreground",
+                              target === cur &&
+                                "bg-accent text-accent-foreground"
+                            )}
+                            onClick={() => {
                               setTarget(cur);
                               setOpenTarget(false);
                             }}
@@ -342,11 +375,11 @@ export function SettingsAppearanceTab({
                               )}
                             />
                             {cur.toUpperCase()}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 </PopoverContent>
               </Popover>
             </div>

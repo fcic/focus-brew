@@ -142,6 +142,8 @@ export function ExchangeRate() {
       const { base: newBase, target: newTarget } = event.detail;
       setBase(newBase);
       setTarget(newTarget);
+      // Fetch new rate immediately when currency changes
+      setTimeout(() => fetchRate(), 100); // Small timeout to ensure state updates first
     };
 
     window.addEventListener(
@@ -155,7 +157,7 @@ export function ExchangeRate() {
         handleCurrencyChange as EventListener
       );
     };
-  }, [setBase, setTarget]);
+  }, [setBase, setTarget, fetchRate]);
 
   // Listen for refresh events from menu bar
   useEffect(() => {
