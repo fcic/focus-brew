@@ -745,9 +745,7 @@ function FocusBrewLanding() {
                     Video Demonstration
                   </h3>
                   <p className="text-muted-foreground max-w-md text-sm mb-6">
-                    See all our features in action: Todo Lists, Focus Timer,
-                    Ambient Sounds, Note Taking, Kanban Board, and more - all in
-                    one seamless interface.
+                    Soon
                   </p>
                   <div className="relative group">
                     <div className="absolute -inset-0.5 bg-gradient-to-r from-primary to-primary/60 rounded-xl blur opacity-50 group-hover:opacity-100 transition duration-300"></div>
