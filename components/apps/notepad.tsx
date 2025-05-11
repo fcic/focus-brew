@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,6 +61,7 @@ export function Notepad() {
   );
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
 
   const selectedNote = selectedNoteId
     ? notes.find((note) => note.id === selectedNoteId)
@@ -92,7 +93,7 @@ export function Notepad() {
     },
     editorProps: {
       attributes: {
-        class: "outline-none min-h-[150px] p-4",
+        class: "outline-none min-h-[150px] p-4 focus:ring-0",
       },
     },
   });
@@ -102,6 +103,15 @@ export function Notepad() {
       editor.commands.setContent(selectedNote.content);
     }
   }, [selectedNoteId, editor, selectedNote]);
+
+  // Focus editor when selecting a note
+  useEffect(() => {
+    if (selectedNote && editor && !editor.isFocused) {
+      setTimeout(() => {
+        editor.commands.focus("end");
+      }, 100);
+    }
+  }, [selectedNote, editor]);
 
   const filteredNotes = notes.filter(
     (note) =>
@@ -169,6 +179,10 @@ export function Notepad() {
             if (selectedNoteId && editor) {
               updateNoteContent(selectedNoteId, editor.getHTML());
               setSaveStatus("saved");
+              toast({
+                title: "Note saved",
+                description: "Your note has been saved successfully.",
+              });
             }
             break;
           case "b":
@@ -205,66 +219,36 @@ export function Notepad() {
       setNotes(notes.filter((note) => note.id !== noteToDelete));
       setNoteToDelete(null);
       setIsDeleteDialogOpen(false);
+      toast({
+        title: "Note deleted",
+        description: "Your note has been deleted successfully.",
+      });
     }
   };
 
   return (
     <div className="flex h-full border-border bg-background">
-      <motion.div
-        className="w-72 border-r border-border flex flex-col"
-        animate={{
-          width:
-            isSearching || filteredNotes.length > 0 ? "33.333333%" : "18rem",
-        }}
-        transition={{ duration: 0.2 }}
-      >
-        <div className="p-3 border-b border-border flex justify-between items-center">
-          <div className="flex items-center gap-2 flex-1 max-w-[300px]">
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={`Search notes... (${formatShortcut("L")})`}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8"
-                onFocus={() => setIsSearching(true)}
-                onBlur={() => setIsSearching(false)}
-              />
-            </div>
-            <Button onClick={createNewNote} size="sm" className="shrink-0">
-              <Plus className="h-4 w-4 mr-1" />
-              New ({formatShortcut("B")})
-            </Button>
+      <div className="w-72 border-r border-border flex flex-col">
+        <div className="p-3 border-b border-border flex flex-col gap-2">
+          <div className="relative w-full">
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={`Search notes... (${formatShortcut("L")})`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 w-full"
+              onFocus={() => setIsSearching(true)}
+              onBlur={() => {
+                if (!searchQuery) {
+                  setIsSearching(false);
+                }
+              }}
+            />
           </div>
-          {selectedNote && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                {saveStatus === "saving"
-                  ? "Saving..."
-                  : saveStatus === "saved"
-                  ? "Saved"
-                  : ""}
-              </span>
-              <div className="flex items-center gap-1">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => editor?.commands.undo()}
-                  disabled={!editor?.can().undo()}
-                >
-                  <Undo className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => editor?.commands.redo()}
-                  disabled={!editor?.can().redo()}
-                >
-                  <Redo className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
+          <Button onClick={createNewNote} size="sm" className="w-full">
+            <Plus className="h-4 w-4 mr-1" />
+            New ({formatShortcut("B")})
+          </Button>
         </div>
 
         <ScrollArea className="flex-1">
@@ -349,7 +333,7 @@ export function Notepad() {
             )}
           </AnimatePresence>
         </ScrollArea>
-      </motion.div>
+      </div>
 
       <div className="flex-1 flex flex-col min-w-0">
         {selectedNote ? (
@@ -364,7 +348,7 @@ export function Notepad() {
                 className="font-medium mb-3"
               />
 
-              <div className="flex items-center gap-1">
+              <div className="flex flex-wrap items-center gap-1">
                 <Toggle
                   size="sm"
                   pressed={editor?.isActive("bold")}
@@ -445,19 +429,51 @@ export function Notepad() {
                 >
                   <Code className="h-3.5 w-3.5" />
                 </Toggle>
+                <div className="ml-auto flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    {saveStatus === "saving"
+                      ? "Saving..."
+                      : saveStatus === "saved"
+                      ? "Saved"
+                      : ""}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => editor?.commands.undo()}
+                      disabled={!editor?.can().undo()}
+                      title="Undo"
+                    >
+                      <Undo className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => editor?.commands.redo()}
+                      disabled={!editor?.can().redo()}
+                      title="Redo"
+                    >
+                      <Redo className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
 
             <ScrollArea className="flex-1">
-              <EditorContent
-                editor={editor}
-                className="prose dark:prose-invert max-w-none editor-content"
-              />
+              <div ref={editorRef} className="h-full">
+                <EditorContent
+                  editor={editor}
+                  className="prose dark:prose-invert max-w-none editor-content h-full"
+                />
+              </div>
               <style jsx global>{`
                 .editor-content .ProseMirror {
                   min-height: 150px;
                   line-height: 1.6;
                   padding: 1rem;
+                  outline: none !important;
                 }
 
                 .editor-content .ProseMirror p {
@@ -511,6 +527,7 @@ export function Notepad() {
                   padding: 0.75rem 1rem;
                   border-radius: 0.5rem;
                   margin: 1rem 0;
+                  overflow-x: auto;
                 }
 
                 .editor-content .ProseMirror pre code {
