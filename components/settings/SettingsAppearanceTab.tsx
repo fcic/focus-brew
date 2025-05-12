@@ -37,6 +37,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 
 interface Props {
   font: string;
@@ -84,6 +85,8 @@ const temperatureUnits = [
   { value: "F", label: "Fahrenheit (°F)" },
 ];
 
+type TemperatureUnit = "C" | "F";
+
 export function SettingsAppearanceTab({
   font,
   setFont,
@@ -107,13 +110,18 @@ export function SettingsAppearanceTab({
   filteredTarget,
 }: Props) {
   // Add state to track temperature unit
-  const [temperatureUnit, setTemperatureUnit] = useState(() => {
-    // Initialize from localStorage if available
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("weather_unit") || "C";
+  const [temperatureUnit, setTemperatureUnit] = useState<TemperatureUnit>(
+    () => {
+      // Initialize from localStorage if available
+      if (typeof window !== "undefined") {
+        const stored = localStorage.getItem("weather_unit");
+        if (stored === "C" || stored === "F") {
+          return stored;
+        }
+      }
+      return "C";
     }
-    return "C";
-  });
+  );
 
   // Effect to handle changes to temperature unit
   useEffect(() => {
@@ -126,6 +134,13 @@ export function SettingsAppearanceTab({
       );
     }
   }, [temperatureUnit]);
+
+  // RadioGroup onValueChange handler
+  const handleTemperatureUnitChange = (value: string) => {
+    if (value === "C" || value === "F") {
+      setTemperatureUnit(value);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -205,7 +220,7 @@ export function SettingsAppearanceTab({
             </div>
             <RadioGroup
               value={temperatureUnit}
-              onValueChange={setTemperatureUnit}
+              onValueChange={handleTemperatureUnitChange}
               className="flex flex-wrap gap-2"
             >
               {temperatureUnits.map((unit) => (
@@ -297,6 +312,7 @@ export function SettingsAppearanceTab({
                             onClick={() => {
                               setBase(cur);
                               setOpenBase(false);
+                              setBaseSearch("");
                             }}
                           >
                             <Check
@@ -366,6 +382,7 @@ export function SettingsAppearanceTab({
                             onClick={() => {
                               setTarget(cur);
                               setOpenTarget(false);
+                              setTargetSearch("");
                             }}
                           >
                             <Check

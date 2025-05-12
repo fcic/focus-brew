@@ -27,10 +27,19 @@ interface CurrencyChangeEvent extends CustomEvent {
   };
 }
 
+interface CachedRate {
+  rate: number;
+  timestamp: number;
+  pair: string;
+}
+
 // Constants
 const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 const ERROR_RETRY_DELAY = 5000; // 5 seconds
+
+// Cache for exchange rates
+const rateCache: Record<string, CachedRate> = {};
 
 const DEFAULT_CURRENCIES = {
   base: "usd",
@@ -85,6 +94,18 @@ export function ExchangeRate() {
     setLoading(true);
     setError(null);
 
+    const currencyPair = `${base}:${target}`;
+    const now = Date.now();
+
+    // Check if we have a valid cached value
+    const cached = rateCache[currencyPair];
+    if (cached && now - cached.timestamp < CACHE_DURATION) {
+      setRate(cached.rate);
+      setLastUpdated(new Date(cached.timestamp));
+      setLoading(false);
+      return;
+    }
+
     try {
       // Try primary endpoint
       let res = await fetch(API_ENDPOINTS.rates(base));
@@ -96,6 +117,13 @@ export function ExchangeRate() {
       if (newRate === undefined) {
         throw new Error(`Invalid currency pair: ${base}/${target}`);
       }
+
+      // Cache the result
+      rateCache[currencyPair] = {
+        rate: newRate,
+        timestamp: now,
+        pair: currencyPair,
+      };
 
       setRate(newRate);
       setLastUpdated(new Date());
@@ -112,6 +140,13 @@ export function ExchangeRate() {
         if (newRate === undefined) {
           throw new Error(`Invalid currency pair: ${base}/${target}`);
         }
+
+        // Cache the result
+        rateCache[currencyPair] = {
+          rate: newRate,
+          timestamp: now,
+          pair: currencyPair,
+        };
 
         setRate(newRate);
         setLastUpdated(new Date());
@@ -140,10 +175,34 @@ export function ExchangeRate() {
   useEffect(() => {
     const handleCurrencyChange = (event: CurrencyChangeEvent) => {
       const { base: newBase, target: newTarget } = event.detail;
-      setBase(newBase);
-      setTarget(newTarget);
-      // Fetch new rate immediately when currency changes
-      setTimeout(() => fetchRate(), 100); // Small timeout to ensure state updates first
+
+      // Only update if the values actually changed
+      const baseChanged = newBase !== base;
+      const targetChanged = newTarget !== target;
+
+      if (baseChanged) {
+        setBase(newBase);
+      }
+
+      if (targetChanged) {
+        setTarget(newTarget);
+      }
+
+      // Only fetch new data if either currency changed
+      if (baseChanged || targetChanged) {
+        // Check if we have a cached value first
+        const currencyPair = `${newBase}:${newTarget}`;
+        const cached = rateCache[currencyPair];
+        const now = Date.now();
+
+        if (cached && now - cached.timestamp < CACHE_DURATION) {
+          setRate(cached.rate);
+          setLastUpdated(new Date(cached.timestamp));
+        } else {
+          // Fetch new rate if no valid cache exists
+          fetchRate();
+        }
+      }
     };
 
     window.addEventListener(
@@ -157,7 +216,7 @@ export function ExchangeRate() {
         handleCurrencyChange as EventListener
       );
     };
-  }, [setBase, setTarget, fetchRate]);
+  }, [base, target, setBase, setTarget, fetchRate]);
 
   // Listen for refresh events from menu bar
   useEffect(() => {
@@ -175,10 +234,38 @@ export function ExchangeRate() {
   // Auto-refresh effect
   useEffect(() => {
     setMounted(true);
-    fetchRate();
-    const interval = setInterval(fetchRate, REFRESH_INTERVAL);
+
+    // Initial fetch that respects cache
+    const initialFetch = () => {
+      const currencyPair = `${base}:${target}`;
+      const cached = rateCache[currencyPair];
+      const now = Date.now();
+
+      if (cached && now - cached.timestamp < CACHE_DURATION) {
+        setRate(cached.rate);
+        setLastUpdated(new Date(cached.timestamp));
+      } else {
+        fetchRate();
+      }
+    };
+
+    // Run initial fetch
+    initialFetch();
+
+    // Set up interval that respects cache
+    const interval = setInterval(() => {
+      const currencyPair = `${base}:${target}`;
+      const cached = rateCache[currencyPair];
+      const now = Date.now();
+
+      // Only fetch if cache is expired or doesn't exist
+      if (!cached || now - cached.timestamp >= REFRESH_INTERVAL) {
+        fetchRate();
+      }
+    }, REFRESH_INTERVAL);
+
     return () => clearInterval(interval);
-  }, [fetchRate]);
+  }, [base, target, fetchRate]);
 
   // Format display rate
   const formattedRate = useMemo(() => {

@@ -55,6 +55,13 @@ interface WeatherUnitChangeEvent extends CustomEvent {
   detail: TemperatureUnit;
 }
 
+interface CachedWeatherData {
+  data: WeatherData;
+  timestamp: number;
+  coordinates?: Coordinates;
+  unit: TemperatureUnit;
+}
+
 // Constants
 const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
 const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
@@ -65,6 +72,29 @@ const GEOLOCATION_OPTIONS = {
   timeout: 5000,
   maximumAge: 10 * 60 * 1000, // 10 minutes
 } as const;
+
+// Weather data cache
+const weatherCache: Record<string, CachedWeatherData> = {};
+
+// Check if cache is valid for a location
+function isCacheValid(cacheKey: string, currentUnit: TemperatureUnit): boolean {
+  const cached = weatherCache[cacheKey];
+  if (!cached) return false;
+
+  const now = Date.now();
+  const isExpired = now - cached.timestamp > CACHE_DURATION;
+  const unitMismatch = cached.unit !== currentUnit;
+
+  return !isExpired && !unitMismatch;
+}
+
+// Generate cache key
+function getCacheKey(coordinates?: Coordinates, cityName?: string): string {
+  if (coordinates) {
+    return `${coordinates.lat.toFixed(2)},${coordinates.lon.toFixed(2)}`;
+  }
+  return cityName || DEFAULT_CITY;
+}
 
 const WEATHER_ICONS = {
   thunderstorm: <CloudRain className="h-3.5 w-3.5" />,
@@ -102,6 +132,10 @@ export function Weather() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [mounted, setMounted] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState<Coordinates | null>(
+    null
+  );
+  const [locationName, setLocationName] = useState<string | null>(null);
 
   // Local Storage
   const [unit, setUnit] = useLocalStorage<TemperatureUnit>("weather_unit", "C");
@@ -118,13 +152,16 @@ export function Weather() {
 
         navigator.geolocation.getCurrentPosition(
           (position) => {
-            resolve({
+            const coordinates = {
               lat: position.coords.latitude,
               lon: position.coords.longitude,
-            });
+            };
+            setCurrentLocation(coordinates);
+            resolve(coordinates);
           },
           (error) => {
             console.warn("Error getting location:", error);
+            setCurrentLocation(null);
             resolve(null);
           },
           GEOLOCATION_OPTIONS
@@ -133,72 +170,193 @@ export function Weather() {
     []
   );
 
-  // Fetch weather data
-  const fetchWeather = useCallback(async () => {
-    // Don't fetch if cache is still valid
-    if (
-      lastUpdated &&
-      Date.now() - lastUpdated.getTime() <= CACHE_DURATION &&
-      weather
-    ) {
-      return;
-    }
+  // Convert temperature between units if needed
+  const convertTemperature = useCallback(
+    (
+      temp: number,
+      fromUnit: TemperatureUnit,
+      toUnit: TemperatureUnit
+    ): number => {
+      if (fromUnit === toUnit) return temp;
 
-    try {
-      setLoading(true);
-      setError(null);
-
-      const apiKey = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
-      if (!apiKey) {
-        throw new Error("Weather API key not found");
-      }
-
-      const location = await getLocation();
-      const url = new URL("https://api.openweathermap.org/data/2.5/weather");
-      url.searchParams.append("appid", apiKey);
-      url.searchParams.append("units", unit === "C" ? "metric" : "imperial");
-
-      if (location) {
-        url.searchParams.append("lat", location.lat.toString());
-        url.searchParams.append("lon", location.lon.toString());
+      if (fromUnit === "C" && toUnit === "F") {
+        return (temp * 9) / 5 + 32;
       } else {
-        url.searchParams.append("q", DEFAULT_CITY);
+        return ((temp - 32) * 5) / 9;
       }
+    },
+    []
+  );
 
-      const response = await fetch(url.toString());
-      if (!response.ok) {
-        throw new Error(`Weather API error: ${response.status}`);
+  // Attempt to convert cached weather data between temperature units
+  const convertCachedWeather = useCallback(
+    (cachedData: CachedWeatherData, toUnit: TemperatureUnit): WeatherData => {
+      if (cachedData.unit === toUnit) return cachedData.data;
+
+      const convertedData = { ...cachedData.data };
+      convertedData.main = {
+        ...convertedData.main,
+        temp: convertTemperature(
+          convertedData.main.temp,
+          cachedData.unit,
+          toUnit
+        ),
+        feels_like: convertTemperature(
+          convertedData.main.feels_like,
+          cachedData.unit,
+          toUnit
+        ),
+      };
+
+      return convertedData;
+    },
+    [convertTemperature]
+  );
+
+  // Fetch weather data
+  const fetchWeather = useCallback(
+    async (forceRefresh = false) => {
+      try {
+        const location = await getLocation();
+        const cacheKey = getCacheKey(
+          location || undefined,
+          locationName || undefined
+        );
+
+        // Check cache first (unless force refresh is requested)
+        if (!forceRefresh && isCacheValid(cacheKey, unit)) {
+          const cached = weatherCache[cacheKey];
+          setWeather(cached.data);
+          setLastUpdated(new Date(cached.timestamp));
+          setLoading(false);
+          return;
+        }
+
+        // If we have cached data for different unit but same location, convert it
+        const cachedForLocation = weatherCache[cacheKey];
+        if (
+          !forceRefresh &&
+          cachedForLocation &&
+          Date.now() - cachedForLocation.timestamp <= CACHE_DURATION
+        ) {
+          try {
+            const convertedData = convertCachedWeather(cachedForLocation, unit);
+            setWeather(convertedData);
+            setLastUpdated(new Date(cachedForLocation.timestamp));
+            setLoading(false);
+
+            // Update cache with converted data
+            weatherCache[cacheKey] = {
+              data: convertedData,
+              timestamp: cachedForLocation.timestamp,
+              coordinates: location || undefined,
+              unit,
+            };
+
+            return;
+          } catch (error) {
+            console.warn("Error converting cached weather data:", error);
+            // Continue with fresh fetch if conversion fails
+          }
+        }
+
+        setLoading(true);
+        setError(null);
+
+        const apiKey = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
+        if (!apiKey) {
+          throw new Error("Weather API key not found");
+        }
+
+        const url = new URL("https://api.openweathermap.org/data/2.5/weather");
+        url.searchParams.append("appid", apiKey);
+        url.searchParams.append("units", unit === "C" ? "metric" : "imperial");
+
+        if (location) {
+          url.searchParams.append("lat", location.lat.toString());
+          url.searchParams.append("lon", location.lon.toString());
+        } else {
+          url.searchParams.append("q", locationName || DEFAULT_CITY);
+        }
+
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+          throw new Error(`Weather API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Cache the new data
+        weatherCache[cacheKey] = {
+          data,
+          timestamp: Date.now(),
+          coordinates: location || undefined,
+          unit,
+        };
+
+        setWeather(data);
+        setLocationName(data.name);
+        setLastUpdated(new Date());
+        setRetryCount(0);
+      } catch (error) {
+        console.error("Error fetching weather:", error);
+        const errorMessage =
+          retryCount >= MAX_RETRIES
+            ? "Could not load weather after multiple attempts"
+            : "Could not load weather, retrying...";
+        setError(errorMessage);
+        setRetryCount((prev) => prev + 1);
+
+        // Auto-retry if under retry limit
+        if (retryCount < MAX_RETRIES) {
+          setTimeout(() => fetchWeather(true), ERROR_RETRY_DELAY);
+        }
+      } finally {
+        setLoading(false);
       }
-
-      const data = await response.json();
-      setWeather(data);
-      setLastUpdated(new Date());
-      setRetryCount(0);
-    } catch (error) {
-      console.error("Error fetching weather:", error);
-      const errorMessage =
-        retryCount >= MAX_RETRIES
-          ? "Could not load weather after multiple attempts"
-          : "Could not load weather, retrying...";
-      setError(errorMessage);
-      setRetryCount((prev) => prev + 1);
-
-      // Auto-retry if under retry limit
-      if (retryCount < MAX_RETRIES) {
-        setTimeout(fetchWeather, ERROR_RETRY_DELAY);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [getLocation, lastUpdated, unit, weather, retryCount]);
+    },
+    [getLocation, unit, locationName, convertCachedWeather, retryCount]
+  );
 
   // Handle temperature unit changes from settings
   useEffect(() => {
     const handleUnitChange = (event: WeatherUnitChangeEvent) => {
-      setUnit(event.detail);
-      // Force refetch weather data when unit changes
-      setLastUpdated(null);
-      fetchWeather();
+      const newUnit = event.detail;
+
+      if (newUnit === unit) return; // No change
+
+      setUnit(newUnit);
+
+      // Try to use cached data with unit conversion first
+      if (currentLocation || locationName) {
+        const cacheKey = getCacheKey(
+          currentLocation || undefined,
+          locationName || undefined
+        );
+        const cached = weatherCache[cacheKey];
+
+        if (cached && Date.now() - cached.timestamp <= CACHE_DURATION) {
+          try {
+            const convertedData = convertCachedWeather(cached, newUnit);
+            setWeather(convertedData);
+
+            // Update cache with converted data
+            weatherCache[cacheKey] = {
+              ...cached,
+              data: convertedData,
+              unit: newUnit,
+            };
+
+            return;
+          } catch (error) {
+            console.warn("Error converting weather on unit change:", error);
+            // Fall through to fetch if conversion fails
+          }
+        }
+      }
+
+      // If conversion fails or no valid cache, fetch fresh data
+      fetchWeather(true);
     };
 
     window.addEventListener(
@@ -212,12 +370,19 @@ export function Weather() {
         handleUnitChange as EventListener
       );
     };
-  }, [setUnit, fetchWeather]);
+  }, [
+    unit,
+    setUnit,
+    fetchWeather,
+    currentLocation,
+    locationName,
+    convertCachedWeather,
+  ]);
 
   // Listen for refresh events from menu bar
   useEffect(() => {
     const handleRefresh = () => {
-      fetchWeather();
+      fetchWeather(true); // Force refresh
     };
 
     window.addEventListener("refresh_weather", handleRefresh);
@@ -230,10 +395,35 @@ export function Weather() {
   // Initial fetch and refresh interval
   useEffect(() => {
     setMounted(true);
+
+    // Make sure the unit is synced with localStorage
+    const storedUnit = localStorage.getItem("weather_unit");
+    if (storedUnit === "C" || storedUnit === "F") {
+      if (storedUnit !== unit) {
+        setUnit(storedUnit);
+      }
+    }
+
+    // Initial fetch with cache check
     fetchWeather();
-    const interval = setInterval(fetchWeather, REFRESH_INTERVAL);
+
+    // Set up interval that respects cache
+    const interval = setInterval(() => {
+      const cacheKey = getCacheKey(
+        currentLocation || undefined,
+        locationName || undefined
+      );
+      const cached = weatherCache[cacheKey];
+      const now = Date.now();
+
+      // Only fetch if cache is expired or doesn't exist
+      if (!cached || now - cached.timestamp >= REFRESH_INTERVAL) {
+        fetchWeather();
+      }
+    }, 60000); // Check every minute but respect longer refresh intervals
+
     return () => clearInterval(interval);
-  }, [fetchWeather]);
+  }, [fetchWeather, currentLocation, locationName]);
 
   // Format temperature
   const formattedTemperature = useMemo(() => {

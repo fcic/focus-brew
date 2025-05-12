@@ -221,17 +221,36 @@ export function Settings({
   // Handle currency changes
   useEffect(() => {
     try {
-      localStorage.setItem(
-        LOCAL_STORAGE_KEYS.CURRENCY_BASE,
-        currencyState.base
+      // Store previous values to check for changes
+      const prevBase = localStorage.getItem(LOCAL_STORAGE_KEYS.CURRENCY_BASE);
+      const prevTarget = localStorage.getItem(
+        LOCAL_STORAGE_KEYS.CURRENCY_TARGET
       );
-      localStorage.setItem(
-        LOCAL_STORAGE_KEYS.CURRENCY_TARGET,
-        currencyState.target
-      );
-      window.dispatchEvent(
-        new CustomEvent("currency_changed", { detail: currencyState })
-      );
+
+      // Only proceed if there are actual changes
+      const baseChanged = prevBase !== currencyState.base;
+      const targetChanged = prevTarget !== currencyState.target;
+
+      if (baseChanged || targetChanged) {
+        // Update local storage
+        localStorage.setItem(
+          LOCAL_STORAGE_KEYS.CURRENCY_BASE,
+          currencyState.base
+        );
+        localStorage.setItem(
+          LOCAL_STORAGE_KEYS.CURRENCY_TARGET,
+          currencyState.target
+        );
+
+        // Only dispatch the event if there was an actual change
+        const event = new CustomEvent("currency_changed", {
+          detail: {
+            base: currencyState.base,
+            target: currencyState.target,
+          },
+        });
+        window.dispatchEvent(event);
+      }
     } catch (error) {
       toast.error("Failed to save currency settings.");
     }
@@ -245,8 +264,9 @@ export function Settings({
         filteredBase: currencies,
       }));
     } else {
-      const filtered = currencies.filter((c) =>
-        c.toLowerCase().includes(baseSearch.toLowerCase())
+      const searchLower = baseSearch.toLowerCase();
+      const filtered = currencies.filter((currency) =>
+        currency.toLowerCase().includes(searchLower)
       );
       setState((prev: SettingsState) => ({
         ...prev,
@@ -262,8 +282,9 @@ export function Settings({
         filteredTarget: currencies,
       }));
     } else {
-      const filtered = currencies.filter((c) =>
-        c.toLowerCase().includes(targetSearch.toLowerCase())
+      const searchLower = targetSearch.toLowerCase();
+      const filtered = currencies.filter((currency) =>
+        currency.toLowerCase().includes(searchLower)
       );
       setState((prev: SettingsState) => ({
         ...prev,
