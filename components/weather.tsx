@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   Cloud,
   CloudRain,
@@ -128,7 +128,6 @@ export function Weather() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [mounted, setMounted] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -136,6 +135,9 @@ export function Weather() {
     null
   );
   const [locationName, setLocationName] = useState<string | null>(null);
+
+  // Lock ref to prevent multiple fetches
+  const lockRef = useRef(false);
 
   // Local Storage
   const [unit, setUnit] = useLocalStorage<TemperatureUnit>("weather_unit", "C");
@@ -216,7 +218,15 @@ export function Weather() {
   // Fetch weather data
   const fetchWeather = useCallback(
     async (forceRefresh = false) => {
+      // Prevent multiple simultaneous fetches
+      if (loading || lockRef.current) return;
+
+      lockRef.current = true;
+
       try {
+        setLoading(true);
+        setError(null);
+
         const location = await getLocation();
         const cacheKey = getCacheKey(
           location || undefined,
@@ -228,7 +238,6 @@ export function Weather() {
           const cached = weatherCache[cacheKey];
           setWeather(cached.data);
           setLastUpdated(new Date(cached.timestamp));
-          setLoading(false);
           return;
         }
 
@@ -243,7 +252,6 @@ export function Weather() {
             const convertedData = convertCachedWeather(cachedForLocation, unit);
             setWeather(convertedData);
             setLastUpdated(new Date(cachedForLocation.timestamp));
-            setLoading(false);
 
             // Update cache with converted data
             weatherCache[cacheKey] = {
@@ -259,9 +267,6 @@ export function Weather() {
             // Continue with fresh fetch if conversion fails
           }
         }
-
-        setLoading(true);
-        setError(null);
 
         const apiKey = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
         if (!apiKey) {
@@ -297,22 +302,15 @@ export function Weather() {
         setWeather(data);
         setLocationName(data.name);
         setLastUpdated(new Date());
-        setRetryCount(0);
       } catch (error) {
         console.error("Error fetching weather:", error);
-        const errorMessage =
-          retryCount >= MAX_RETRIES
-            ? "Could not load weather after multiple attempts"
-            : "Could not load weather, retrying...";
-        setError(errorMessage);
-        setRetryCount((prev) => prev + 1);
-
-        // Auto-retry if under retry limit
-        if (retryCount < MAX_RETRIES) {
-          setTimeout(() => fetchWeather(true), ERROR_RETRY_DELAY);
-        }
+        setError(
+          error instanceof Error ? error.message : "Failed to load weather data"
+        );
+        // Keep previous weather data if available to avoid blank display
       } finally {
         setLoading(false);
+        lockRef.current = false;
       }
     },
     [getLocation, unit, locationName, convertCachedWeather]
@@ -324,7 +322,6 @@ export function Weather() {
       const newUnit = event.detail;
 
       if (newUnit === unit) return; // No change
-
       setUnit(newUnit);
 
       // Try to use cached data with unit conversion first
@@ -392,7 +389,7 @@ export function Weather() {
     };
   }, [fetchWeather]);
 
-  // Initial fetch and refresh interval
+  // Initial fetch once on mount
   useEffect(() => {
     setMounted(true);
 
@@ -404,26 +401,11 @@ export function Weather() {
       }
     }
 
-    // Initial fetch with cache check
+    // Initial fetch with cache check - only once on mount
     fetchWeather();
 
-    // Set up interval that respects cache
-    const interval = setInterval(() => {
-      const cacheKey = getCacheKey(
-        currentLocation || undefined,
-        locationName || undefined
-      );
-      const cached = weatherCache[cacheKey];
-      const now = Date.now();
-
-      // Only fetch if cache is expired or doesn't exist
-      if (!cached || now - cached.timestamp >= REFRESH_INTERVAL) {
-        fetchWeather();
-      }
-    }, 60000); // Check every minute but respect longer refresh intervals
-
-    return () => clearInterval(interval);
-  }, [fetchWeather, currentLocation, locationName, unit, setUnit]);
+    // No auto-refresh interval
+  }, []); // Empty dependency array to run only once
 
   // Format temperature
   const formattedTemperature = useMemo(() => {
@@ -458,15 +440,6 @@ export function Weather() {
     );
   }
 
-  if (loading && !weather) {
-    return (
-      <div className="flex items-center space-x-1 text-xs">
-        <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />
-        <span>Loading weather...</span>
-      </div>
-    );
-  }
-
   return (
     <TooltipProvider>
       <div className="flex items-center space-x-2 text-xs">
@@ -478,10 +451,12 @@ export function Weather() {
               className="h-5 px-2 text-xs flex items-center gap-1 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50"
               aria-label="Weather details"
             >
-              {getWeatherIcon(weather?.weather[0]?.id ?? null)}
-              <span>
-                {formattedTemperature}°{unit}
-              </span>
+              {error ? (
+                <AlertCircle className="h-3.5 w-3.5 text-red-400" />
+              ) : (
+                getWeatherIcon(weather?.weather[0]?.id ?? null)
+              )}
+              <span>{error ? "Error" : `${formattedTemperature}°${unit}`}</span>
             </Button>
           </PopoverTrigger>
           <PopoverContent
@@ -490,7 +465,23 @@ export function Weather() {
             sideOffset={4}
             alignOffset={-4}
           >
-            {weather && (
+            {error ? (
+              <div className="space-y-2 p-2">
+                <div className="flex items-center gap-2 text-red-500">
+                  <AlertCircle className="h-4 w-4" />
+                  <span className="font-medium">Error loading weather</span>
+                </div>
+                <p className="text-xs text-muted-foreground">{error}</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full mt-2"
+                  onClick={() => fetchWeather(true)}
+                >
+                  Try again
+                </Button>
+              </div>
+            ) : weather ? (
               <div className="space-y-1">
                 <div className="group flex items-center text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm">
                   <div className="flex items-center gap-2">
@@ -542,25 +533,29 @@ export function Weather() {
                     Last updated: {timeSinceUpdate}
                   </div>
                 )}
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full mt-2"
+                  onClick={() => fetchWeather(true)}
+                >
+                  Refresh
+                </Button>
+              </div>
+            ) : (
+              <div className="p-2 flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Loading...</span>
               </div>
             )}
           </PopoverContent>
         </Popover>
 
-        {error ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
-                <AlertCircle className="h-3.5 w-3.5 text-red-400" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{error}</p>
-            </TooltipContent>
-          </Tooltip>
-        ) : loading ? (
+        {/* Remove separate error icon since error is now shown in the main button */}
+        {loading && !error && (
           <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />
-        ) : null}
+        )}
       </div>
     </TooltipProvider>
   );

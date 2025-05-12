@@ -1,15 +1,26 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { Loader2Icon, AlertCircleIcon } from "lucide-react";
+import {
+  Loader2Icon,
+  AlertCircleIcon,
+  RefreshCwIcon,
+  CoinsIcon,
+} from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
   TooltipProvider,
 } from "./ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
 
 // Types
 type Currency = string;
@@ -36,7 +47,6 @@ interface CachedRate {
 // Constants
 const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-const ERROR_RETRY_DELAY = 5000; // 5 seconds
 
 // Cache for exchange rates
 const rateCache: Record<string, CachedRate> = {};
@@ -76,8 +86,11 @@ export function ExchangeRate() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Lock ref to prevent multiple fetches
+  const lockRef = useRef(false);
 
   // Local Storage
   const [base, setBase] = useLocalStorage<Currency>(
@@ -91,6 +104,10 @@ export function ExchangeRate() {
 
   // Fetch exchange rate data
   const fetchRate = useCallback(async () => {
+    // Skip if already loading or locked
+    if (loading || lockRef.current) return;
+
+    lockRef.current = true;
     setLoading(true);
     setError(null);
 
@@ -103,6 +120,7 @@ export function ExchangeRate() {
       setRate(cached.rate);
       setLastUpdated(new Date(cached.timestamp));
       setLoading(false);
+      lockRef.current = false;
       return;
     }
 
@@ -127,7 +145,6 @@ export function ExchangeRate() {
 
       setRate(newRate);
       setLastUpdated(new Date());
-      setRetryCount(0);
     } catch (primaryError) {
       try {
         // Try fallback endpoint
@@ -150,24 +167,19 @@ export function ExchangeRate() {
 
         setRate(newRate);
         setLastUpdated(new Date());
-        setRetryCount(0);
       } catch (fallbackError) {
-        const errorMessage =
-          retryCount >= 3
-            ? "Could not load exchange rate after multiple attempts"
-            : "Could not load exchange rate, retrying...";
-        setError(errorMessage);
-        setRetryCount((prev) => prev + 1);
-
-        // Auto-retry if under retry limit
-        if (retryCount < 3) {
-          setTimeout(fetchRate, ERROR_RETRY_DELAY);
-        }
-
+        // Just set error message without retrying
+        setError(
+          fallbackError instanceof Error
+            ? fallbackError.message
+            : "Failed to load exchange rate"
+        );
+        // Keep previous rate if available to avoid blank display
         console.error("Exchange rate error:", fallbackError);
       }
     } finally {
       setLoading(false);
+      lockRef.current = false;
     }
   }, [base, target]);
 
@@ -231,7 +243,7 @@ export function ExchangeRate() {
     };
   }, [fetchRate]);
 
-  // Auto-refresh effect
+  // Initial fetch only once on mount
   useEffect(() => {
     setMounted(true);
 
@@ -252,26 +264,8 @@ export function ExchangeRate() {
     // Run initial fetch
     initialFetch();
 
-    // Set up interval that respects cache
-    const interval = setInterval(() => {
-      const currencyPair = `${base}:${target}`;
-      const cached = rateCache[currencyPair];
-      const now = Date.now();
-
-      // Only fetch if cache is expired or doesn't exist
-      if (!cached || now - cached.timestamp >= REFRESH_INTERVAL) {
-        fetchRate();
-      }
-    }, 60000); // Check more frequently but still respect REFRESH_INTERVAL
-
-    return () => clearInterval(interval);
-  }, [base, target, fetchRate]);
-
-  // Format display rate
-  const formattedRate = useMemo(() => {
-    if (!rate) return "--";
-    return rate.toFixed(2);
-  }, [rate]);
+    // No interval, only manual refresh
+  }, []); // Empty dependencies to run only once on mount
 
   // Get time since last update
   const timeSinceUpdate = useMemo(() => {
@@ -279,6 +273,12 @@ export function ExchangeRate() {
     const minutes = Math.floor((Date.now() - lastUpdated.getTime()) / 60000);
     return minutes < 1 ? "Just now" : `${minutes}m ago`;
   }, [lastUpdated, mounted]);
+
+  // Format display rate
+  const formattedRate = useMemo(() => {
+    if (!rate) return "--";
+    return rate.toFixed(2);
+  }, [rate]);
 
   // Don't render anything until mounted to prevent hydration mismatch
   if (!mounted) {
@@ -295,22 +295,117 @@ export function ExchangeRate() {
   return (
     <TooltipProvider>
       <div className="flex items-center gap-2 text-xs">
-        <span>
-          1 {base.toUpperCase()} = {formattedRate} {target.toUpperCase()}
-        </span>
+        <Popover open={dialogOpen} onOpenChange={setDialogOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 px-2 text-xs flex items-center gap-1 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50"
+              aria-label="Exchange Rate"
+            >
+              {error ? (
+                <>
+                  <AlertCircleIcon className="w-3.5 h-3.5 text-red-400" />
+                  <span>Error</span>
+                </>
+              ) : (
+                <>
+                  <CoinsIcon className="w-3.5 h-3.5" />
+                  <span>
+                    1 {base.toUpperCase()} = {formattedRate}{" "}
+                    {target.toUpperCase()}
+                  </span>
+                </>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="bg-popover/90 backdrop-blur-md rounded-md border border-border mt-1 p-1"
+            align="end"
+            sideOffset={4}
+            alignOffset={-4}
+          >
+            {error ? (
+              <div className="space-y-2 p-2">
+                <div className="flex items-center gap-2 text-red-500">
+                  <AlertCircleIcon className="h-4 w-4" />
+                  <span className="font-medium">
+                    Error loading exchange rate
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">{error}</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full mt-2"
+                  onClick={() => fetchRate()}
+                >
+                  Try again
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <div className="group flex items-center text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm">
+                  <div className="flex items-center gap-2">
+                    <CoinsIcon className="h-3.5 w-3.5" />
+                    <span className="font-medium">Exchange Rate</span>
+                  </div>
+                </div>
 
-        {loading ? (
+                <div className="group flex items-center justify-between text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm">
+                  <div className="flex items-center gap-2">
+                    <span>Base Currency</span>
+                  </div>
+                  <span className="font-medium">{base.toUpperCase()}</span>
+                </div>
+
+                <div className="group flex items-center justify-between text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm">
+                  <div className="flex items-center gap-2">
+                    <span>Target Currency</span>
+                  </div>
+                  <span className="font-medium">{target.toUpperCase()}</span>
+                </div>
+
+                <div className="group flex items-center justify-between text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm">
+                  <div className="flex items-center gap-2">
+                    <span>Value</span>
+                  </div>
+                  <span className="font-medium">{formattedRate}</span>
+                </div>
+
+                {timeSinceUpdate && (
+                  <div className="px-2 py-1 text-xs text-muted-foreground">
+                    Updated: {timeSinceUpdate}
+                  </div>
+                )}
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full mt-2"
+                  onClick={() => fetchRate()}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2Icon className="h-3 w-3 animate-spin mr-2" />
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCwIcon className="h-3 w-3 mr-2" />
+                      Refresh
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
+
+        {loading && (
           <Loader2Icon className="w-3 h-3 animate-spin text-zinc-400" />
-        ) : error ? (
-          <Tooltip>
-            <TooltipTrigger>
-              <AlertCircleIcon className="w-3 h-3 text-red-400" />
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{error}</p>
-            </TooltipContent>
-          </Tooltip>
-        ) : null}
+        )}
       </div>
     </TooltipProvider>
   );
