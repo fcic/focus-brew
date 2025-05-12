@@ -315,7 +315,7 @@ export function Weather() {
         setLoading(false);
       }
     },
-    [getLocation, unit, locationName, convertCachedWeather, retryCount]
+    [getLocation, unit, locationName, convertCachedWeather]
   );
 
   // Handle temperature unit changes from settings
@@ -423,7 +423,7 @@ export function Weather() {
     }, 60000); // Check every minute but respect longer refresh intervals
 
     return () => clearInterval(interval);
-  }, [fetchWeather, currentLocation, locationName]);
+  }, [fetchWeather, currentLocation, locationName, unit, setUnit]);
 
   // Format temperature
   const formattedTemperature = useMemo(() => {

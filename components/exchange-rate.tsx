@@ -169,7 +169,7 @@ export function ExchangeRate() {
     } finally {
       setLoading(false);
     }
-  }, [base, target, retryCount]);
+  }, [base, target]);
 
   // Listen for currency changes from settings
   useEffect(() => {
@@ -262,7 +262,7 @@ export function ExchangeRate() {
       if (!cached || now - cached.timestamp >= REFRESH_INTERVAL) {
         fetchRate();
       }
-    }, REFRESH_INTERVAL);
+    }, 60000); // Check more frequently but still respect REFRESH_INTERVAL
 
     return () => clearInterval(interval);
   }, [base, target, fetchRate]);
