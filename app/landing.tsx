@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
+import YouTube from "react-youtube";
 
 const transitionVariants = {
   item: {
@@ -130,6 +131,8 @@ function Testimonial({
   rating = 5,
   image,
 }: TestimonialProps) {
+  const starIds = ["first", "second", "third", "fourth", "fifth"];
+
   return (
     <Card className="p-6 border border-primary/10 bg-background hover:shadow-lg transition-all">
       <div className="absolute right-6 top-6 text-6xl font-serif text-muted-foreground/20">
@@ -139,9 +142,9 @@ function Testimonial({
       <div className="flex flex-col gap-4 justify-between h-full">
         {rating > 0 && (
           <div className="flex gap-1">
-            {Array.from({ length: 5 }).map((_, index) => (
+            {starIds.map((id, index) => (
               <Star
-                key={index}
+                key={id}
                 size={16}
                 className={
                   index < rating
@@ -244,7 +247,7 @@ const HeroHeader = () => {
                   animate={{ rotate: [0, 15, 0] }}
                   transition={{
                     duration: 5,
-                    repeat: Infinity,
+                    repeat: Number.POSITIVE_INFINITY,
                     ease: "easeInOut",
                   }}
                 >
@@ -263,7 +266,7 @@ const HeroHeader = () => {
                     }}
                     transition={{
                       duration: 3,
-                      repeat: Infinity,
+                      repeat: Number.POSITIVE_INFINITY,
                       ease: "easeInOut",
                     }}
                   >
@@ -273,6 +276,7 @@ const HeroHeader = () => {
               </Link>
 
               <button
+                type="button"
                 onClick={() => setMenuState(!menuState)}
                 aria-label={menuState ? "Close Menu" : "Open Menu"}
                 className="relative z-20 -m-2.5 -mr-4 block cursor-pointer p-2.5 lg:hidden"
@@ -299,12 +303,15 @@ const HeroHeader = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.3 }}
               >
-                {menuItems.map((item, index) => (
+                {menuItems.map((item) => (
                   <motion.li
-                    key={index}
+                    key={item.name}
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: 0.2 + index * 0.1 }}
+                    transition={{
+                      duration: 0.3,
+                      delay: 0.2 + menuItems.indexOf(item) * 0.1,
+                    }}
                   >
                     <Link
                       href={item.href}
@@ -330,8 +337,8 @@ const HeroHeader = () => {
             >
               <div className="lg:hidden">
                 <ul className="space-y-6 text-base">
-                  {menuItems.map((item, index) => (
-                    <li key={index}>
+                  {menuItems.map((item) => (
+                    <li key={item.name}>
                       <Link
                         href={item.href}
                         className="text-muted-foreground hover:text-primary block duration-150 relative group"
@@ -393,7 +400,7 @@ function HeroSection() {
             }}
             transition={{
               duration: 10,
-              repeat: Infinity,
+              repeat: Number.POSITIVE_INFINITY,
               ease: "easeInOut",
             }}
           />
@@ -406,7 +413,7 @@ function HeroSection() {
             }}
             transition={{
               duration: 12,
-              repeat: Infinity,
+              repeat: Number.POSITIVE_INFINITY,
               ease: "easeInOut",
               delay: 2,
             }}
@@ -420,7 +427,7 @@ function HeroSection() {
             }}
             transition={{
               duration: 8,
-              repeat: Infinity,
+              repeat: Number.POSITIVE_INFINITY,
               ease: "easeInOut",
               delay: 1,
             }}
@@ -482,7 +489,7 @@ function HeroSection() {
                   transition={{ duration: 0.8, delay: 0.6 }}
                 >
                   <div className="relative group">
-                    <div className="absolute -inset-0.5 bg-gradient-to-r from-primary to-primary/60 rounded-xl blur opacity-60 group-hover:opacity-100 transition duration-300"></div>
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-primary to-primary/60 rounded-xl blur opacity-60 group-hover:opacity-100 transition duration-300" />
                     <Button
                       size="lg"
                       className="relative rounded-xl px-8 py-6 text-base font-medium bg-background text-foreground hover:text-background hover:bg-primary border border-primary/20 transition-all duration-300 flex items-center gap-2"
@@ -686,12 +693,15 @@ function FocusBrewLanding() {
       >
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, index) => (
+            {features.map((feature) => (
               <motion.div
-                key={index}
+                key={feature.title}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
+                transition={{
+                  duration: 0.5,
+                  delay: features.indexOf(feature) * 0.1,
+                }}
                 viewport={{ once: true }}
               >
                 <FeatureCard
@@ -735,22 +745,21 @@ function FocusBrewLanding() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 z-10 pointer-events-none" />
 
-              {/* Video Placeholder */}
-              <div className="aspect-video bg-muted flex items-center justify-center">
-                <div className="flex flex-col items-center justify-center text-center p-8">
-                  <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mb-4 group hover:bg-primary/30 transition-colors duration-300">
-                    <PlaySquare className="h-10 w-10 text-primary group-hover:scale-110 transition-transform duration-300" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">
-                    Video Demonstration
-                  </h3>
-                  <p className="text-muted-foreground max-w-md text-sm mb-6">
-                    Soon
-                  </p>
-                  <div className="relative group">
-                    <div className="absolute -inset-0.5 bg-gradient-to-r from-primary to-primary/60 rounded-xl blur opacity-50 group-hover:opacity-100 transition duration-300"></div>
-                  </div>
-                </div>
+              {/* YouTube Video */}
+              <div className="aspect-video bg-muted">
+                <YouTube
+                  videoId="DUh3Cu3ZewU"
+                  className="w-full h-full"
+                  opts={{
+                    height: "100%",
+                    width: "100%",
+                    playerVars: {
+                      autoplay: 0,
+                      modestbranding: 1,
+                      rel: 0,
+                    },
+                  }}
+                />
               </div>
             </motion.div>
           </div>
@@ -778,7 +787,7 @@ function FocusBrewLanding() {
               check out our repository on GitHub.
             </p>
             <div className="inline-block relative group">
-              <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 to-secondary/30 rounded-xl blur opacity-30 group-hover:opacity-70 transition duration-300"></div>
+              <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 to-secondary/30 rounded-xl blur opacity-30 group-hover:opacity-70 transition duration-300" />
               <Button
                 size="lg"
                 variant="outline"
