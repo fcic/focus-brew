@@ -41,7 +41,7 @@ interface TimerSettings {
 
 const DEFAULT_SETTINGS: TimerSettings = {
   pomodoro: 25 * 60, // 25 minutes
-  shortBreak: 5, // 5 minutes
+  shortBreak: 5 * 60, // 5 minutes
   longBreak: 15 * 60, // 15 minutes
   volume: 50,
   loopAudio: false,
@@ -258,7 +258,18 @@ export function PomodoroTimer() {
   // Add keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return;
+      // Check if user is typing in an input, textarea, or rich text editor (like TipTap)
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target instanceof HTMLElement &&
+          (e.target.isContentEditable ||
+            e.target.closest('[contenteditable="true"]') ||
+            e.target.closest(".ProseMirror") ||
+            e.target.closest(".editor-content")))
+      ) {
+        return;
+      }
 
       switch (e.code) {
         case "Space":
