@@ -315,11 +315,28 @@ const HeroHeader = () => {
                   >
                     <Link
                       href={item.href}
-                      className="text-muted-foreground hover:text-primary block duration-150 relative group"
+                      className="text-muted-foreground hover:text-primary block duration-150 relative"
                       onClick={(e) => handleNavClick(e, item.href)}
+                      onMouseEnter={(e) => {
+                        const underline =
+                          e.currentTarget.querySelector("[data-underline]");
+                        if (underline) {
+                          (underline as HTMLElement).style.width = "100%";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        const underline =
+                          e.currentTarget.querySelector("[data-underline]");
+                        if (underline) {
+                          (underline as HTMLElement).style.width = "0";
+                        }
+                      }}
                     >
                       <span>{item.name}</span>
-                      <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-300 group-hover:w-full" />
+                      <span
+                        data-underline
+                        className="absolute -bottom-1 left-0 w-0 h-[1px] bg-primary/30 transition-all duration-300"
+                      />
                     </Link>
                   </motion.li>
                 ))}
@@ -341,11 +358,28 @@ const HeroHeader = () => {
                     <li key={item.name}>
                       <Link
                         href={item.href}
-                        className="text-muted-foreground hover:text-primary block duration-150 relative group"
+                        className="text-muted-foreground hover:text-primary block duration-150 relative"
                         onClick={(e) => handleNavClick(e, item.href)}
+                        onMouseEnter={(e) => {
+                          const underline =
+                            e.currentTarget.querySelector("[data-underline]");
+                          if (underline) {
+                            (underline as HTMLElement).style.width = "100%";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          const underline =
+                            e.currentTarget.querySelector("[data-underline]");
+                          if (underline) {
+                            (underline as HTMLElement).style.width = "0";
+                          }
+                        }}
                       >
                         <span>{item.name}</span>
-                        <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-300 group-hover:w-full" />
+                        <span
+                          data-underline
+                          className="absolute -bottom-1 left-0 w-0 h-[1px] bg-primary/30 transition-all duration-300"
+                        />
                       </Link>
                     </li>
                   ))}
