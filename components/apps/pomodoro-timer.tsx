@@ -68,6 +68,11 @@ export function PomodoroTimer() {
   const [completedPomodoros, setCompletedPomodoros] = useState(0);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const alarmRef = useRef<HTMLAudioElement | null>(null);
+  const originalTitleRef = useRef<string>(
+    typeof document !== "undefined"
+      ? document.title
+      : "FocusBrew | Productivity Workspace"
+  );
 
   // Audio setup
   const alarmSound = useMemo(() => {
@@ -326,6 +331,32 @@ export function PomodoroTimer() {
       setNotificationsEnabled(false);
     }
   }, [notificationsEnabled]); // Add notificationsEnabled as a dependency to avoid unnecessary updates
+
+  // Update document title with timer
+  useEffect(() => {
+    if (isRunning) {
+      const modeLabel =
+        mode === "pomodoro"
+          ? "Focus"
+          : mode === "shortBreak"
+          ? "Short Break"
+          : "Long Break";
+      document.title = `${formattedTime} - ${modeLabel}`;
+    } else {
+      // Only reset if we're not showing the timer already
+      if (
+        document.title.includes(" - Focus") ||
+        document.title.includes(" - Short Break") ||
+        document.title.includes(" - Long Break")
+      ) {
+        document.title = originalTitleRef.current;
+      }
+    }
+
+    return () => {
+      document.title = originalTitleRef.current;
+    };
+  }, [isRunning, formattedTime, mode]);
 
   return (
     <div
