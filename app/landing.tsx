@@ -538,7 +538,7 @@ function HeroSection() {
             </div>
 
             <motion.div
-              className="relative mr-0 lg:-mr-20 xl:-mr-56 mt-20 sm:mt-32 md:mt-40 overflow-hidden px-2 sm:px-4 md:px-2"
+              className="relative mx-auto lg:mx-auto xl:mx-auto mt-20 sm:mt-32 md:mt-40 overflow-hidden px-2 sm:px-4 md:px-6"
               initial={{ y: 60, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{
@@ -560,7 +560,7 @@ function HeroSection() {
                     alt="FocusBrew App Preview"
                     width={1200}
                     height={675}
-                    className="w-full h-auto object-contain sm:object-cover rounded-lg"
+                    className="w-full h-auto object-contain rounded-lg"
                     sizes="(max-width: 640px) 100vw, (max-width: 768px) 90vw, (max-width: 1024px) 80vw, 1200px"
                     priority
                     loading="eager"
