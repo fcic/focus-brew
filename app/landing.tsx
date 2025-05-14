@@ -440,7 +440,7 @@ function HeroSection() {
         />
 
         <section className="relative">
-          <div className="relative pt-28 md:pt-44">
+          <div className="relative pt-20 sm:pt-28 md:pt-44">
             <motion.div
               className="absolute inset-0 -z-20"
               initial={{ opacity: 0 }}
@@ -453,10 +453,10 @@ function HeroSection() {
               />
             </motion.div>
 
-            <div className="mx-auto max-w-7xl px-6">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6">
               <div className="text-center sm:mx-auto lg:mr-auto lg:mt-0">
                 <motion.h1
-                  className="mt-10 max-w-4xl mx-auto text-balance text-6xl md:text-7xl lg:mt-20 xl:text-[5.25rem] font-bold"
+                  className="mt-6 sm:mt-10 max-w-4xl mx-auto text-balance text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-[5.25rem] font-bold"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, delay: 0.2 }}
@@ -504,7 +504,7 @@ function HeroSection() {
             </div>
 
             <motion.div
-              className="relative -mr-56 mt-32 md:mt-40 overflow-hidden px-2 sm:mr-0"
+              className="relative mr-0 lg:-mr-20 xl:-mr-56 mt-20 sm:mt-32 md:mt-40 overflow-hidden px-2 sm:px-4 md:px-2"
               initial={{ y: 60, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{
@@ -518,7 +518,7 @@ function HeroSection() {
                 aria-hidden
                 className="bg-gradient-to-b to-background absolute inset-0 z-10 from-transparent from-35%"
               />
-              <div className="bg-background relative mx-auto max-w-6xl overflow-hidden rounded-2xl border p-5 shadow-lg shadow-black/15 ring-1 ring-white/10">
+              <div className="bg-background relative mx-auto max-w-[90vw] sm:max-w-[95%] md:max-w-6xl overflow-hidden rounded-2xl border p-2 sm:p-5 shadow-lg shadow-black/15 ring-1 ring-white/10">
                 <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden rounded-lg relative">
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent z-10" />
                   <Image
@@ -526,8 +526,10 @@ function HeroSection() {
                     alt="FocusBrew App Preview"
                     width={1200}
                     height={675}
-                    className="w-full h-auto object-cover rounded-lg"
+                    className="w-full h-auto object-contain sm:object-cover rounded-lg"
+                    sizes="(max-width: 640px) 100vw, (max-width: 768px) 90vw, (max-width: 1024px) 80vw, 1200px"
                     priority
+                    loading="eager"
                   />
                 </div>
               </div>
