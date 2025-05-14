@@ -30,6 +30,7 @@ interface SettingsProps {
   setFont: (font: string) => void;
   theme: string;
   setTheme: (theme: string) => void;
+  initialTab?: TabValue;
 }
 
 interface CurrencyState {
@@ -133,12 +134,13 @@ export function Settings({
   setFont,
   theme: propTheme,
   setTheme: setPropTheme,
+  initialTab = "general",
 }: SettingsProps) {
   const { theme, setTheme } = useTheme();
   const fileInputRef = useRef<HTMLInputElement>(
     null
   ) as React.RefObject<HTMLInputElement>;
-  const [tab, setTab] = useState<TabValue>("general");
+  const [tab, setTab] = useState<TabValue>(initialTab);
 
   const { state, setState } = useSettingsState();
 

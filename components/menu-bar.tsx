@@ -23,6 +23,7 @@ import { AppId, SettingsTab, APP_ITEMS, SETTINGS_APP } from "@/lib/constants";
 type MenuBarProps = {
   openApp: (appId: AppId) => void;
   openSettings: () => void;
+  openSettingsTab?: (tab: SettingsTab) => void;
   activeApps: AppId[];
   className?: string;
 };
@@ -30,6 +31,7 @@ type MenuBarProps = {
 export function MenuBar({
   openApp,
   openSettings,
+  openSettingsTab,
   activeApps,
   className,
 }: MenuBarProps) {
@@ -77,7 +79,11 @@ export function MenuBar({
         // Handle About shortcut
         if (e.key === "8") {
           e.preventDefault();
-          openSettings();
+          if (openSettingsTab) {
+            openSettingsTab("about");
+          } else {
+            openSettings();
+          }
           return;
         }
 
@@ -89,7 +95,7 @@ export function MenuBar({
         }
       }
     },
-    [openApp, openSettings]
+    [openApp, openSettings, openSettingsTab]
   );
 
   useEffect(() => {
@@ -254,7 +260,24 @@ export function MenuBar({
 
               {/* About */}
               <MenubarItem
-                onClick={() => openSettings()}
+                onClick={(e) => {
+                  // Prevent default behavior to control focus
+                  e.preventDefault();
+
+                  // Open settings with about tab
+                  if (openSettingsTab) {
+                    openSettingsTab("about");
+                  } else {
+                    openSettings();
+                  }
+
+                  // Clear focus from any active element
+                  setTimeout(() => {
+                    if (document.activeElement instanceof HTMLElement) {
+                      document.activeElement.blur();
+                    }
+                  }, 10);
+                }}
                 className="text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 cursor-pointer px-2 py-1.5 rounded-sm"
               >
                 <div className="flex items-center gap-2">

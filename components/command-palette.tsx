@@ -18,6 +18,7 @@ import { toast } from "@/lib/toast";
 type CommandPaletteProps = {
   openApp: (appId: AppId) => void;
   openSettings: () => void;
+  openSettingsTab?: (tab: string) => void;
   activeApps: AppId[];
   closeAllApps?: () => void;
   resetAllWindows?: () => void;
@@ -26,6 +27,7 @@ type CommandPaletteProps = {
 export function CommandPalette({
   openApp,
   openSettings,
+  openSettingsTab,
   activeApps,
   closeAllApps,
   resetAllWindows,
@@ -94,7 +96,11 @@ export function CommandPalette({
           openSettings();
           break;
         case "about":
-          openSettings();
+          if (openSettingsTab) {
+            openSettingsTab("about");
+          } else {
+            openSettings();
+          }
           break;
         case "close-all":
           closeAllApps?.();
@@ -106,7 +112,7 @@ export function CommandPalette({
           break;
       }
     },
-    [openApp, openSettings, closeAllApps, handleReset]
+    [openApp, openSettings, openSettingsTab, closeAllApps, handleReset]
   );
 
   return (

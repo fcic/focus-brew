@@ -253,12 +253,12 @@ export default function AppPage() {
       openApp("settings");
       settingsTabRef.current = tab;
 
-      // Dispatch an event to tell the settings component which tab to open
+      // Increase timeout to ensure Settings component is fully mounted
       setTimeout(() => {
         window.dispatchEvent(
           new CustomEvent("open-settings-tab", { detail: tab })
         );
-      }, 100);
+      }, 300);
     },
     [openApp]
   );
@@ -319,6 +319,7 @@ export default function AppPage() {
                 setFont={setFont}
                 theme={theme}
                 setTheme={setTheme}
+                initialTab={settingsTabRef.current || "general"}
               />
             </Suspense>
           );
@@ -424,6 +425,7 @@ export default function AppPage() {
         <MenuBar
           openApp={handleOpenApp}
           openSettings={handleOpenSettings}
+          openSettingsTab={handleOpenSettingsTab}
           activeApps={windows.map((w) => w.id)}
         />
       </Suspense>
@@ -436,6 +438,7 @@ export default function AppPage() {
         <Dock
           openApp={handleOpenApp}
           openSettings={handleOpenSettings}
+          openSettingsTab={handleOpenSettingsTab as (tab: string) => void}
           activeApps={windows.map((w) => w.id)}
           minimizedApps={minimizedWindows}
         />
@@ -444,6 +447,7 @@ export default function AppPage() {
       <CommandPalette
         openApp={handleOpenApp}
         openSettings={handleOpenSettings}
+        openSettingsTab={handleOpenSettingsTab as (tab: string) => void}
         activeApps={windows.map((w) => w.id)}
         closeAllApps={closeAllApps}
         resetAllWindows={resetAllWindows}

@@ -27,6 +27,7 @@ import { useTheme } from "next-themes";
 type DockProps = {
   openApp: (appId: AppId) => void;
   openSettings: () => void;
+  openSettingsTab?: (tab: string) => void;
   activeApps: AppId[];
   minimizedApps: Set<string>;
 };
@@ -238,6 +239,7 @@ DockItem.displayName = "DockItem";
 export function Dock({
   openApp,
   openSettings,
+  openSettingsTab,
   activeApps,
   minimizedApps,
 }: DockProps) {
@@ -247,11 +249,11 @@ export function Dock({
   const isLightTheme = theme === "light";
 
   // Track mouse position for magnification effect
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!dockRef.current) return;
-    const rect = dockRef.current.getBoundingClientRect();
-    const dockX = e.clientX - rect.left;
-    setMouseX(dockX);
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (dockRef.current) {
+      const rect = dockRef.current.getBoundingClientRect();
+      setMouseX(e.clientX - rect.left);
+    }
   }, []);
 
   // Reset mouse position when mouse leaves the dock
@@ -259,25 +261,32 @@ export function Dock({
     setMouseX(0);
   }, []);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key >= "1" && e.key <= "9") {
+  // The keyboard navigation handler
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.metaKey || e.ctrlKey) {
+      const pressedNum = parseInt(e.key);
+      if (!isNaN(pressedNum) && pressedNum <= DOCK_APPS.length) {
         e.preventDefault();
-        const index = Number.parseInt(e.key) - 1;
-        if (index < DOCK_APPS.length) {
-          const appItem = DOCK_APPS[index];
-          if (appItem.id === SETTINGS_APP.id) {
-            openSettings();
+        if (pressedNum === 0) {
+          if (openSettingsTab) {
+            openSettingsTab("general");
           } else {
-            openApp(appItem.id);
+            openSettings();
+          }
+        } else {
+          const appIndex = pressedNum - 1;
+          if (appIndex >= 0 && appIndex < APP_ITEMS.length) {
+            openApp(APP_ITEMS[appIndex].id);
           }
         }
       }
-    };
+    }
+  };
 
+  useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [openApp, openSettings]);
+  }, [openApp, openSettings, openSettingsTab]);
 
   return (
     <div
@@ -309,18 +318,22 @@ export function Dock({
             layoutId="dock"
             layout
           >
-            {DOCK_APPS.map((app, i) => (
+            {DOCK_APPS.map((app, index) => (
               <DockItem
                 key={app.id}
                 app={app}
                 isActive={activeApps.includes(app.id)}
                 isMinimized={minimizedApps.has(app.id)}
                 mouseX={mouseX}
-                index={i}
+                index={index}
                 totalItems={DOCK_APPS.length}
                 onClick={() => {
                   if (app.id === SETTINGS_APP.id) {
-                    openSettings();
+                    if (openSettingsTab) {
+                      openSettingsTab("general");
+                    } else {
+                      openSettings();
+                    }
                   } else {
                     openApp(app.id);
                   }
