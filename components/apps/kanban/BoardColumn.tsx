@@ -71,7 +71,6 @@ const BoardColumn = memo(
               <Button
                 size="icon"
                 variant="ghost"
-                className="text-foreground bg-muted hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 aria-label={`Add card to ${column.title}`}
               >
                 <Plus className="h-5 w-5" />
@@ -91,7 +90,6 @@ const BoardColumn = memo(
                     onChange={(e) => setNewTitle(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Task title..."
-                    className="bg-muted/80 border-border/40 text-foreground placeholder:text-muted-foreground"
                     autoFocus
                     aria-label="Task title"
                   />
@@ -99,16 +97,11 @@ const BoardColumn = memo(
                     value={newDescription}
                     onChange={(e) => setNewDescription(e.target.value)}
                     placeholder="Description (optional)..."
-                    className="bg-muted/80 border-border/40 text-foreground placeholder:text-muted-foreground"
                     aria-label="Task description"
                   />
                 </div>
                 <DialogFooter>
-                  <Button
-                    type="submit"
-                    disabled={!newTitle.trim()}
-                    className="bg-background text-foreground hover:bg-muted"
-                  >
+                  <Button type="submit" disabled={!newTitle.trim()}>
                     Add Task
                   </Button>
                 </DialogFooter>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   DndContext,
   closestCenter,
@@ -50,9 +50,44 @@ const initialColumns: KanbanColumn[] = [
   },
 ];
 
+// Storage key for localStorage
+const STORAGE_KEY = "focusbrew-kanban-data";
+
 const KanbanBoard: React.FC = () => {
   const [columns, setColumns] = useState<KanbanColumn[]>(initialColumns);
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  // Set isClient to true once component mounts
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Load data from localStorage on component mount (client-side only)
+  useEffect(() => {
+    if (isClient) {
+      try {
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        if (savedData) {
+          const parsedData = JSON.parse(savedData);
+          setColumns(parsedData);
+        }
+      } catch (error) {
+        console.error("Failed to parse kanban data from localStorage:", error);
+      }
+    }
+  }, [isClient]);
+
+  // Save data to localStorage whenever columns change (client-side only)
+  useEffect(() => {
+    if (isClient && columns !== initialColumns) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(columns));
+      } catch (error) {
+        console.error("Failed to save kanban data to localStorage:", error);
+      }
+    }
+  }, [columns, isClient]);
 
   // Add card handler
   const addCardToColumn = (
