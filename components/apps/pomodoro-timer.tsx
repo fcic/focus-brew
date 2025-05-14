@@ -204,55 +204,79 @@ export function PomodoroTimer() {
   useEffect(() => {
     if (!isRunning) return;
 
-    const interval = setInterval(() => {
-      setTimeLeft((prevTimeLeft) => {
-        if (prevTimeLeft <= 1) {
-          // Timer is done
-          // Play sound if enabled
-          if (alarmSound) {
-            alarmSound.play().catch((error) => {
-              console.error("Error playing audio:", error);
+    let animationFrameId: number;
+    let lastUpdateTime = Date.now();
+
+    const updateTimer = () => {
+      const now = Date.now();
+      const deltaTime = now - lastUpdateTime;
+
+      // If more than 1 second has passed
+      if (deltaTime >= 1000) {
+        const secondsToSubtract = Math.floor(deltaTime / 1000);
+
+        setTimeLeft((prevTimeLeft) => {
+          const newTimeLeft = Math.max(0, prevTimeLeft - secondsToSubtract);
+
+          if (newTimeLeft <= 0 && prevTimeLeft > 0) {
+            // Timer is done
+            // Play sound if enabled
+            if (alarmSound) {
+              alarmSound.play().catch((error) => {
+                console.error("Error playing audio:", error);
+              });
+              setIsAlarmPlaying(true);
+            }
+
+            // Send notification without playing the notification sound
+            // The custom parameter ensures we're not playing the notification sound
+            sendPomodoroNotification(
+              mode === "pomodoro"
+                ? "work"
+                : mode === "shortBreak"
+                ? "break"
+                : "longBreak",
+              mode === "pomodoro"
+                ? settings.shortBreak / 60
+                : settings.pomodoro / 60
+            ).catch((error) => {
+              console.error("Error sending notification:", error);
             });
-            setIsAlarmPlaying(true);
+
+            // Update pomodoro count and switch modes
+            if (mode === "pomodoro") {
+              setCompletedPomodoros((count) => count + 1);
+              const nextMode =
+                completedPomodoros % 4 === 3 ? "longBreak" : "shortBreak";
+              handleSwitchMode(nextMode);
+            } else {
+              handleSwitchMode("pomodoro");
+            }
+
+            // Stop the timer but don't reset the time
+            setIsRunning(false);
+            return 0;
           }
 
-          // Send notification without playing the notification sound
-          // The custom parameter ensures we're not playing the notification sound
-          sendPomodoroNotification(
-            mode === "pomodoro"
-              ? "work"
-              : mode === "shortBreak"
-              ? "break"
-              : "longBreak",
-            mode === "pomodoro"
-              ? settings.shortBreak / 60
-              : settings.pomodoro / 60
-          ).catch((error) => {
-            console.error("Error sending notification:", error);
-          });
+          return newTimeLeft;
+        });
 
-          // Update pomodoro count and switch modes
-          if (mode === "pomodoro") {
-            setCompletedPomodoros((count) => count + 1);
-            const nextMode =
-              completedPomodoros % 4 === 3 ? "longBreak" : "shortBreak";
-            handleSwitchMode(nextMode);
-          } else {
-            handleSwitchMode("pomodoro");
-          }
+        // Update the last update time, accounting for the exact seconds we've subtracted
+        lastUpdateTime = now - (deltaTime % 1000);
+      }
 
-          // Stop the timer but don't reset the time
-          setIsRunning(false);
-          return settings[mode === "pomodoro" ? "shortBreak" : "pomodoro"];
-        }
-        return prevTimeLeft - 1;
-      });
-    }, 1000);
+      if (isRunning) {
+        animationFrameId = requestAnimationFrame(updateTimer);
+      }
+    };
 
-    return () => clearInterval(interval);
+    animationFrameId = requestAnimationFrame(updateTimer);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
   }, [
     isRunning,
-    timeLeft,
     mode,
     settings,
     alarmSound,
