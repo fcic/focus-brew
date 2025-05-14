@@ -328,7 +328,10 @@ export function Dock({
                 index={index}
                 totalItems={DOCK_APPS.length}
                 onClick={() => {
-                  if (app.id === SETTINGS_APP.id) {
+                  if (app.id === "pwa") {
+                    // @ts-ignore
+                    window.pwaInstallDialog?.showDialog();
+                  } else if (app.id === SETTINGS_APP.id) {
                     if (openSettingsTab) {
                       openSettingsTab("general");
                     } else {

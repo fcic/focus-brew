@@ -9,6 +9,7 @@ import "./fonts.css";
 import { Toaster } from "@/components/ui/sonner";
 import PWAServiceWorker from "@/components/PWAServiceWorker";
 import PWAStandaloneRedirect from "@/components/PWAStandaloneRedirect";
+import PwaInstallDialog from "@/components/PwaInstallDialog";
 
 const nunito = Nunito({
   subsets: ["latin"],
@@ -86,6 +87,7 @@ export default function RootLayout({ children }: Readonly<RootLayoutProps>) {
         >
           <PWAStandaloneRedirect />
           <PWAServiceWorker />
+          <PwaInstallDialog />
           {children}
           <Toaster />
           <Suspense fallback={null}>
