@@ -61,6 +61,7 @@ export function Notepad() {
   );
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
+  const [isTitleFocused, setIsTitleFocused] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
 
   const selectedNote = selectedNoteId
@@ -106,12 +107,17 @@ export function Notepad() {
 
   // Focus editor when selecting a note
   useEffect(() => {
-    if (selectedNote && editor && !editor.isFocused) {
+    if (selectedNote && editor && !editor.isFocused && !isTitleFocused) {
+      // Don't auto-focus the editor when creating a new empty note or when title is focused
+      if (selectedNote.title === "" && selectedNote.content === "") {
+        return;
+      }
+
       setTimeout(() => {
         editor.commands.focus("end");
       }, 100);
     }
-  }, [selectedNote, editor]);
+  }, [selectedNote, editor, isTitleFocused]);
 
   const filteredNotes = notes.filter(
     (note) =>
@@ -346,6 +352,8 @@ export function Notepad() {
                 }
                 placeholder="Note title"
                 className="font-medium mb-3"
+                onFocus={() => setIsTitleFocused(true)}
+                onBlur={() => setIsTitleFocused(false)}
               />
 
               <div className="flex flex-wrap items-center gap-1">
