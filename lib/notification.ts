@@ -94,8 +94,41 @@ export const playNotificationSound = (): Promise<void> => {
 
   return new Promise((resolve) => {
     try {
+      // Stop any previously playing notification sound
+      if (window._notificationSoundInstance) {
+        try {
+          window._notificationSoundInstance.pause();
+          window._notificationSoundInstance.currentTime = 0;
+        } catch (err) {
+          console.error("Error stopping previous notification sound:", err);
+        }
+      }
+
+      // Get the notification volume setting
+      let notificationVolume = 1; // Default to full volume (0-1 scale)
+
+      try {
+        const volumeSettings = localStorage.getItem("volume_settings");
+        if (volumeSettings) {
+          const settings = JSON.parse(volumeSettings);
+          // Normalize volume from 0-100 to 0-1
+          notificationVolume = Math.max(
+            0,
+            Math.min(1, settings.notificationVolume / 100)
+          );
+        }
+      } catch (error) {
+        console.error("Error getting notification volume setting:", error);
+      }
+
       // Make sure the audio file path is correct
       const audio = new Audio("/sounds/notification.mp3");
+
+      // Store reference to the audio instance
+      window._notificationSoundInstance = audio;
+
+      // Set the volume based on the settings
+      audio.volume = notificationVolume;
 
       // Preload the audio
       audio.preload = "auto";

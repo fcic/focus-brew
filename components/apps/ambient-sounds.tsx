@@ -42,6 +42,20 @@ const MIN_VOLUME = 0;
 const globalAudioCache: Record<string, HTMLAudioElement> = {};
 let isPageUnloading = false;
 
+// Function to clean up audio elements
+const cleanupAudio = (soundId: string) => {
+  const audio = globalAudioCache[soundId];
+  if (audio) {
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+      // Don't delete from cache to allow reuse
+    } catch (err) {
+      console.error(`Error cleaning up audio ${soundId}:`, err);
+    }
+  }
+};
+
 // Keep track of if sounds should continue in background
 let shouldPlayInBackground = true;
 
@@ -65,12 +79,10 @@ if (typeof window !== "undefined") {
 // Export function to control background playback (can be called from outside)
 export function stopAllAmbientSounds() {
   shouldPlayInBackground = false;
-  Object.values(globalAudioCache).forEach((audio) => {
-    try {
-      audio.pause();
-    } catch (e) {
-      console.error("Error stopping ambient sound:", e);
-    }
+
+  // Use the cleaner helper to stop all sounds
+  Object.keys(globalAudioCache).forEach((soundId) => {
+    cleanupAudio(soundId);
   });
 }
 
@@ -144,6 +156,19 @@ const ANIMATION_CONFIG = {
 // Safely convert UI volume (0-100) to audio volume (0-1)
 const normalizeVolume = (volume: number): number => {
   return Math.max(0, Math.min(1, volume / MAX_VOLUME));
+};
+
+// Add function to get volume settings
+const getGlobalVolumeSettings = () => {
+  try {
+    const volumeSettings = localStorage.getItem("volume_settings");
+    if (volumeSettings) {
+      return JSON.parse(volumeSettings);
+    }
+  } catch (error) {
+    console.error("Error getting volume settings:", error);
+  }
+  return { masterVolume: MAX_VOLUME, notificationVolume: MAX_VOLUME };
 };
 
 // Component implementations
@@ -685,6 +710,13 @@ export function AmbientSounds() {
 
                 // Add to global cache
                 globalAudioCache[soundId] = audio;
+              } else {
+                // Reset audio if it already exists
+                try {
+                  audio.currentTime = 0;
+                } catch (err) {
+                  console.warn(`Error resetting audio ${soundId}:`, err);
+                }
               }
 
               // Play audio with error handling
@@ -718,14 +750,7 @@ export function AmbientSounds() {
               }
             } else {
               // Pause audio
-              const audio = globalAudioCache[soundId];
-              if (audio) {
-                try {
-                  audio.pause();
-                } catch (err) {
-                  console.warn(`Error pausing audio ${soundId}:`, err);
-                }
-              }
+              cleanupAudio(soundId);
             }
 
             return {
@@ -838,6 +863,27 @@ export function AmbientSounds() {
     setActiveMixId(newMix.id);
   }, [newMixName, sounds, setSavedMixes]);
 
+  // Add a function to stop all sounds
+  const stopAllSounds = useCallback(() => {
+    // First update all sounds to not playing in state
+    setSounds((prevSounds) =>
+      prevSounds.map((sound) => ({
+        ...sound,
+        playing: false,
+        isLoading: false,
+        error: undefined,
+      }))
+    );
+
+    // Then stop all audio elements
+    Object.keys(globalAudioCache).forEach((soundId) => {
+      cleanupAudio(soundId);
+    });
+
+    // Clear active mix
+    setActiveMixId(null);
+  }, []);
+
   // Handle loading mix
   const handleLoadMix = useCallback(
     (mix: SoundMix) => {
@@ -854,17 +900,7 @@ export function AmbientSounds() {
       // First pause all currently playing sounds
       sounds.forEach((sound) => {
         if (sound.playing) {
-          const audio = globalAudioCache[sound.id];
-          if (audio && !audio.paused) {
-            try {
-              audio.pause();
-            } catch (err) {
-              console.warn(
-                `Error pausing sound ${sound.id} when loading mix:`,
-                err
-              );
-            }
-          }
+          cleanupAudio(sound.id);
         }
       });
 
@@ -886,6 +922,13 @@ export function AmbientSounds() {
               audio.loop = true;
               audio.src = sound.audioUrl;
               globalAudioCache[sound.id] = audio;
+            } else {
+              // Reset existing audio
+              try {
+                audio.currentTime = 0;
+              } catch (err) {
+                console.warn(`Error resetting audio ${sound.id} in mix:`, err);
+              }
             }
 
             // Set volume and play
@@ -908,7 +951,7 @@ export function AmbientSounds() {
       // Set this mix as active
       setActiveMixId(mix.id);
     },
-    [sounds, masterVolume, activeMixId]
+    [sounds, masterVolume, activeMixId, stopAllSounds]
   );
 
   // Handle deleting mix
@@ -1044,23 +1087,52 @@ export function AmbientSounds() {
     };
   }, [sounds]);
 
-  // Add a function to stop all sounds
-  const stopAllSounds = useCallback(() => {
-    // First update all sounds to not playing in state
-    setSounds((prevSounds) =>
-      prevSounds.map((sound) => ({
-        ...sound,
-        playing: false,
-        isLoading: false,
-        error: undefined,
-      }))
+  // Add effect to listen for volume settings changes
+  useEffect(() => {
+    const handleVolumeSettingsChange = (e: CustomEvent) => {
+      const { masterVolume } = e.detail;
+      // Update master volume
+      setMasterVolume(masterVolume);
+
+      // Update all playing audio elements with the new master volume
+      sounds.forEach((sound) => {
+        if (sound.playing) {
+          const audio = globalAudioCache[sound.id];
+          if (audio) {
+            try {
+              const normalizedVolume =
+                normalizeVolume(sound.volume) * normalizeVolume(masterVolume);
+              audio.volume = normalizedVolume;
+            } catch (err) {
+              console.warn(
+                `Error updating master volume for ${sound.id}:`,
+                err
+              );
+            }
+          }
+        }
+      });
+    };
+
+    window.addEventListener(
+      "volume_settings_changed",
+      handleVolumeSettingsChange as EventListener
     );
 
-    // Then stop all audio elements
-    stopAllAmbientSounds();
+    return () => {
+      window.removeEventListener(
+        "volume_settings_changed",
+        handleVolumeSettingsChange as EventListener
+      );
+    };
+  }, [sounds, setMasterVolume]);
 
-    // Clear active mix
-    setActiveMixId(null);
+  // Initialize with global volume settings
+  useEffect(() => {
+    const settings = getGlobalVolumeSettings();
+    if (settings && typeof settings.masterVolume === "number") {
+      setMasterVolume(settings.masterVolume);
+    }
   }, []);
 
   return (

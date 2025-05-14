@@ -9,6 +9,7 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { NotificationSettings } from "./notification-settings";
+import { VolumeSettings } from "./volume-settings";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +49,8 @@ export function SettingsGeneralTab() {
           <NotificationSettings />
         </CardContent>
       </Card>
+
+      <VolumeSettings />
 
       <Card>
         <CardHeader>
