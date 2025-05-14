@@ -233,7 +233,8 @@ export function NotificationSettings() {
             <div className="space-y-1">
               <Label>Pomodoro Notifications</Label>
               <p className="text-sm text-muted-foreground">
-                Receive notifications when your pomodoro sessions end
+                Receive visual notifications when your pomodoro sessions end
+                (alarm sound is controlled separately)
               </p>
             </div>
             <Switch

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useLocalStorage } from "@/hooks/use-local-storage";
@@ -12,7 +12,14 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from "@/components/ui/tooltip";
-import { Pause, Play, RotateCcw, RepeatIcon, Volume2 } from "lucide-react";
+import {
+  Pause,
+  Play,
+  RotateCcw,
+  RepeatIcon,
+  Volume2,
+  Square,
+} from "lucide-react";
 import {
   sendPomodoroNotification,
   checkNotificationPermission,
@@ -34,7 +41,7 @@ interface TimerSettings {
 
 const DEFAULT_SETTINGS: TimerSettings = {
   pomodoro: 25 * 60, // 25 minutes
-  shortBreak: 5 * 60, // 5 minutes
+  shortBreak: 5, // 5 minutes
   longBreak: 15 * 60, // 15 minutes
   volume: 50,
   loopAudio: false,
@@ -57,8 +64,10 @@ export function PomodoroTimer() {
   const [mode, setMode] = useState<TimerMode>("pomodoro");
   const [timeLeft, setTimeLeft] = useState(settings.pomodoro);
   const [isRunning, setIsRunning] = useState(false);
+  const [isAlarmPlaying, setIsAlarmPlaying] = useState(false);
   const [completedPomodoros, setCompletedPomodoros] = useState(0);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const alarmRef = useRef<HTMLAudioElement | null>(null);
 
   // Audio setup
   const alarmSound = useMemo(() => {
@@ -66,8 +75,18 @@ export function PomodoroTimer() {
     const audio = new Audio("/sounds/alarm.mp3");
     audio.volume = settings.volume / 100;
     audio.loop = settings.loopAudio;
+    alarmRef.current = audio;
     return audio;
   }, [settings.loopAudio, settings.volume]);
+
+  // Stop the alarm sound
+  const stopAlarmSound = useCallback(() => {
+    if (alarmRef.current) {
+      alarmRef.current.pause();
+      alarmRef.current.currentTime = 0;
+      setIsAlarmPlaying(false);
+    }
+  }, []);
 
   // Check notification permission on mount
   useEffect(() => {
@@ -103,20 +122,33 @@ export function PomodoroTimer() {
   }, [timeLeft]);
 
   // Timer controls
-  const handleStartTimer = useCallback(() => setIsRunning(true), []);
+  const handleStartTimer = useCallback(() => {
+    stopAlarmSound();
+    setIsRunning(true);
+  }, [stopAlarmSound]);
+
   const handlePauseTimer = useCallback(() => setIsRunning(false), []);
+
+  const handleStopTimer = useCallback(() => {
+    setIsRunning(false);
+    stopAlarmSound();
+    setTimeLeft(settings[mode]);
+  }, [settings, mode, stopAlarmSound]);
+
   const handleResetTimer = useCallback(() => {
     setIsRunning(false);
+    stopAlarmSound();
     setTimeLeft(settings[mode]);
-  }, [settings, mode]);
+  }, [settings, mode, stopAlarmSound]);
 
   const handleSwitchMode = useCallback(
     (newMode: TimerMode) => {
       setMode(newMode);
       setIsRunning(false);
+      stopAlarmSound();
       setTimeLeft(settings[newMode]);
     },
-    [settings]
+    [settings, stopAlarmSound]
   );
 
   // Handle volume change
@@ -176,9 +208,11 @@ export function PomodoroTimer() {
             alarmSound.play().catch((error) => {
               console.error("Error playing audio:", error);
             });
+            setIsAlarmPlaying(true);
           }
 
-          // Send notification
+          // Send notification without playing the notification sound
+          // The custom parameter ensures we're not playing the notification sound
           sendPomodoroNotification(
             mode === "pomodoro"
               ? "work"
@@ -202,7 +236,7 @@ export function PomodoroTimer() {
             handleSwitchMode("pomodoro");
           }
 
-          // Stop the timer
+          // Stop the timer but don't reset the time
           setIsRunning(false);
           return settings[mode === "pomodoro" ? "shortBreak" : "pomodoro"];
         }
@@ -237,12 +271,24 @@ export function PomodoroTimer() {
             handleResetTimer();
           }
           break;
+        case "KeyS":
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            handleStopTimer();
+          }
+          break;
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isRunning, handleStartTimer, handlePauseTimer, handleResetTimer]);
+  }, [
+    isRunning,
+    handleStartTimer,
+    handlePauseTimer,
+    handleResetTimer,
+    handleStopTimer,
+  ]);
 
   // Listen for notification settings changes
   useEffect(() => {
@@ -336,6 +382,15 @@ export function PomodoroTimer() {
                 <Play className="h-4 w-4 mr-2" />
               )}
               {isRunning ? "Pause" : "Start"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleStopTimer}
+              className="min-w-[80px]"
+              aria-label="Stop timer"
+            >
+              <Square className="h-4 w-4 mr-2" />
+              Stop
             </Button>
             <Button
               variant="outline"

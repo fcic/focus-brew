@@ -278,8 +278,8 @@ export const sendPomodoroNotification = async (
 
   // If notifications are enabled, also send browser notification
   if (settings.enabled && settings.pomodoroNotifications) {
-    // Play notification sound
-    await playNotificationSound();
+    // Don't play notification sound for pomodoro notifications
+    // The alarm sound is already handled by the pomodoro-timer component
 
     await sendNotification(
       title,
@@ -288,7 +288,7 @@ export const sendPomodoroNotification = async (
         tag: "pomodoro",
         requireInteraction: type === "work", // Notificações de trabalho requerem interação
       },
-      false // Don't play sound again in sendNotification
+      false // Don't play sound in sendNotification
     );
   }
 };
