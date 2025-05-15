@@ -685,7 +685,7 @@ export function AmbientSounds() {
 
                 // Implement gapless loop by resetting audio position before it reaches the end
                 audio.addEventListener("timeupdate", () => {
-                  // Reset position 0.5 seconds before the end to create a seamless loop
+                  // Reset position 0.8 seconds before the end to create a seamless loop
                   const buffer = 0.8;
                   if (audio.currentTime > audio.duration - buffer) {
                     audio.currentTime = 0;
