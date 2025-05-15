@@ -9,7 +9,7 @@ import {
   Youtube,
   Settings,
   CalendarCheck,
-  DownloadCloud,
+  Download,
 } from "lucide-react";
 import { formatShortcut } from "./utils";
 
@@ -91,8 +91,8 @@ export const APP_ITEMS: AppMenuItem[] = [
   },
   {
     id: "pwa",
-    label: "Install App",
-    icon: createIcon(DownloadCloud),
+    label: "Install App (PWA)",
+    icon: createIcon(Download),
     shortcutKey: "8",
     getShortcutText: () => formatShortcut("8"),
   },

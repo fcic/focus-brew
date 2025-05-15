@@ -22,6 +22,7 @@ Focus Brew is a comprehensive productivity suite designed to help you stay focus
 - **Kanban Board**: Organize your workflow visually
 - **YouTube Player**: Watch educational content without distractions
 - **Weather Forecast**: Check current weather conditions and forecasts
+- **Currency Exchange**: Convert between different currencies with up-to-date exchange rates
 
 ## 🚀 Technologies
 
@@ -40,7 +41,7 @@ This project was developed using the following technologies:
 ### Prerequisites
 
 - Node.js (version 18 or higher)
-- npm or yarn
+- pnpm
 - OpenWeather API key (for weather functionality)
 
 ### Environment Variables
@@ -70,17 +71,13 @@ cd focus-brew
 3. Install dependencies
 
 ```bash
-npm install
-# or
-yarn install
+pnpm install
 ```
 
 4. Start the development server
 
 ```bash
-npm run dev
-# or
-yarn dev
+pnpm dev
 ```
 
 5. Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
@@ -97,6 +94,7 @@ Focus Brew is designed to be intuitive and easy to use:
 6. **Organize Projects**: Use the Kanban board to visualize your workflow
 7. **Watch Educational Content**: Use the distraction-free YouTube player
 8. **Check Weather**: View current weather conditions and forecasts
+9. **Convert Currencies**: Use the Currency Exchange to convert between different currencies
 
 ## 📄 License
 
