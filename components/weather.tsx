@@ -270,7 +270,10 @@ export function Weather() {
 
         const apiKey = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
         if (!apiKey) {
-          throw new Error("Weather API key not found");
+          setError("Weather API key not found. Please add a valid OpenWeather API key in your environment variables.");
+          setLoading(false);
+          lockRef.current = false;
+          return;
         }
 
         const url = new URL("https://api.openweathermap.org/data/2.5/weather");
