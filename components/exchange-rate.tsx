@@ -21,6 +21,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Types
 type Currency = string;
@@ -352,18 +360,56 @@ export function ExchangeRate() {
                   </div>
                 </div>
 
-                <div className="group flex items-center justify-between text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm">
+                <div className="group flex items-center justify-between text-xs px-2 py-1.5 rounded-sm">
                   <div className="flex items-center gap-2">
                     <span>Base Currency</span>
                   </div>
-                  <span className="font-medium">{base.toUpperCase()}</span>
+                  <Select
+                    value={base}
+                    onValueChange={(value) => {
+                      setBase(value);
+                      fetchRate();
+                    }}
+                  >
+                    <SelectTrigger className="h-7 w-20">
+                      <SelectValue placeholder={base.toUpperCase()} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {COMMON_CURRENCIES.map((currency) => (
+                          <SelectItem key={currency} value={currency}>
+                            {currency.toUpperCase()}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                <div className="group flex items-center justify-between text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm">
+                <div className="group flex items-center justify-between text-xs px-2 py-1.5 rounded-sm">
                   <div className="flex items-center gap-2">
                     <span>Target Currency</span>
                   </div>
-                  <span className="font-medium">{target.toUpperCase()}</span>
+                  <Select 
+                    value={target}
+                    onValueChange={(value) => {
+                      setTarget(value);
+                      fetchRate();
+                    }}
+                  >
+                    <SelectTrigger className="h-7 w-20">
+                      <SelectValue placeholder={target.toUpperCase()} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {COMMON_CURRENCIES.map((currency) => (
+                          <SelectItem key={currency} value={currency}>
+                            {currency.toUpperCase()}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="group flex items-center justify-between text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm">
