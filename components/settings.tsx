@@ -165,6 +165,29 @@ export function Settings({
       const file = e.target.files?.[0];
       if (!file) return;
 
+      // Validate file type
+      const allowedTypes = [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/gif"
+      ];
+      if (!allowedTypes.includes(file.type)) {
+        toast.error("Invalid file type.", {
+          description: "Please upload a JPEG, PNG, WEBP, or GIF image."
+        });
+        return;
+      }
+
+      // Validate file size (max 50MB)
+      const maxSize = 50 * 1024 * 1024; // 50MB
+      if (file.size > maxSize) {
+        toast.error("File too large.", {
+          description: "Please upload an image smaller than 50MB."
+        });
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (event) => {
         try {
