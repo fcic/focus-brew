@@ -19,6 +19,7 @@ import {
   RepeatIcon,
   Volume2,
   Square,
+  Timer,
 } from "lucide-react";
 import {
   sendPomodoroNotification,
@@ -28,6 +29,16 @@ import {
 } from "@/lib/notification";
 import { toast } from "@/lib/toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 type TimerMode = "pomodoro" | "shortBreak" | "longBreak";
 
@@ -74,6 +85,11 @@ export function PomodoroTimer() {
       : "FocusBrew | Productivity Workspace"
   );
 
+  // Custom timer state
+  const [customTimerDuration, setCustomTimerDuration] = useState(25);
+  const [isCustomTimerDialogOpen, setIsCustomTimerDialogOpen] = useState(false);
+  const [isUsingCustomTimer, setIsUsingCustomTimer] = useState(false);
+
   // Audio setup
   const alarmSound = useMemo(() => {
     if (typeof window === "undefined") return null;
@@ -113,9 +129,11 @@ export function PomodoroTimer() {
 
   // Calculate progress percentage
   const progress = useMemo(() => {
-    const total = settings[mode];
+    const total = isUsingCustomTimer
+      ? customTimerDuration * 60
+      : settings[mode];
     return ((total - timeLeft) / total) * 100;
-  }, [timeLeft, settings, mode]);
+  }, [timeLeft, settings, mode, isUsingCustomTimer, customTimerDuration]);
 
   // Format time as MM:SS
   const formattedTime = useMemo(() => {
@@ -137,14 +155,22 @@ export function PomodoroTimer() {
   const handleStopTimer = useCallback(() => {
     setIsRunning(false);
     stopAlarmSound();
-    setTimeLeft(settings[mode]);
-  }, [settings, mode, stopAlarmSound]);
+    if (isUsingCustomTimer) {
+      setTimeLeft(customTimerDuration * 60);
+    } else {
+      setTimeLeft(settings[mode]);
+    }
+  }, [settings, mode, stopAlarmSound, isUsingCustomTimer, customTimerDuration]);
 
   const handleResetTimer = useCallback(() => {
     setIsRunning(false);
     stopAlarmSound();
-    setTimeLeft(settings[mode]);
-  }, [settings, mode, stopAlarmSound]);
+    if (isUsingCustomTimer) {
+      setTimeLeft(customTimerDuration * 60);
+    } else {
+      setTimeLeft(settings[mode]);
+    }
+  }, [settings, mode, stopAlarmSound, isUsingCustomTimer, customTimerDuration]);
 
   const handleSwitchMode = useCallback(
     (newMode: TimerMode) => {
@@ -152,6 +178,7 @@ export function PomodoroTimer() {
       setIsRunning(false);
       stopAlarmSound();
       setTimeLeft(settings[newMode]);
+      setIsUsingCustomTimer(false);
     },
     [settings, stopAlarmSound]
   );
@@ -200,6 +227,27 @@ export function PomodoroTimer() {
     }
   }, []);
 
+  // Set custom timer
+  const handleSetCustomTimer = useCallback(() => {
+    if (customTimerDuration <= 0) {
+      toast.error("Invalid duration", {
+        description: "Please enter a valid duration greater than 0.",
+      });
+      return;
+    }
+
+    // Set the custom timer duration
+    setTimeLeft(customTimerDuration * 60); // Convert to seconds
+    setIsUsingCustomTimer(true);
+    setIsRunning(false);
+    stopAlarmSound();
+    setIsCustomTimerDialogOpen(false);
+
+    toast.success("Custom timer set", {
+      description: `Timer set to ${customTimerDuration} minutes`,
+    });
+  }, [customTimerDuration, stopAlarmSound]);
+
   // Timer effect
   useEffect(() => {
     if (!isRunning) return;
@@ -231,25 +279,32 @@ export function PomodoroTimer() {
             // Send notification without playing the notification sound
             // The custom parameter ensures we're not playing the notification sound
             sendPomodoroNotification(
-              mode === "pomodoro"
+              mode === "pomodoro" || isUsingCustomTimer
                 ? "work"
                 : mode === "shortBreak"
                 ? "break"
                 : "longBreak",
-              mode === "pomodoro"
+              mode === "pomodoro" || isUsingCustomTimer
                 ? settings.shortBreak / 60
                 : settings.pomodoro / 60
             ).catch((error) => {
               console.error("Error sending notification:", error);
             });
 
-            // Update pomodoro count and switch modes
-            if (mode === "pomodoro") {
+            // Update pomodoro count and handle next timer
+            if (isUsingCustomTimer) {
+              // For custom timer, just reset the timer and stay in custom mode
+              setCompletedPomodoros((count) => count + 1);
+              setTimeLeft(customTimerDuration * 60);
+              stopAlarmSound(); // Ensure sound stops
+            } else if (mode === "pomodoro") {
+              // Normal pomodoro flow
               setCompletedPomodoros((count) => count + 1);
               const nextMode =
                 completedPomodoros % 4 === 3 ? "longBreak" : "shortBreak";
               handleSwitchMode(nextMode);
             } else {
+              // After breaks, go back to pomodoro
               handleSwitchMode("pomodoro");
             }
 
@@ -282,6 +337,9 @@ export function PomodoroTimer() {
     alarmSound,
     completedPomodoros,
     handleSwitchMode,
+    isUsingCustomTimer,
+    customTimerDuration,
+    stopAlarmSound,
   ]);
 
   // Add keyboard shortcuts
@@ -359,19 +417,21 @@ export function PomodoroTimer() {
   // Update document title with timer
   useEffect(() => {
     if (isRunning) {
-      const modeLabel =
-        mode === "pomodoro"
-          ? "Focus"
-          : mode === "shortBreak"
-          ? "Short Break"
-          : "Long Break";
+      const modeLabel = isUsingCustomTimer
+        ? "Custom"
+        : mode === "pomodoro"
+        ? "Focus"
+        : mode === "shortBreak"
+        ? "Short Break"
+        : "Long Break";
       document.title = `${formattedTime} - ${modeLabel}`;
     } else {
       // Only reset if we're not showing the timer already
       if (
         document.title.includes(" - Focus") ||
         document.title.includes(" - Short Break") ||
-        document.title.includes(" - Long Break")
+        document.title.includes(" - Long Break") ||
+        document.title.includes(" - Custom")
       ) {
         document.title = originalTitleRef.current;
       }
@@ -380,7 +440,7 @@ export function PomodoroTimer() {
     return () => {
       document.title = originalTitleRef.current;
     };
-  }, [isRunning, formattedTime, mode]);
+  }, [isRunning, formattedTime, mode, isUsingCustomTimer]);
 
   return (
     <div
@@ -389,17 +449,21 @@ export function PomodoroTimer() {
     >
       <ScrollArea className="w-full h-full">
         <div className="flex flex-col items-center gap-6 pb-6">
-          {/* Mode selection */}
-          <div className="flex gap-2">
+          {/* Mode selection with custom timer button */}
+          <div className="flex gap-2 flex-wrap justify-center">
             {(["pomodoro", "shortBreak", "longBreak"] as const).map(
               (timerMode) => (
                 <Button
                   key={timerMode}
-                  variant={mode === timerMode ? "default" : "outline"}
+                  variant={
+                    mode === timerMode && !isUsingCustomTimer
+                      ? "default"
+                      : "outline"
+                  }
                   onClick={() => handleSwitchMode(timerMode)}
                   className={cn(
                     "capitalize transition-colors",
-                    mode === timerMode && "font-medium"
+                    mode === timerMode && !isUsingCustomTimer && "font-medium"
                   )}
                   aria-label={`Switch to ${timerMode
                     .replace(/([A-Z])/g, " $1")
@@ -409,6 +473,48 @@ export function PomodoroTimer() {
                 </Button>
               )
             )}
+
+            <Dialog
+              open={isCustomTimerDialogOpen}
+              onOpenChange={setIsCustomTimerDialogOpen}
+            >
+              <DialogTrigger asChild>
+                <Button
+                  variant={isUsingCustomTimer ? "default" : "outline"}
+                  className="min-w-[40px]"
+                >
+                  Custom
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Custom Timer</DialogTitle>
+                  <DialogDescription>
+                    Set a custom duration for your work session
+                  </DialogDescription>
+                </DialogHeader>
+
+                {/* Custom timer duration input - simplified */}
+                <Input
+                  id="duration"
+                  type="number"
+                  min="1"
+                  max="120"
+                  value={customTimerDuration}
+                  onChange={(e) =>
+                    setCustomTimerDuration(
+                      Math.min(120, Math.max(1, parseInt(e.target.value) || 1))
+                    )
+                  }
+                  className="my-4"
+                  placeholder="Minutes"
+                />
+
+                <Button onClick={handleSetCustomTimer} className="w-full">
+                  Set Timer
+                </Button>
+              </DialogContent>
+            </Dialog>
           </div>
 
           {/* Timer display */}
@@ -439,7 +545,7 @@ export function PomodoroTimer() {
             <Button
               variant={isRunning ? "outline" : "default"}
               onClick={isRunning ? handlePauseTimer : handleStartTimer}
-              className="min-w-[80px]"
+              className="min-w-[80px] cursor-pointer"
               aria-label={isRunning ? "Pause timer" : "Start timer"}
             >
               {isRunning ? (
