@@ -7,6 +7,9 @@ import { Suspense } from "react";
 import "./globals.css";
 import "./fonts.css";
 import { Toaster } from "@/components/ui/sonner";
+import PWAServiceWorker from "@/components/PWAServiceWorker";
+import PWAStandaloneRedirect from "@/components/PWAStandaloneRedirect";
+import PwaInstallDialog from "@/components/PwaInstallDialog";
 
 const nunito = Nunito({
   subsets: ["latin"],
@@ -65,6 +68,14 @@ interface RootLayoutProps {
 export default function RootLayout({ children }: Readonly<RootLayoutProps>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#18181b" />
+        <link rel="icon" href="/icon-192x192.png" sizes="192x192" />
+        <link rel="icon" href="/icon-512x512.png" sizes="512x512" />
+        <link rel="apple-touch-icon" href="/icon-192x192.png" />
+        {/* Outras meta tags PWA podem ser adicionadas aqui */}
+      </head>
       <body
         className={`${nunito.variable} ${robotoSlab.variable} font-satoshi antialiased`}
       >
@@ -74,6 +85,9 @@ export default function RootLayout({ children }: Readonly<RootLayoutProps>) {
           enableSystem
           disableTransitionOnChange
         >
+          <PWAStandaloneRedirect />
+          <PWAServiceWorker />
+          <PwaInstallDialog />
           {children}
           <Toaster />
           <Suspense fallback={null}>

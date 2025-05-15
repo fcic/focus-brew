@@ -9,6 +9,7 @@ import {
   Youtube,
   Settings,
   CalendarCheck,
+  DownloadCloud,
 } from "lucide-react";
 import { formatShortcut } from "./utils";
 
@@ -20,7 +21,8 @@ export type AppId =
   | "notepad"
   | "ambient"
   | "youtube"
-  | "settings";
+  | "settings"
+  | "pwa";
 export type SettingsTab = "about" | "general" | "wallpaper" | "appearance";
 
 export interface AppMenuItem {
@@ -86,6 +88,13 @@ export const APP_ITEMS: AppMenuItem[] = [
     icon: createIcon(Youtube),
     shortcutKey: "7",
     getShortcutText: () => formatShortcut("7"),
+  },
+  {
+    id: "pwa",
+    label: "Install App",
+    icon: createIcon(DownloadCloud),
+    shortcutKey: "8",
+    getShortcutText: () => formatShortcut("8"),
   },
 ];
 
