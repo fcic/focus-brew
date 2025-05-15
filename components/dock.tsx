@@ -329,8 +329,27 @@ export function Dock({
                 totalItems={DOCK_APPS.length}
                 onClick={() => {
                   if (app.id === "pwa") {
-                    // @ts-ignore
-                    window.pwaInstallDialog?.showDialog();
+                    // Detect Firefox and macOS for special handling
+                    const isFirefox =
+                      navigator.userAgent.toLowerCase().indexOf("firefox") > -1;
+                    const isMacOS =
+                      navigator.platform.toLowerCase().indexOf("mac") > -1 ||
+                      /mac/i.test(navigator.userAgent);
+
+                    // Force the warning dialog to show for Firefox on macOS
+                    if (isFirefox && isMacOS && window.showPWAInstallDialog) {
+                      // @ts-ignore - Use new global method if available
+                      window.showPWAInstallDialog();
+                    }
+                    // Use normal method for other browsers
+                    else if (window.showPWAInstallDialog) {
+                      // @ts-ignore - Use new global method if available
+                      window.showPWAInstallDialog();
+                    } else {
+                      // Fallback to the old method with forced mode
+                      // @ts-ignore
+                      window.pwaInstallDialog?.showDialog(true);
+                    }
                   } else if (app.id === SETTINGS_APP.id) {
                     if (openSettingsTab) {
                       openSettingsTab("general");
