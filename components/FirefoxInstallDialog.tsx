@@ -51,7 +51,7 @@ export function FirefoxInstallDialog({
                 <li>
                   Visit{" "}
                   <code className="px-1.5 py-0.5 bg-muted rounded font-semibold text-primary">
-                    https://focusbrew.app/app
+                    https://focusbrew.vercel.app/app
                   </code>{" "}
                   in Safari
                 </li>
