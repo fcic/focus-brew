@@ -202,21 +202,21 @@ const TodoItem = memo(
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={handleDeleteClick}
-                  className="h-6 w-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                  aria-label="Delete todo"
-                >
-                  <Trash2 className="h-4 w-4 text-zinc-400 hover:text-red-500 transition-colors" />
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
                   onClick={handleEditClick}
                   className="h-6 w-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                   aria-label="Edit todo"
                 >
                   <Pencil className="h-4 w-4 text-zinc-400 hover:text-blue-500 transition-colors" />
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleDeleteClick}
+                  className="h-6 w-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                  aria-label="Delete todo"
+                >
+                  <Trash2 className="h-4 w-4 text-zinc-400 hover:text-red-500 transition-colors" />
                 </Button>
               </div>
             </div>
