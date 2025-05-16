@@ -6,6 +6,7 @@ import { useState, useRef, useEffect, useCallback, memo, useMemo } from "react";
 import {
   Plus,
   Trash2,
+  Pencil,
   CheckCircle2,
   Circle,
   X,
@@ -56,6 +57,7 @@ interface TodoItemProps {
   todo: Todo;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
+  onUpdate: (id: string, newText: string) => void;
   index: number;
 }
 
@@ -89,8 +91,9 @@ const formatDate = (dateString: string) => {
   }
 };
 
-const TodoItem = memo(({ todo, onToggle, onDelete, index }: TodoItemProps) => {
+const TodoItem = memo(({ todo, onToggle, onDelete, index, onUpdate }: TodoItemProps) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isEditTask, setIsEditTask] = useState(false);
 
   const handleKeyDown = (e: React.KeyboardEvent, action: () => void) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -98,6 +101,16 @@ const TodoItem = memo(({ todo, onToggle, onDelete, index }: TodoItemProps) => {
       action();
     }
   };
+  const handleEditClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsEditTask(!isEditTask)
+  }
+  const handleEditTask = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onUpdate(todo.id, e.target.value)
+  }
+  const saveEditedTask = () => {
+    setIsEditTask(!isEditTask);
+  }
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -143,32 +156,72 @@ const TodoItem = memo(({ todo, onToggle, onDelete, index }: TodoItemProps) => {
         </Button>
 
         <div className="flex-1 min-w-0 ml-3">
-          <div className="flex items-start justify-between">
-            <span
-              className={cn(
-                "text-sm font-medium break-words transition-all duration-200",
-                todo.completed &&
+          <div className="flex items-center justify-between">
+            {isEditTask ?
+              <Input
+                // ref={inputRef}
+                type="text"
+                placeholder="What needs to be done?"
+                value={todo.text}
+                onChange={handleEditTask}
+                className="pr-20 bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
+                aria-label="New task"
+              />
+              :
+              <span
+                className={cn(
+                  "text-sm font-medium break-words transition-all duration-200",
+                  todo.completed &&
                   "line-through text-zinc-400 dark:text-zinc-500"
-              )}
-            >
-              {todo.text}
-            </span>
+                )}
+              >
+                {todo.text}
+              </span>
+            }
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleDeleteClick}
-              className="h-6 w-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0"
-              aria-label="Delete todo"
-            >
-              <Trash2 className="h-4 w-4 text-zinc-400 hover:text-red-500 transition-colors" />
-            </Button>
+            <div className="flex justify-end gap-5">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleDeleteClick}
+                className="h-6 w-3 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0"
+                aria-label="Delete todo"
+              >
+                <Trash2 className="h-4 w-4 text-zinc-400 hover:text-red-500 transition-colors" />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleEditClick}
+                className="h-6 w-2 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0"
+                aria-label="Delete todo"
+              >
+                <Pencil className="h-4 w-4 text-zinc-400 hover:text-red-500 transition-colors" />
+              </Button>
+            </div>
           </div>
 
           <div className="flex items-center mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-            <Clock className="h-3 w-3 mr-1" />
-            <span>{formatDate(todo.createdAt)}</span>
+            {isEditTask ?
+              <Button
+                type="submit"
+                size="sm"
+                className="mt-2"
+                onClick={() => setIsEditTask(!isEditTask)}
+              >
+                Save
+              </Button>
+              :
+              <>
+                <Clock className="h-3 w-3 mr-1" />
+                <span>{formatDate(todo.createdAt)}</span>
+              </>
+
+            }
+
           </div>
+
         </div>
       </motion.div>
 
@@ -319,6 +372,14 @@ export const TodoApp = () => {
     }
   };
 
+  const handleUpdate = (id: string, newText: string) => {
+    setTodos(prev =>
+      prev.map(todo =>
+        todo.id === id ? { ...todo, text: newText } : todo
+      )
+    );
+  };
+
   const handleClearCompleted = () => {
     setTodos((currentTodos) => currentTodos.filter((todo) => !todo.completed));
   };
@@ -381,7 +442,7 @@ export const TodoApp = () => {
                         onClick={() => setSortOption("newest")}
                         className={cn(
                           sortOption === "newest" &&
-                            "bg-zinc-100 dark:bg-zinc-800"
+                          "bg-zinc-100 dark:bg-zinc-800"
                         )}
                       >
                         Newest first
@@ -390,7 +451,7 @@ export const TodoApp = () => {
                         onClick={() => setSortOption("oldest")}
                         className={cn(
                           sortOption === "oldest" &&
-                            "bg-zinc-100 dark:bg-zinc-800"
+                          "bg-zinc-100 dark:bg-zinc-800"
                         )}
                       >
                         Oldest first
@@ -399,7 +460,7 @@ export const TodoApp = () => {
                         onClick={() => setSortOption("alphabetical")}
                         className={cn(
                           sortOption === "alphabetical" &&
-                            "bg-zinc-100 dark:bg-zinc-800"
+                          "bg-zinc-100 dark:bg-zinc-800"
                         )}
                       >
                         Alphabetical
@@ -512,6 +573,7 @@ export const TodoApp = () => {
                 <TodoItem
                   key={todo.id}
                   todo={todo}
+                  onUpdate={handleUpdate}
                   onToggle={handleToggleTodo}
                   onDelete={handleDeleteTodo}
                   index={index}
