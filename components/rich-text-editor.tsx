@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, Extension } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
@@ -47,6 +47,29 @@ interface ToolbarButtonProps {
   shortcut?: string;
 }
 
+// Custom extension to preserve whitespace
+const PreserveWhitespace = Extension.create({
+  name: "preserveWhitespace",
+  addOptions() {
+    return {
+      preserveOnPaste: true,
+      preserveOnSave: true,
+    };
+  },
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["paragraph", "heading"],
+        attributes: {
+          class: {
+            default: "whitespace-pre-wrap",
+          },
+        },
+      },
+    ];
+  },
+});
+
 // Constants
 const EDITOR_EXTENSIONS = [
   StarterKit.configure({
@@ -66,6 +89,7 @@ const EDITOR_EXTENSIONS = [
     placeholder: "Write something...",
     emptyEditorClass: "is-editor-empty",
   }),
+  PreserveWhitespace,
 ] as const;
 
 // Components
@@ -124,12 +148,25 @@ export function RichTextEditor({
     ],
     content,
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      // Get HTML with preserved whitespace
+      const html = editor.getHTML();
+      // Preserve any consecutive spaces that might be normalized by the browser
+      const preservedHtml = html.replace(/ {2,}/g, (match) =>
+        match
+          .split("")
+          .map(() => "&nbsp;")
+          .join("")
+      );
+      onChange(preservedHtml);
     },
     autofocus,
     editorProps: {
       attributes: {
         class: "outline-none",
+      },
+      transformPastedHTML(html) {
+        // Ensure whitespace is preserved in pasted content
+        return html;
       },
     },
   });
@@ -294,10 +331,12 @@ export function RichTextEditor({
           line-height: 1.6;
           padding: 0.5rem 0;
           color: rgb(244 244 245);
+          white-space: pre-wrap;
         }
 
         .editor-content .ProseMirror p {
           margin-bottom: 1rem;
+          white-space: pre-wrap;
         }
 
         .editor-content .ProseMirror h1 {

@@ -23,7 +23,7 @@ import {
   Undo,
   Redo,
 } from "lucide-react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, Extension } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Toggle } from "@/components/ui/toggle";
@@ -49,7 +49,30 @@ interface Note {
   updatedAt: number;
 }
 
-const AUTOSAVE_DELAY = 1000; // 1 second
+const AUTOSAVE_DELAY = 10000; // 10 seconds
+
+// Define a custom extension to preserve whitespace
+const PreserveWhitespace = Extension.create({
+  name: "preserveWhitespace",
+  addOptions() {
+    return {
+      preserveOnPaste: true,
+      preserveOnSave: true,
+    };
+  },
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["paragraph", "heading"],
+        attributes: {
+          class: {
+            default: "whitespace-pre-wrap",
+          },
+        },
+      },
+    ];
+  },
+});
 
 export function Notepad() {
   const [notes, setNotes] = useLocalStorage<Note[]>("notepad-notes", []);
@@ -80,13 +103,23 @@ export function Notepad() {
         placeholder: "Start typing...",
         emptyEditorClass: "is-editor-empty",
       }),
+      PreserveWhitespace,
     ],
     content: selectedNote?.content || "",
     onUpdate: ({ editor }) => {
       if (selectedNoteId) {
         setSaveStatus("saving");
         const timeoutId = setTimeout(() => {
-          updateNoteContent(selectedNoteId, editor.getHTML());
+          // Get HTML with preserved whitespace
+          const html = editor.getHTML();
+          // Preserve any consecutive spaces that might be normalized by the browser
+          const preservedHtml = html.replace(/ {2,}/g, (match) =>
+            match
+              .split("")
+              .map(() => "&nbsp;")
+              .join("")
+          );
+          updateNoteContent(selectedNoteId, preservedHtml);
           setSaveStatus("saved");
         }, AUTOSAVE_DELAY);
         return () => clearTimeout(timeoutId);
@@ -96,11 +129,16 @@ export function Notepad() {
       attributes: {
         class: "outline-none min-h-[150px] p-4 focus:ring-0",
       },
+      transformPastedHTML(html) {
+        // Ensure whitespace is preserved in pasted content
+        return html;
+      },
     },
   });
 
   useEffect(() => {
     if (editor && selectedNote) {
+      // When loading content, convert any &nbsp; sequences back to spaces if needed
       editor.commands.setContent(selectedNote.content);
     }
   }, [selectedNoteId, editor, selectedNote]);
@@ -183,7 +221,16 @@ export function Notepad() {
           case "s":
             e.preventDefault();
             if (selectedNoteId && editor) {
-              updateNoteContent(selectedNoteId, editor.getHTML());
+              // Get HTML with preserved whitespace
+              const html = editor.getHTML();
+              // Preserve any consecutive spaces that might be normalized by the browser
+              const preservedHtml = html.replace(/ {2,}/g, (match) =>
+                match
+                  .split("")
+                  .map(() => "&nbsp;")
+                  .join("")
+              );
+              updateNoteContent(selectedNoteId, preservedHtml);
               setSaveStatus("saved");
               toast({
                 title: "Note saved",
@@ -482,10 +529,12 @@ export function Notepad() {
                   line-height: 1.6;
                   padding: 1rem;
                   outline: none !important;
+                  white-space: pre-wrap;
                 }
 
                 .editor-content .ProseMirror p {
                   margin-bottom: 1rem;
+                  white-space: pre-wrap;
                 }
 
                 .editor-content .ProseMirror h1 {
