@@ -7,26 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  Plus,
-  Trash,
-  Bold,
-  Italic,
-  Heading1,
-  Heading2,
-  List,
-  ListOrdered,
-  Quote,
-  Code,
-  Search,
-  Save,
-  Undo,
-  Redo,
-} from "lucide-react";
-import { useEditor, EditorContent, Extension } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Placeholder from "@tiptap/extension-placeholder";
-import { Toggle } from "@/components/ui/toggle";
+import { Plus, Trash, Search, Save } from "lucide-react";
+import { RichTextEditor } from "@/components/rich-text-editor";
 import { cn, formatShortcut } from "@/lib/utils";
 import {
   AlertDialog,
@@ -37,7 +19,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
 
@@ -49,30 +30,7 @@ interface Note {
   updatedAt: number;
 }
 
-const AUTOSAVE_DELAY = 10000; // 10 seconds
-
-// Define a custom extension to preserve whitespace
-const PreserveWhitespace = Extension.create({
-  name: "preserveWhitespace",
-  addOptions() {
-    return {
-      preserveOnPaste: true,
-      preserveOnSave: true,
-    };
-  },
-  addGlobalAttributes() {
-    return [
-      {
-        types: ["paragraph", "heading"],
-        attributes: {
-          class: {
-            default: "whitespace-pre-wrap",
-          },
-        },
-      },
-    ];
-  },
-});
+const AUTOSAVE_DELAY = 1000; // 1 second
 
 export function Notepad() {
   const [notes, setNotes] = useLocalStorage<Note[]>("notepad-notes", []);
@@ -90,72 +48,6 @@ export function Notepad() {
   const selectedNote = selectedNoteId
     ? notes.find((note) => note.id === selectedNoteId)
     : null;
-
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        history: {
-          depth: 100,
-          newGroupDelay: 500,
-        },
-      }),
-      Placeholder.configure({
-        placeholder: "Start typing...",
-        emptyEditorClass: "is-editor-empty",
-      }),
-      PreserveWhitespace,
-    ],
-    content: selectedNote?.content || "",
-    onUpdate: ({ editor }) => {
-      if (selectedNoteId) {
-        setSaveStatus("saving");
-        const timeoutId = setTimeout(() => {
-          // Get HTML with preserved whitespace
-          const html = editor.getHTML();
-          // Preserve any consecutive spaces that might be normalized by the browser
-          const preservedHtml = html.replace(/ {2,}/g, (match) =>
-            match
-              .split("")
-              .map(() => "&nbsp;")
-              .join("")
-          );
-          updateNoteContent(selectedNoteId, preservedHtml);
-          setSaveStatus("saved");
-        }, AUTOSAVE_DELAY);
-        return () => clearTimeout(timeoutId);
-      }
-    },
-    editorProps: {
-      attributes: {
-        class: "outline-none min-h-[150px] p-4 focus:ring-0",
-      },
-      transformPastedHTML(html) {
-        // Ensure whitespace is preserved in pasted content
-        return html;
-      },
-    },
-  });
-
-  useEffect(() => {
-    if (editor && selectedNote) {
-      // When loading content, convert any &nbsp; sequences back to spaces if needed
-      editor.commands.setContent(selectedNote.content);
-    }
-  }, [selectedNoteId, editor, selectedNote]);
-
-  // Focus editor when selecting a note
-  useEffect(() => {
-    if (selectedNote && editor && !editor.isFocused && !isTitleFocused) {
-      // Don't auto-focus the editor when creating a new empty note or when title is focused
-      if (selectedNote.title === "" && selectedNote.content === "") {
-        return;
-      }
-
-      setTimeout(() => {
-        editor.commands.focus("end");
-      }, 100);
-    }
-  }, [selectedNote, editor, isTitleFocused]);
 
   const filteredNotes = notes.filter(
     (note) =>
@@ -200,11 +92,13 @@ export function Notepad() {
 
   const updateNoteContent = useCallback(
     (id: string, content: string) => {
+      setSaveStatus("saving");
       setNotes((prevNotes) =>
         prevNotes.map((note) =>
           note.id === id ? { ...note, content, updatedAt: Date.now() } : note
         )
       );
+      setTimeout(() => setSaveStatus("saved"), AUTOSAVE_DELAY);
     },
     [setNotes]
   );
@@ -220,17 +114,7 @@ export function Notepad() {
             break;
           case "s":
             e.preventDefault();
-            if (selectedNoteId && editor) {
-              // Get HTML with preserved whitespace
-              const html = editor.getHTML();
-              // Preserve any consecutive spaces that might be normalized by the browser
-              const preservedHtml = html.replace(/ {2,}/g, (match) =>
-                match
-                  .split("")
-                  .map(() => "&nbsp;")
-                  .join("")
-              );
-              updateNoteContent(selectedNoteId, preservedHtml);
+            if (selectedNoteId) {
               setSaveStatus("saved");
               toast({
                 title: "Note saved",
@@ -242,22 +126,13 @@ export function Notepad() {
             e.preventDefault();
             createNewNote();
             break;
-          case "z":
-            if (e.shiftKey) {
-              e.preventDefault();
-              editor?.commands.redo();
-            } else {
-              e.preventDefault();
-              editor?.commands.undo();
-            }
-            break;
         }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [editor, selectedNoteId, createNewNote, updateNoteContent]);
+  }, [selectedNoteId, createNewNote, updateNoteContent]);
 
   const deleteNote = (id: string) => {
     setNoteToDelete(id);
@@ -276,6 +151,12 @@ export function Notepad() {
         title: "Note deleted",
         description: "Your note has been deleted successfully.",
       });
+    }
+  };
+
+  const handleEditorChange = (content: string) => {
+    if (selectedNoteId) {
+      updateNoteContent(selectedNoteId, content);
     }
   };
 
@@ -402,214 +283,38 @@ export function Notepad() {
                 onFocus={() => setIsTitleFocused(true)}
                 onBlur={() => setIsTitleFocused(false)}
               />
-
-              <div className="flex flex-wrap items-center gap-1">
-                <Toggle
-                  size="sm"
-                  pressed={editor?.isActive("bold")}
-                  onPressedChange={() =>
-                    editor?.chain().focus().toggleBold().run()
-                  }
-                  className="data-[state=on]:bg-primary/20"
-                >
-                  <Bold className="h-3.5 w-3.5" />
-                </Toggle>
-                <Toggle
-                  size="sm"
-                  pressed={editor?.isActive("italic")}
-                  onPressedChange={() =>
-                    editor?.chain().focus().toggleItalic().run()
-                  }
-                  className="data-[state=on]:bg-primary/20"
-                >
-                  <Italic className="h-3.5 w-3.5" />
-                </Toggle>
-                <Toggle
-                  size="sm"
-                  pressed={editor?.isActive("heading", { level: 1 })}
-                  onPressedChange={() =>
-                    editor?.chain().focus().toggleHeading({ level: 1 }).run()
-                  }
-                  className="data-[state=on]:bg-primary/20"
-                >
-                  <Heading1 className="h-3.5 w-3.5" />
-                </Toggle>
-                <Toggle
-                  size="sm"
-                  pressed={editor?.isActive("heading", { level: 2 })}
-                  onPressedChange={() =>
-                    editor?.chain().focus().toggleHeading({ level: 2 }).run()
-                  }
-                  className="data-[state=on]:bg-primary/20"
-                >
-                  <Heading2 className="h-3.5 w-3.5" />
-                </Toggle>
-                <Toggle
-                  size="sm"
-                  pressed={editor?.isActive("bulletList")}
-                  onPressedChange={() =>
-                    editor?.chain().focus().toggleBulletList().run()
-                  }
-                  className="data-[state=on]:bg-primary/20"
-                >
-                  <List className="h-3.5 w-3.5" />
-                </Toggle>
-                <Toggle
-                  size="sm"
-                  pressed={editor?.isActive("orderedList")}
-                  onPressedChange={() =>
-                    editor?.chain().focus().toggleOrderedList().run()
-                  }
-                  className="data-[state=on]:bg-primary/20"
-                >
-                  <ListOrdered className="h-3.5 w-3.5" />
-                </Toggle>
-                <Toggle
-                  size="sm"
-                  pressed={editor?.isActive("blockquote")}
-                  onPressedChange={() =>
-                    editor?.chain().focus().toggleBlockquote().run()
-                  }
-                  className="data-[state=on]:bg-primary/20"
-                >
-                  <Quote className="h-3.5 w-3.5" />
-                </Toggle>
-                <Toggle
-                  size="sm"
-                  pressed={editor?.isActive("codeBlock")}
-                  onPressedChange={() =>
-                    editor?.chain().focus().toggleCodeBlock().run()
-                  }
-                  className="data-[state=on]:bg-primary/20"
-                >
-                  <Code className="h-3.5 w-3.5" />
-                </Toggle>
-                <div className="ml-auto flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">
-                    {saveStatus === "saving"
-                      ? "Saving..."
-                      : saveStatus === "saved"
-                      ? "Saved"
-                      : ""}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => editor?.commands.undo()}
-                      disabled={!editor?.can().undo()}
-                      title="Undo"
-                    >
-                      <Undo className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => editor?.commands.redo()}
-                      disabled={!editor?.can().redo()}
-                      title="Redo"
-                    >
-                      <Redo className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
             </div>
 
             <ScrollArea className="flex-1">
               <div ref={editorRef} className="h-full">
-                <EditorContent
-                  editor={editor}
-                  className="prose dark:prose-invert max-w-none editor-content h-full"
+                <RichTextEditor
+                  content={selectedNote.content}
+                  onChange={handleEditorChange}
+                  placeholder="Start typing..."
+                  autofocus={
+                    !isTitleFocused &&
+                    selectedNote.title !== "" &&
+                    selectedNote.content !== ""
+                  }
+                  className="bg-background border-none editor-content"
+                  saveStatus={saveStatus}
+                  onSave={() => {
+                    setSaveStatus("saved");
+                    toast({
+                      title: "Note saved",
+                      description: "Your note has been saved successfully.",
+                    });
+                  }}
                 />
               </div>
               <style jsx global>{`
+                /* Specific styles for the editor inside notepad */
+                .editor-content {
+                  height: 100%;
+                }
+
                 .editor-content .ProseMirror {
                   min-height: 150px;
-                  line-height: 1.6;
-                  padding: 1rem;
-                  outline: none !important;
-                  white-space: pre-wrap;
-                }
-
-                .editor-content .ProseMirror p {
-                  margin-bottom: 1rem;
-                  white-space: pre-wrap;
-                }
-
-                .editor-content .ProseMirror h1 {
-                  font-size: 1.75rem;
-                  margin-top: 1.5rem;
-                  margin-bottom: 1rem;
-                  font-weight: 600;
-                }
-
-                .editor-content .ProseMirror h2 {
-                  font-size: 1.5rem;
-                  margin-top: 1.25rem;
-                  margin-bottom: 0.75rem;
-                  font-weight: 600;
-                }
-
-                .editor-content .ProseMirror ul,
-                .editor-content .ProseMirror ol {
-                  padding-left: 1.5rem;
-                  margin-bottom: 1rem;
-                }
-
-                .editor-content .ProseMirror li {
-                  margin-bottom: 0.25rem;
-                }
-
-                .editor-content .ProseMirror blockquote {
-                  border-left: 3px solid var(--primary);
-                  padding-left: 1rem;
-                  margin: 1.5rem 0;
-                  font-style: italic;
-                  color: var(--muted-foreground);
-                }
-
-                .editor-content .ProseMirror code {
-                  background-color: var(--muted);
-                  color: var(--foreground);
-                  padding: 0.2em 0.4em;
-                  border-radius: 0.25rem;
-                  font-size: 0.875em;
-                }
-
-                .editor-content .ProseMirror pre {
-                  background: var(--muted);
-                  color: var(--foreground);
-                  font-family: "JetBrainsMono", monospace;
-                  padding: 0.75rem 1rem;
-                  border-radius: 0.5rem;
-                  margin: 1rem 0;
-                  overflow-x: auto;
-                }
-
-                .editor-content .ProseMirror pre code {
-                  color: inherit;
-                  padding: 0;
-                  background: none;
-                  font-size: 0.875rem;
-                }
-
-                .editor-content .is-editor-empty:first-child::before {
-                  content: attr(data-placeholder);
-                  float: left;
-                  color: var(--muted-foreground);
-                  pointer-events: none;
-                  height: 0;
-                }
-
-                .editor-content
-                  .ProseMirror
-                  p.is-editor-empty:first-child::before {
-                  color: var(--muted-foreground);
-                  content: attr(data-placeholder);
-                  float: left;
-                  height: 0;
-                  pointer-events: none;
                 }
               `}</style>
             </ScrollArea>

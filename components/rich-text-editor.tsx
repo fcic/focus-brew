@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useEffect } from "react";
 import { useEditor, EditorContent, Extension } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -37,6 +37,11 @@ interface RichTextEditorProps {
   placeholder?: string;
   autofocus?: boolean;
   className?: string;
+  showToolbar?: boolean;
+  saveStatus?: "saving" | "saved" | "idle";
+  onSave?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
 }
 
 interface ToolbarButtonProps {
@@ -82,7 +87,7 @@ const EDITOR_EXTENSIONS = [
     openOnClick: false,
     HTMLAttributes: {
       rel: "noopener noreferrer",
-      class: "text-blue-500 underline",
+      class: "text-primary underline",
     },
   }),
   Placeholder.configure({
@@ -109,7 +114,7 @@ function ToolbarButton({
           onClick={onClick}
           className={cn(
             "h-8 w-8 rounded-md",
-            isActive && "bg-zinc-800 text-zinc-200"
+            isActive && "bg-primary/20 text-primary"
           )}
         >
           {icon}
@@ -118,7 +123,7 @@ function ToolbarButton({
       <TooltipContent side="bottom" className="flex items-center gap-2">
         <span>{label}</span>
         {shortcut && (
-          <kbd className="px-1.5 py-0.5 text-xs bg-zinc-800 rounded-md">
+          <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded-md">
             {shortcut}
           </kbd>
         )}
@@ -128,7 +133,7 @@ function ToolbarButton({
 }
 
 function Divider() {
-  return <span className="w-px h-6 bg-zinc-800 mx-1" />;
+  return <span className="w-px h-6 bg-border mx-1" />;
 }
 
 export function RichTextEditor({
@@ -137,6 +142,11 @@ export function RichTextEditor({
   placeholder = "Write something...",
   autofocus = false,
   className,
+  showToolbar = true,
+  saveStatus,
+  onSave,
+  onUndo,
+  onRedo,
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -302,27 +312,55 @@ export function RichTextEditor({
     [editor, setLink, clearFormat]
   );
 
+  // Add keyboard shortcuts
+  useEffect(() => {
+    if (!editor) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey) {
+        if (e.key.toLowerCase() === "s" && onSave) {
+          e.preventDefault();
+          onSave();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [editor, onSave]);
+
   if (!editor) {
     return null;
   }
 
   return (
-    <div className={cn("flex flex-col h-full bg-zinc-950", className)}>
-      <TooltipProvider>
-        <div className="flex items-center flex-wrap gap-1 p-2 border-b border-zinc-800/50">
-          {toolbarButtons.map((button, index) =>
-            button ? (
-              <ToolbarButton key={button.label} {...button} />
-            ) : (
-              <Divider key={`divider-${index}`} />
-            )
-          )}
-        </div>
-      </TooltipProvider>
+    <div className={cn("flex flex-col h-full bg-background", className)}>
+      {showToolbar && (
+        <TooltipProvider>
+          <div className="flex items-center flex-wrap gap-1 p-2 border-b border-border">
+            {toolbarButtons.map((button, index) =>
+              button ? (
+                <ToolbarButton key={button.label} {...button} />
+              ) : (
+                <Divider key={`divider-${index}`} />
+              )
+            )}
+            {saveStatus && (
+              <div className="ml-auto text-sm text-muted-foreground">
+                {saveStatus === "saving"
+                  ? "Saving..."
+                  : saveStatus === "saved"
+                  ? "Saved"
+                  : ""}
+              </div>
+            )}
+          </div>
+        </TooltipProvider>
+      )}
 
       <EditorContent
         editor={editor}
-        className="flex-1 overflow-auto p-6 prose prose-sm max-w-none focus:outline-none editor-content"
+        className="flex-1 overflow-auto p-6 prose dark:prose-invert prose-sm max-w-none focus:outline-none editor-content"
       />
 
       <style jsx global>{`
@@ -330,7 +368,7 @@ export function RichTextEditor({
           min-height: 150px;
           line-height: 1.6;
           padding: 0.5rem 0;
-          color: rgb(244 244 245);
+          color: var(--foreground);
           white-space: pre-wrap;
         }
 
@@ -344,7 +382,7 @@ export function RichTextEditor({
           font-weight: 600;
           margin-top: 1rem;
           margin-bottom: 0.75rem;
-          color: rgb(244 244 245);
+          color: var(--foreground);
         }
 
         .editor-content .ProseMirror h2 {
@@ -352,7 +390,7 @@ export function RichTextEditor({
           font-weight: 600;
           margin-top: 0.75rem;
           margin-bottom: 0.5rem;
-          color: rgb(244 244 245);
+          color: var(--foreground);
         }
 
         .editor-content .ProseMirror ul,
@@ -366,21 +404,21 @@ export function RichTextEditor({
         }
 
         .editor-content .ProseMirror a {
-          color: rgb(59 130 246);
+          color: var(--primary);
           text-decoration: underline;
         }
 
         .editor-content .ProseMirror blockquote {
-          border-left: 2px solid rgb(82 82 91);
+          border-left: 2px solid var(--border);
           margin-left: 0;
           margin-right: 0;
           padding-left: 1rem;
-          color: rgb(161 161 170);
+          color: var(--muted-foreground);
         }
 
         .editor-content .ProseMirror code {
-          background-color: rgb(39 39 42);
-          color: rgb(244 244 245);
+          background-color: var(--muted);
+          color: var(--foreground);
           padding: 0.2em 0.4em;
           border-radius: 0.25rem;
           font-size: 0.875em;
@@ -389,7 +427,7 @@ export function RichTextEditor({
         .editor-content .is-editor-empty:first-child::before {
           content: attr(data-placeholder);
           float: left;
-          color: rgb(113 113 122);
+          color: var(--muted-foreground);
           pointer-events: none;
           height: 0;
         }
