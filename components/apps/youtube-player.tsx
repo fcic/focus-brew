@@ -342,7 +342,17 @@ export function YouTubePlayer() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return;
+      // Don't capture key events when focus is on input elements, editors, or contenteditable elements
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target instanceof HTMLElement &&
+          (e.target.contentEditable === "true" ||
+            e.target.closest(".ProseMirror") ||
+            e.target.closest(".editor-content")))
+      ) {
+        return;
+      }
 
       switch (e.code) {
         case "Space":
