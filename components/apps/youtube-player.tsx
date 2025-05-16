@@ -12,11 +12,37 @@ import {
   Trash2,
   Check,
   X,
+  MoreVertical,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+  DialogTitle,
+  DialogHeader,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
@@ -26,10 +52,9 @@ interface PlaylistItem {
   id: string;
   url: string;
   title: string;
-  addedAt: number; // Timestamp when added
+  addedAt: number;
 }
 
-// Constants
 const DEFAULT_VOLUME = 50;
 const DEFAULT_PLAYLIST: PlaylistItem[] = [
   {
@@ -40,15 +65,12 @@ const DEFAULT_PLAYLIST: PlaylistItem[] = [
   },
 ];
 
-// Utility functions
 const extractYouTubeId = (url: string): string | null => {
   if (!url) return null;
-
   const patterns = [
     /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/]+)/,
     /^[a-zA-Z0-9_-]{11}$/,
   ];
-
   for (const pattern of patterns) {
     const match = url.match(pattern);
     if (match) return match[1];
@@ -73,96 +95,13 @@ const isValidYouTubeId = (id: string | null | undefined) => {
   return typeof id === "string" && /^[a-zA-Z0-9_-]{11}$/.test(id);
 };
 
-// Components
-const PlaylistItemComponent: React.FC<{
-  item: PlaylistItem;
-  index: number;
-  isPlaying: boolean;
-  isEditing: boolean;
-  editingTitle: string;
-  onPlay: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  onSave: (title: string) => void;
-  onCancel: () => void;
-  onTitleChange: (title: string) => void;
-}> = ({
-  item,
-  index,
-  isPlaying,
-  isEditing,
-  editingTitle,
-  onPlay,
-  onEdit,
-  onDelete,
-  onSave,
-  onCancel,
-  onTitleChange,
-}) => (
-  <li
-    className={cn(
-      "flex items-center gap-2 rounded p-1 cursor-pointer group",
-      isPlaying && "bg-muted/50 font-bold"
-    )}
-    onClick={onPlay}
-    tabIndex={0}
-    onKeyDown={(e) => {
-      if (e.key === "Enter" || e.key === " ") onPlay();
-    }}
-    aria-label={`Play ${item.title}`}
-  >
-    <Button size="sm" variant="ghost" tabIndex={-1}>
-      {index + 1}
-    </Button>
-    <div className="flex items-center flex-1 min-w-0 justify-between">
-      {isEditing ? (
-        <div
-          className="flex items-center gap-1 flex-1 min-w-0"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Input
-            value={editingTitle}
-            onChange={(e) => onTitleChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") onSave(editingTitle);
-              if (e.key === "Escape") onCancel();
-            }}
-            className="flex-1"
-            autoFocus
-          />
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => onSave(editingTitle)}
-            tabIndex={-1}
-          >
-            <Check className="h-4 w-4" />
-          </Button>
-          <Button size="icon" variant="ghost" onClick={onCancel} tabIndex={-1}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      ) : (
-        <>
-          <span className="truncate flex-1">{item.title}</span>
-          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-            <Button size="icon" variant="ghost" onClick={onEdit} tabIndex={-1}>
-              <Edit2 className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={onDelete}
-              tabIndex={-1}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </>
-      )}
-    </div>
-  </li>
-);
+const LOCALSTORAGE_KEYS = {
+  playlist: "youtube-playlist",
+  currentIndex: "youtube-current-index",
+  volume: "youtube-volume",
+  muted: "youtube-muted",
+  playing: "youtube-playing",
+};
 
 export function YouTubePlayer() {
   const [playlist, setPlaylist] = useLocalStorage<PlaylistItem[]>(
@@ -173,71 +112,51 @@ export function YouTubePlayer() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [newUrl, setNewUrl] = useState("");
   const [editingTitle, setEditingTitle] = useState("");
-
-  // Player state
   const [playing, setPlaying] = useState(true);
   const [volume, setVolume] = useState(DEFAULT_VOLUME);
   const [muted, setMuted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showVideo, setShowVideo] = useState(true);
-
-  // Player ref
+  const [progress, setProgress] = useState(0);
+  const [showFullTitle, setShowFullTitle] = useState(false);
   const playerRef = useRef<ReactPlayer | null>(null);
 
-  // Handlers for player controls
-  const handlePlay = useCallback(() => {
-    setPlaying(true);
-  }, []);
-
-  const handlePause = useCallback(() => {
-    setPlaying(false);
-  }, []);
-
-  const handleTogglePlay = useCallback(() => {
-    setPlaying((prev) => !prev);
-  }, []);
-
-  const handleToggleMute = useCallback(() => {
-    setMuted((prev) => !prev);
-  }, []);
-
-  const handleToggleVideo = useCallback(() => {
-    setShowVideo((prev) => !prev);
-  }, []);
-
-  // Error handling
+  // --- Handlers ---
+  const handlePlay = useCallback(() => setPlaying(true), []);
+  const handlePause = useCallback(() => setPlaying(false), []);
+  const handleTogglePlay = useCallback(() => setPlaying((prev) => !prev), []);
+  const handleToggleMute = useCallback(() => setMuted((prev) => !prev), []);
+  const handleToggleVideo = useCallback(
+    () => setShowVideo((prev) => !prev),
+    []
+  );
   const handleError = useCallback((error: any) => {
-    console.error("Player error:", error);
     setError("An error occurred while playing the video. Please try again.");
     toast.error("Playback Error", {
       description:
         "An error occurred while playing the video. Please try again.",
     });
   }, []);
-
   const handleReady = useCallback(() => {
     setLoading(false);
     setError(null);
   }, []);
-
-  const handleBufferEnd = useCallback(() => {
-    setLoading(false);
+  const handleBufferEnd = useCallback(() => setLoading(false), []);
+  const handleBufferStart = useCallback(() => setLoading(true), []);
+  const updateCurrentIndex = useCallback((index: number) => {
+    setCurrentIndex(index);
+    localStorage.setItem("youtube-current-index", index.toString());
+    window.dispatchEvent(new Event("youtube-playlist-updated"));
   }, []);
-
-  const handleBufferStart = useCallback(() => {
-    setLoading(true);
-  }, []);
-
-  // Playlist handlers
   const handlePrev = useCallback(() => {
-    setCurrentIndex((idx) => (idx - 1 + playlist.length) % playlist.length);
-  }, [playlist.length]);
-
+    const newIndex = (currentIndex - 1 + playlist.length) % playlist.length;
+    updateCurrentIndex(newIndex);
+  }, [playlist.length, currentIndex, updateCurrentIndex]);
   const handleNext = useCallback(() => {
-    setCurrentIndex((idx) => (idx + 1) % playlist.length);
-  }, [playlist.length]);
-
+    const newIndex = (currentIndex + 1) % playlist.length;
+    updateCurrentIndex(newIndex);
+  }, [playlist.length, currentIndex, updateCurrentIndex]);
   const handleAdd = useCallback(() => {
     const id = extractYouTubeId(newUrl);
     if (!id) {
@@ -246,8 +165,6 @@ export function YouTubePlayer() {
       });
       return;
     }
-
-    // Duplicate check
     if (playlist.some((item) => item.id === id)) {
       toast("This video is already in your playlist!", {
         description: "You cannot add the same video more than once.",
@@ -256,10 +173,7 @@ export function YouTubePlayer() {
       setNewUrl("");
       return;
     }
-
     setLoading(true);
-
-    // Validate video before adding
     fetch(
       `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json`
     )
@@ -270,12 +184,7 @@ export function YouTubePlayer() {
       .then((data) => {
         setPlaylist((prev) => [
           ...prev,
-          {
-            id,
-            url: newUrl,
-            title: data.title,
-            addedAt: Date.now(),
-          },
+          { id, url: newUrl, title: data.title, addedAt: Date.now() },
         ]);
         setNewUrl("");
         toast.success("Video added", {
@@ -283,15 +192,10 @@ export function YouTubePlayer() {
         });
       })
       .catch((error) => {
-        toast.error("Error adding video", {
-          description: error.message,
-        });
+        toast.error("Error adding video", { description: error.message });
       })
-      .finally(() => {
-        setLoading(false);
-      });
+      .finally(() => setLoading(false));
   }, [newUrl, playlist, setPlaylist]);
-
   const handleRemove = useCallback(
     (idx: number) => {
       setPlaylist((prev) => prev.filter((_, i) => i !== idx));
@@ -301,7 +205,6 @@ export function YouTubePlayer() {
     },
     [currentIndex, playlist.length, setPlaylist]
   );
-
   const handleEditTitle = useCallback(
     (idx: number) => {
       setEditingIndex(idx);
@@ -309,7 +212,6 @@ export function YouTubePlayer() {
     },
     [playlist]
   );
-
   const saveEditedTitle = useCallback(() => {
     if (editingIndex === null) return;
     setPlaylist((prev) =>
@@ -321,7 +223,6 @@ export function YouTubePlayer() {
     );
     setEditingIndex(null);
   }, [editingIndex, editingTitle, setPlaylist]);
-
   const handleResetAll = useCallback(() => {
     setPlaylist(DEFAULT_PLAYLIST);
     setCurrentIndex(0);
@@ -339,10 +240,9 @@ export function YouTubePlayer() {
     });
   }, [setPlaylist]);
 
-  // Keyboard shortcuts
+  // --- Keyboard shortcuts ---
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Don't capture key events when focus is on input elements, editors, or contenteditable elements
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
@@ -353,7 +253,6 @@ export function YouTubePlayer() {
       ) {
         return;
       }
-
       switch (e.code) {
         case "Space":
           e.preventDefault();
@@ -373,224 +272,457 @@ export function YouTubePlayer() {
           break;
       }
     };
-
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
   }, [handleNext, handlePrev]);
 
-  // Video URL
-  const videoUrl = playlist[currentIndex]?.id
+  // --- Validity and sync ---
+  useEffect(() => {
+    if (playlist.length === 0) {
+      if (currentIndex !== 0) setCurrentIndex(0);
+      return;
+    }
+    if (currentIndex < 0 || currentIndex >= playlist.length) {
+      setCurrentIndex(0);
+    }
+  }, [playlist, currentIndex]);
+
+  const hasValidVideo =
+    playlist.length > 0 &&
+    currentIndex >= 0 &&
+    currentIndex < playlist.length &&
+    playlist[currentIndex]?.id;
+  const videoUrl = hasValidVideo
     ? `https://www.youtube.com/watch?v=${playlist[currentIndex].id}`
     : "";
 
+  useEffect(() => {
+    localStorage.setItem("youtube-playlist", JSON.stringify(playlist));
+    window.dispatchEvent(new Event("youtube-playlist-updated"));
+  }, [playlist]);
+  useEffect(() => {
+    localStorage.setItem("youtube-current-index", currentIndex.toString());
+    window.dispatchEvent(new Event("youtube-playlist-updated"));
+  }, [currentIndex]);
+  useEffect(() => {
+    const handleMiniplayerChange = () => {
+      const storedIndex = localStorage.getItem("youtube-current-index");
+      if (storedIndex) {
+        const index = parseInt(storedIndex, 10);
+        if (!isNaN(index) && index >= 0 && index < playlist.length) {
+          setCurrentIndex(index);
+        }
+      }
+    };
+    window.addEventListener(
+      "youtube-miniplayer-change",
+      handleMiniplayerChange
+    );
+    return () => {
+      window.removeEventListener(
+        "youtube-miniplayer-change",
+        handleMiniplayerChange
+      );
+    };
+  }, [playlist.length]);
+
+  // --- Initialization from localStorage ---
+  useEffect(() => {
+    // Playlist and index are already handled
+    const storedVolume = localStorage.getItem(LOCALSTORAGE_KEYS.volume);
+    if (storedVolume !== null) setVolume(Number(storedVolume));
+    const storedMuted = localStorage.getItem(LOCALSTORAGE_KEYS.muted);
+    if (storedMuted !== null) setMuted(storedMuted === "true");
+    const storedPlaying = localStorage.getItem(LOCALSTORAGE_KEYS.playing);
+    if (storedPlaying !== null) setPlaying(storedPlaying === "true");
+  }, []);
+
+  // --- Sync to localStorage and dispatch event on change ---
+  useEffect(() => {
+    localStorage.setItem(LOCALSTORAGE_KEYS.playlist, JSON.stringify(playlist));
+    window.dispatchEvent(new Event("youtube-state-updated"));
+  }, [playlist]);
+  useEffect(() => {
+    localStorage.setItem(
+      LOCALSTORAGE_KEYS.currentIndex,
+      currentIndex.toString()
+    );
+    window.dispatchEvent(new Event("youtube-state-updated"));
+  }, [currentIndex]);
+  useEffect(() => {
+    localStorage.setItem(LOCALSTORAGE_KEYS.volume, volume.toString());
+    window.dispatchEvent(new Event("youtube-state-updated"));
+  }, [volume]);
+  useEffect(() => {
+    localStorage.setItem(LOCALSTORAGE_KEYS.muted, muted.toString());
+    window.dispatchEvent(new Event("youtube-state-updated"));
+  }, [muted]);
+  useEffect(() => {
+    localStorage.setItem(LOCALSTORAGE_KEYS.playing, playing.toString());
+    window.dispatchEvent(new Event("youtube-state-updated"));
+  }, [playing]);
+
+  // --- Listen for state updates from miniplayer ---
+  useEffect(() => {
+    const handleStateUpdate = () => {
+      // Only update if not already in sync
+      const storedVolume = localStorage.getItem(LOCALSTORAGE_KEYS.volume);
+      if (storedVolume !== null && Number(storedVolume) !== volume)
+        setVolume(Number(storedVolume));
+      const storedMuted = localStorage.getItem(LOCALSTORAGE_KEYS.muted);
+      if (storedMuted !== null && (storedMuted === "true") !== muted)
+        setMuted(storedMuted === "true");
+      const storedPlaying = localStorage.getItem(LOCALSTORAGE_KEYS.playing);
+      if (storedPlaying !== null && (storedPlaying === "true") !== playing)
+        setPlaying(storedPlaying === "true");
+      // Playlist and index
+      const storedIndex = localStorage.getItem(LOCALSTORAGE_KEYS.currentIndex);
+      if (storedIndex && Number(storedIndex) !== currentIndex)
+        setCurrentIndex(Number(storedIndex));
+      const storedPlaylist = localStorage.getItem(LOCALSTORAGE_KEYS.playlist);
+      if (storedPlaylist) {
+        try {
+          const parsed = JSON.parse(storedPlaylist);
+          if (
+            Array.isArray(parsed) &&
+            JSON.stringify(parsed) !== JSON.stringify(playlist)
+          ) {
+            setPlaylist(parsed);
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener("youtube-state-updated", handleStateUpdate);
+    return () =>
+      window.removeEventListener("youtube-state-updated", handleStateUpdate);
+  }, [volume, muted, playing, currentIndex, playlist]);
+
+  // --- UI ---
   return (
-    <Card className="max-w-4xl mx-auto bg-background/90 backdrop-blur-sm border-border/50 p-4 space-y-4 h-full flex flex-col">
-      <ScrollArea className="flex-1 w-full">
-        <div className="space-y-4 pr-4">
-          {/* YouTube Player */}
-          {playlist[currentIndex] &&
-            isValidYouTubeId(playlist[currentIndex].id) && (
-              <div className="relative rounded-lg overflow-hidden bg-black">
-                <div
-                  className={cn(
-                    "relative w-full aspect-video",
-                    !showVideo && "hidden"
-                  )}
-                >
-                  <ReactPlayer
-                    ref={playerRef}
-                    url={videoUrl}
-                    width="100%"
-                    height="100%"
-                    playing={playing}
-                    volume={volume / 100}
-                    muted={muted}
-                    onPlay={handlePlay}
-                    onPause={handlePause}
-                    onError={handleError}
-                    onReady={handleReady}
-                    onBuffer={handleBufferStart}
-                    onBufferEnd={handleBufferEnd}
-                    onEnded={handleNext}
-                    controls={true}
-                    config={
-                      {
-                        youtube: {
-                          playerVars: {
-                            modestbranding: 1,
-                            rel: 0,
-                            iv_load_policy: 3,
-                          },
-                        },
-                      } as any
-                    }
-                    className="absolute inset-0"
-                  />
-                </div>
-
-                {/* Overlay for errors and loading */}
-                {(error || loading) && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-                    {error ? (
-                      <div className="text-destructive text-center p-4">
-                        <span className="block text-lg mb-2">⚠️</span>
-                        {error}
-                      </div>
-                    ) : (
-                      <div className="text-muted-foreground text-center">
-                        <div className="animate-spin w-8 h-8 border-2 border-muted border-t-foreground rounded-full mb-2" />
-                        <span className="text-sm">Loading...</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-          {/* Navigation Controls */}
-          <div className="bg-muted/50 p-4 rounded-lg border border-border/50">
-            <div className="flex items-center justify-between">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={handleToggleVideo}
-                className="hover:bg-muted"
-              >
-                <Video className="w-4 h-4 mr-2" />
-                {showVideo ? "Hide" : "Show"} Video
-              </Button>
-
-              {/* Center Controls for Next/Previous */}
-              <div className="flex items-center gap-2">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={handlePrev}
-                  disabled={playlist.length < 2 || loading}
-                  className="hover:bg-muted"
-                >
-                  <SkipBack className="w-4 h-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="default"
-                  onClick={handleTogglePlay}
-                  disabled={!playlist[currentIndex] || loading}
-                  className="bg-foreground hover:bg-foreground/90 text-background"
-                >
-                  {playing ? (
-                    <Pause className="w-5 h-5" />
-                  ) : (
-                    <Play className="w-5 h-5 ml-0.5" />
-                  )}
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={handleNext}
-                  disabled={playlist.length < 2 || loading}
-                  className="hover:bg-muted"
-                >
-                  <SkipForward className="w-4 h-4" />
-                </Button>
-              </div>
-
-              <div className="text-sm text-muted-foreground">
-                {playlist[currentIndex]?.title ? (
-                  <div className="font-medium truncate max-w-[200px]">
-                    {playlist[currentIndex].title}
-                  </div>
-                ) : (
-                  "No track selected"
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Playlist Section */}
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-zinc-200">Playlist</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleResetAll}
-                className="text-xs hover:bg-zinc-800"
-              >
-                Reset All
-              </Button>
-            </div>
-
-            {/* URL Input */}
-            <div className="flex gap-2 mb-4">
-              <Input
-                placeholder="Enter YouTube URL or video ID"
-                value={newUrl}
-                onChange={(e) => setNewUrl(e.target.value)}
-                onKeyDown={(e) => {
-                  if (
-                    e.key === "Enter" &&
-                    !loading &&
-                    extractYouTubeId(newUrl)
-                  ) {
-                    handleAdd();
-                  }
+    <TooltipProvider>
+      <Card className="w-full max-w-2xl mx-auto bg-background/90 backdrop-blur-sm border-border/50 p-4 space-y-4 h-full flex flex-col">
+        {/* Video Area */}
+        <div className="relative rounded-lg overflow-hidden bg-black aspect-video mb-4 w-full">
+          {hasValidVideo ? (
+            <>
+              <ReactPlayer
+                ref={playerRef}
+                url={videoUrl}
+                width="100%"
+                height="100%"
+                playing={playing}
+                volume={volume / 100}
+                muted={muted}
+                onPlay={handlePlay}
+                onPause={handlePause}
+                onError={handleError}
+                onReady={handleReady}
+                onBuffer={handleBufferStart}
+                onBufferEnd={handleBufferEnd}
+                onEnded={handleNext}
+                controls={true}
+                config={
+                  {
+                    youtube: {
+                      playerVars: {
+                        modestbranding: 1,
+                        rel: 0,
+                        iv_load_policy: 3,
+                      },
+                    },
+                  } as any
+                }
+                className="absolute inset-0"
+                style={{
+                  opacity: showVideo ? 1 : 0,
+                  pointerEvents: showVideo ? "auto" : "none",
                 }}
-                className="flex-1 min-w-0 bg-muted/50 border-border/50"
-                disabled={loading}
+                onProgress={({ played }) => setProgress(played)}
               />
-              <Button
-                onClick={handleAdd}
-                disabled={!extractYouTubeId(newUrl) || loading}
-                variant="default"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin w-4 h-4 border-2 border-muted border-t-foreground rounded-full mr-2" />
-                    Adding...
-                  </>
-                ) : (
-                  "Add"
-                )}
-              </Button>
+              {/* Progress bar */}
+              <div className="absolute bottom-0 left-0 w-full h-1 bg-muted-foreground/20">
+                <div
+                  className="h-full bg-primary transition-all duration-200"
+                  style={{ width: `${progress * 100}%` }}
+                />
+              </div>
+              {/* Overlay for errors and loading */}
+              {(error || loading) && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+                  {error ? (
+                    <div className="text-destructive text-center p-4">
+                      <span className="block text-lg mb-2">⚠️</span>
+                      {error}
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground text-center">
+                      <div className="animate-spin w-8 h-8 border-2 border-muted border-t-foreground rounded-full mb-2" />
+                      <span className="text-sm">Loading...</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Overlay for hidden video */}
+              {!showVideo && !error && !loading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/80 text-muted-foreground select-none z-10">
+                  Video hidden
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-full w-full bg-muted text-muted-foreground">
+              No videos in your playlist. Add a YouTube video to get started.
             </div>
-
-            {/* Playlist */}
-            <ScrollArea className="flex-1 w-full rounded-md border border-border/50 bg-muted/50">
-              <ul className="space-y-1 p-2">
-                {playlist.map((item, idx) => (
-                  <PlaylistItemComponent
-                    key={item.id}
-                    item={item}
-                    index={idx}
-                    isPlaying={idx === currentIndex}
-                    isEditing={editingIndex === idx}
-                    editingTitle={editingTitle}
-                    onPlay={() => {
-                      if (loading) return;
-                      setCurrentIndex(idx);
-                      setPlaying(true);
-                    }}
-                    onEdit={() => handleEditTitle(idx)}
-                    onDelete={() => handleRemove(idx)}
-                    onSave={saveEditedTitle}
-                    onCancel={() => setEditingIndex(null)}
-                    onTitleChange={setEditingTitle}
-                  />
-                ))}
-              </ul>
-            </ScrollArea>
-
-            {/* Keyboard Shortcuts */}
-            <div className="mt-4 text-xs text-muted-foreground grid grid-cols-2 sm:grid-cols-3 gap-2">
-              <div>Space: Play/Pause</div>
-              <div>Alt+←/→: Previous/Next</div>
-              <div>M: Mute</div>
-              <div>V: Toggle Video</div>
-            </div>
-          </div>
+          )}
         </div>
-      </ScrollArea>
-    </Card>
+        {/* Controls Area */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-2 w-full">
+          {/* Main Controls */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={handlePrev}
+              disabled={playlist.length < 2 || loading}
+              aria-label="Previous video"
+            >
+              <SkipBack className="w-4 h-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="default"
+              onClick={handleTogglePlay}
+              disabled={!playlist[currentIndex] || loading}
+              className="bg-foreground hover:bg-foreground/90 text-background"
+              aria-label={playing ? "Pause" : "Play"}
+            >
+              {playing ? (
+                <Pause className="w-5 h-5" />
+              ) : (
+                <Play className="w-5 h-5 ml-0.5" />
+              )}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={handleNext}
+              disabled={playlist.length < 2 || loading}
+              aria-label="Next video"
+            >
+              <SkipForward className="w-4 h-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={handleToggleMute}
+              aria-label={muted ? "Unmute" : "Mute"}
+            >
+              {muted ? (
+                <VolumeX className="w-4 h-4" />
+              ) : (
+                <Volume2 className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
+          {/* Title Area */}
+          <div className="flex-1 min-w-0 flex items-center gap-2">
+            {playlist[currentIndex]?.title ? (
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div
+                      className="font-medium truncate overflow-hidden whitespace-nowrap max-w-[300px] cursor-pointer"
+                      onClick={() => setShowFullTitle(true)}
+                      tabIndex={0}
+                      role="button"
+                      aria-label="Show full title"
+                    >
+                      {playlist[currentIndex].title}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {playlist[currentIndex].title}
+                  </TooltipContent>
+                </Tooltip>
+                <Dialog open={showFullTitle} onOpenChange={setShowFullTitle}>
+                  <DialogTrigger asChild>
+                    <span className="sr-only">Show full title</span>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogTitle className="sr-only">
+                      Full Video Title
+                    </DialogTitle>
+                    <div className="text-lg font-semibold break-words">
+                      {playlist[currentIndex].title}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </>
+            ) : (
+              <span className="text-muted-foreground">No track selected</span>
+            )}
+          </div>
+          {/* Toggle Video Button */}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleToggleVideo}
+            className="hover:bg-muted flex-shrink-0"
+          >
+            {showVideo ? (
+              <Video className="w-4 h-4 mr-2" />
+            ) : (
+              <X className="w-4 h-4 mr-2" />
+            )}
+            {showVideo ? "Hide" : "Show"} Video
+          </Button>
+        </div>
+        <Separator className="my-2" />
+        {/* Playlist Area */}
+        <div className="flex-1 flex flex-col min-h-0 w-full">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold text-zinc-200">Playlist</h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleResetAll}
+              className="text-xs hover:bg-zinc-800"
+            >
+              Reset All
+            </Button>
+          </div>
+          {/* URL Input */}
+          <div className="flex gap-2 mb-4">
+            <Input
+              placeholder="Enter YouTube URL or video ID"
+              value={newUrl}
+              onChange={(e) => setNewUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !loading && extractYouTubeId(newUrl)) {
+                  handleAdd();
+                }
+              }}
+              className="flex-1 min-w-0 bg-muted/50 border-border/50"
+              disabled={loading}
+            />
+            <Button
+              onClick={handleAdd}
+              disabled={!extractYouTubeId(newUrl) || loading}
+              variant="default"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin w-4 h-4 border-2 border-muted border-t-foreground rounded-full mr-2" />
+                  Adding...
+                </>
+              ) : (
+                "Add"
+              )}
+            </Button>
+          </div>
+          {/* Playlist */}
+          <ScrollArea className="flex-1 w-full rounded-md border border-border/50 bg-muted/50">
+            <ul className="space-y-1 p-2">
+              {playlist.map((item, idx) => (
+                <li
+                  key={item.id}
+                  className={cn(
+                    "flex items-center gap-2 rounded p-1 group",
+                    idx === currentIndex &&
+                      "bg-primary/10 border-l-4 border-primary font-bold"
+                  )}
+                  tabIndex={0}
+                  aria-label={`Play ${item.title}`}
+                  onClick={() => updateCurrentIndex(idx)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ")
+                      updateCurrentIndex(idx);
+                  }}
+                >
+                  <span className="text-xs text-muted-foreground w-6 text-center">
+                    {idx + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="truncate overflow-hidden whitespace-nowrap max-w-[180px] block cursor-pointer">
+                          {item.title}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>{item.title}</TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        aria-label="More actions"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEditTitle(idx)}>
+                        <Edit2 className="h-4 w-4 mr-2" /> Edit Title
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleRemove(idx)}>
+                        <Trash2 className="h-4 w-4 mr-2" /> Remove
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  {editingIndex === idx && (
+                    <Dialog
+                      open={true}
+                      onOpenChange={() => setEditingIndex(null)}
+                    >
+                      <DialogContent className="max-w-sm rounded-xl p-6">
+                        <DialogHeader>
+                          <DialogTitle>Edit Playlist Item Title</DialogTitle>
+                          <DialogDescription>
+                            Update the title for this playlist item.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex flex-col gap-3 mt-2">
+                          <Input
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") saveEditedTitle();
+                              if (e.key === "Escape") setEditingIndex(null);
+                            }}
+                            className="flex-1"
+                            autoFocus
+                          />
+                          <div className="flex gap-2 justify-end mt-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditingIndex(null)}
+                              type="button"
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={saveEditedTitle}
+                              type="button"
+                            >
+                              Save
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </ScrollArea>
+        </div>
+      </Card>
+    </TooltipProvider>
   );
 }

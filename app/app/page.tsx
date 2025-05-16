@@ -14,12 +14,13 @@ import { AnimatePresence } from "framer-motion";
 import { Desktop } from "@/components/desktop";
 import { AppWindow } from "@/components/app-window";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { type SettingsTab } from "@/lib/constants";
+import { type SettingsTab, type AppId } from "@/lib/constants";
 import { Bootloader } from "@/components/boot/Bootloader";
 import { stopAllAmbientSounds } from "@/components/apps/ambient-sounds";
 import { useTheme } from "next-themes";
 import { LoadingFallback } from "@/components/ui/loading-fallback";
 import { CommandPalette } from "@/components/command-palette";
+import { YouTubeMiniPlayer } from "@/components/youtube-miniplayer";
 
 // Lazy load components
 const TodoApp = lazy(() =>
@@ -62,7 +63,7 @@ const HabitTracker = lazy(() =>
 const DEFAULT_WINDOW_SIZES = {
   default: { width: 700, height: 500 },
   kanban: { width: 1000, height: 600 },
-  youtube: { width: 580, height: 850 },
+  youtube: { width: 580, height: 700 },
   ambient: { width: 1100, height: 1000 },
   pomodoro: { width: 700, height: 550 },
   notepad: { width: 800, height: 650 },
@@ -79,9 +80,11 @@ const APP_TITLES = {
   youtube: "YouTube Player",
   settings: "Settings",
   habit: "Habit Tracker",
+  pwa: "Install App",
 } as const;
 
-type AppId = keyof typeof APP_TITLES;
+// A mapping from AppId to APP_TITLES keys for safety
+type AppTitleKey = keyof typeof APP_TITLES;
 
 interface WindowState extends Omit<AppWindowType, "id"> {
   id: AppId;
@@ -121,46 +124,48 @@ function useWindowManager() {
   );
 
   const openApp = useCallback(
-    (appId: AppId | string) => {
-      const validAppId = appId as AppId;
+    (appId: AppId) => {
       const currentWindows = windowsRef.current;
 
       // If the window already exists and is minimized, restore it and bring it to front
-      if (minimizedWindows.has(validAppId)) {
+      if (minimizedWindows.has(appId)) {
         setMinimizedWindows((prev) => {
           const next = new Set(prev);
-          next.delete(validAppId);
+          next.delete(appId);
           return next;
         });
 
         // Make sure the window is brought to front after being restored
         setTimeout(() => {
-          bringToFront(validAppId);
+          bringToFront(appId);
         }, 10);
 
         return;
       }
 
       // If the window already exists, just bring it to front
-      if (currentWindows.some((w) => w.id === validAppId)) {
-        bringToFront(validAppId);
+      if (currentWindows.some((w) => w.id === appId)) {
+        bringToFront(appId);
         return;
       }
 
-      // If it doesn't exist, create a new window
-      const zIndex = currentWindows.length;
-      const defaultSize =
-        DEFAULT_WINDOW_SIZES[validAppId as keyof typeof DEFAULT_WINDOW_SIZES] ||
-        DEFAULT_WINDOW_SIZES.default;
+      // If it doesn't exist and is a valid app with a title, create a new window
+      if (appId in APP_TITLES) {
+        const zIndex = currentWindows.length;
+        const titleKey = appId as AppTitleKey;
+        const defaultSize =
+          DEFAULT_WINDOW_SIZES[titleKey as keyof typeof DEFAULT_WINDOW_SIZES] ||
+          DEFAULT_WINDOW_SIZES.default;
 
-      setWindows((prev) => [
-        ...prev,
-        {
-          id: validAppId,
-          position: { x: 50 + zIndex * 20, y: 50 + zIndex * 20 },
-          size: defaultSize,
-        },
-      ]);
+        setWindows((prev) => [
+          ...prev,
+          {
+            id: appId,
+            position: { x: 50 + zIndex * 20, y: 50 + zIndex * 20 },
+            size: defaultSize,
+          },
+        ]);
+      }
     },
     [setWindows, minimizedWindows, bringToFront]
   );
@@ -216,6 +221,7 @@ function useWindowManager() {
     resetAllWindows,
     minimizeApp,
     minimizedWindows,
+    setMinimizedWindows,
   };
 }
 
@@ -238,6 +244,7 @@ export default function AppPage() {
     resetAllWindows,
     minimizeApp,
     minimizedWindows,
+    setMinimizedWindows,
   } = useWindowManager();
 
   // Create handlers for the openApp and openSettingsTab functions
@@ -265,7 +272,7 @@ export default function AppPage() {
 
   // Memoize app content for better performance
   const getAppContent = useCallback(
-    (appId: AppId) => {
+    (appId: AppTitleKey) => {
       switch (appId) {
         case "todo":
           return (
@@ -361,23 +368,28 @@ export default function AppPage() {
   // Memoize window elements for better performance
   const windowElements = useMemo(
     () =>
-      windows.map((win, i) => (
-        <AppWindow
-          key={win.id}
-          id={win.id}
-          title={APP_TITLES[win.id]}
-          onClose={createCloseHandler(win.id)}
-          onFocus={createFocusHandler(win.id)}
-          onMinimize={() => minimizeApp(win.id)}
-          isMinimized={minimizedWindows.has(win.id)}
-          zIndex={i}
-          position={win.position}
-          size={win.size}
-          onUpdate={createUpdateHandler(win.id)}
-        >
-          {getAppContent(win.id)}
-        </AppWindow>
-      )),
+      windows.map((win, i) => {
+        // Check if the app has a title
+        const appTitle = APP_TITLES[win.id as AppTitleKey] || win.id;
+
+        return (
+          <AppWindow
+            key={win.id}
+            id={win.id}
+            title={appTitle}
+            onClose={createCloseHandler(win.id)}
+            onFocus={createFocusHandler(win.id)}
+            onMinimize={() => minimizeApp(win.id)}
+            isMinimized={minimizedWindows.has(win.id)}
+            zIndex={i}
+            position={win.position}
+            size={win.size}
+            onUpdate={createUpdateHandler(win.id)}
+          >
+            {getAppContent(win.id as AppTitleKey)}
+          </AppWindow>
+        );
+      }),
     [
       windows,
       getAppContent,
@@ -431,7 +443,40 @@ export default function AppPage() {
       </Suspense>
 
       <Desktop>
-        <AnimatePresence>{windowElements}</AnimatePresence>
+        <AnimatePresence>
+          {windowElements}
+
+          {/* Minimized YouTube player */}
+          {minimizedWindows.has("youtube") && (
+            <Suspense fallback={null}>
+              <YouTubeMiniPlayer
+                onMaximize={() => {
+                  // Check if app is already open
+                  const isYoutubeOpen = windows.some((w) => w.id === "youtube");
+
+                  // If not open, open it first
+                  if (!isYoutubeOpen) {
+                    openApp("youtube");
+                  }
+
+                  // Then un-minimize the app and bring to front
+                  setTimeout(() => {
+                    // Remove from minimized windows
+                    setMinimizedWindows((prev) => {
+                      const next = new Set(prev);
+                      next.delete("youtube");
+                      return next;
+                    });
+
+                    // Bring to front
+                    bringToFront("youtube");
+                  }, 100);
+                }}
+                onClose={() => closeApp("youtube")}
+              />
+            </Suspense>
+          )}
+        </AnimatePresence>
       </Desktop>
 
       <Suspense>

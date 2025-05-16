@@ -1,7 +1,12 @@
 "use client";
 
-import type React from "react";
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -222,7 +227,7 @@ const getEventCoordinates = (
   };
 };
 
-export function AppWindow({
+function AppWindow({
   id,
   title,
   children,
@@ -783,3 +788,6 @@ export function AppWindow({
     </>
   );
 }
+
+const MemoizedAppWindow = React.memo(AppWindow);
+export { MemoizedAppWindow as AppWindow };

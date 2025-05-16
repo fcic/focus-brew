@@ -134,7 +134,7 @@ export function ExchangeRate() {
 
     try {
       // Try primary endpoint
-      let res = await fetch(API_ENDPOINTS.rates(base));
+      const res = await fetch(API_ENDPOINTS.rates(base));
       if (!res.ok) throw new Error("Primary API failed");
 
       const data: ExchangeData = await res.json();
@@ -156,7 +156,7 @@ export function ExchangeRate() {
     } catch (primaryError) {
       try {
         // Try fallback endpoint
-        let res = await fetch(API_ENDPOINTS.fallbackRates(base));
+        const res = await fetch(API_ENDPOINTS.fallbackRates(base));
         if (!res.ok) throw new Error("Fallback API failed");
 
         const data: ExchangeData = await res.json();

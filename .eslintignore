@@ -1,0 +1,18 @@
+# Directories
+node_modules/
+.next/
+public/
+dist/
+build/
+out/
+coverage/
+
+# Specific files
+*.min.js
+*.d.ts
+next-env.d.ts
+
+# Configuration files
+next.config.mjs
+postcss.config.mjs
+tailwind.config.ts
