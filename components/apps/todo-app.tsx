@@ -6,6 +6,7 @@ import { useState, useRef, useEffect, useCallback, memo, useMemo } from "react";
 import {
   Plus,
   Trash2,
+  Pencil,
   CheckCircle2,
   Circle,
   X,
@@ -56,6 +57,7 @@ interface TodoItemProps {
   todo: Todo;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
+  onUpdate: (id: string, newText: string) => void;
   index: number;
 }
 
@@ -89,115 +91,183 @@ const formatDate = (dateString: string) => {
   }
 };
 
-const TodoItem = memo(({ todo, onToggle, onDelete, index }: TodoItemProps) => {
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+const TodoItem = memo(
+  ({ todo, onToggle, onDelete, index, onUpdate }: TodoItemProps) => {
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isEditTask, setIsEditTask] = useState(false);
+    const editInputRef = useRef<HTMLInputElement>(null);
 
-  const handleKeyDown = (e: React.KeyboardEvent, action: () => void) => {
-    if (e.key === "Enter" || e.key === " ") {
+    useEffect(() => {
+      if (isEditTask && editInputRef.current) {
+        editInputRef.current.focus();
+      }
+    }, [isEditTask]);
+
+    const handleKeyDown = (e: React.KeyboardEvent, action: () => void) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        action();
+      }
+    };
+
+    const handleEditInputKeyDown = (
+      e: React.KeyboardEvent<HTMLInputElement>
+    ) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        setIsEditTask(false);
+      }
+    };
+
+    const handleEditClick = (e: React.MouseEvent) => {
       e.preventDefault();
-      action();
-    }
-  };
+      setIsEditTask(!isEditTask);
+    };
+    const handleEditTask = (e: React.ChangeEvent<HTMLInputElement>) => {
+      onUpdate(todo.id, e.target.value);
+    };
+    const saveEditedTask = () => {
+      setIsEditTask(!isEditTask);
+    };
 
-  const handleDeleteClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsDeleteDialogOpen(true);
-  };
+    const handleDeleteClick = (e: React.MouseEvent) => {
+      e.preventDefault();
+      setIsDeleteDialogOpen(true);
+    };
 
-  const handleConfirmDelete = () => {
-    onDelete(todo.id);
-    setIsDeleteDialogOpen(false);
-  };
+    const handleConfirmDelete = () => {
+      onDelete(todo.id);
+      setIsDeleteDialogOpen(false);
+    };
 
-  return (
-    <>
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-        transition={{
-          ...springAnimation,
-          delay: index * 0.05,
-        }}
-        className={cn(
-          "group flex items-start p-3 border-b border-zinc-100 dark:border-zinc-800 last:border-0",
-          todo.completed && "bg-zinc-50 dark:bg-zinc-900/30"
-        )}
-      >
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 rounded-full p-0 mt-0.5 flex-shrink-0"
-          onClick={() => onToggle(todo.id)}
-          onKeyDown={(e) => handleKeyDown(e, () => onToggle(todo.id))}
-          aria-label={
-            todo.completed ? "Mark as incomplete" : "Mark as complete"
-          }
-          aria-pressed={todo.completed}
-        >
-          {todo.completed ? (
-            <CheckCircle2 className="h-5 w-5 text-emerald-500 transition-colors" />
-          ) : (
-            <Circle className="h-5 w-5 text-zinc-300 dark:text-zinc-600 transition-colors" />
+    return (
+      <>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+          transition={{
+            ...springAnimation,
+            delay: index * 0.05,
+          }}
+          className={cn(
+            "group flex items-start p-3 border-b border-zinc-100 dark:border-zinc-800 last:border-0",
+            todo.completed && "bg-zinc-50 dark:bg-zinc-900/30"
           )}
-        </Button>
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 rounded-full p-0 mt-0.5 flex-shrink-0"
+            onClick={() => onToggle(todo.id)}
+            onKeyDown={(e) => handleKeyDown(e, () => onToggle(todo.id))}
+            aria-label={
+              todo.completed ? "Mark as incomplete" : "Mark as complete"
+            }
+            aria-pressed={todo.completed}
+          >
+            {todo.completed ? (
+              <CheckCircle2 className="h-5 w-5 text-emerald-500 transition-colors" />
+            ) : (
+              <Circle className="h-5 w-5 text-zinc-300 dark:text-zinc-600 transition-colors" />
+            )}
+          </Button>
 
-        <div className="flex-1 min-w-0 ml-3">
-          <div className="flex items-start justify-between">
-            <span
-              className={cn(
-                "text-sm font-medium break-words transition-all duration-200",
-                todo.completed &&
-                  "line-through text-zinc-400 dark:text-zinc-500"
+          <div className="flex-1 min-w-0 ml-3">
+            <div className="flex items-center justify-between">
+              {isEditTask ? (
+                <Input
+                  ref={editInputRef}
+                  type="text"
+                  placeholder="What needs to be done?"
+                  value={todo.text}
+                  onChange={handleEditTask}
+                  onKeyDown={handleEditInputKeyDown}
+                  className="pr-20 bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
+                  aria-label="Edit task"
+                />
+              ) : (
+                <span
+                  className={cn(
+                    "text-sm font-medium break-words transition-all duration-200",
+                    todo.completed &&
+                      "line-through text-zinc-400 dark:text-zinc-500"
+                  )}
+                >
+                  {todo.text}
+                </span>
               )}
-            >
-              {todo.text}
-            </span>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleDeleteClick}
-              className="h-6 w-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0"
-              aria-label="Delete todo"
-            >
-              <Trash2 className="h-4 w-4 text-zinc-400 hover:text-red-500 transition-colors" />
-            </Button>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleEditClick}
+                  className="h-6 w-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                  aria-label="Edit todo"
+                >
+                  <Pencil className="h-4 w-4 text-zinc-400 hover:text-blue-500 transition-colors" />
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleDeleteClick}
+                  className="h-6 w-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                  aria-label="Delete todo"
+                >
+                  <Trash2 className="h-4 w-4 text-zinc-400 hover:text-red-500 transition-colors" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex items-center mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+              {isEditTask ? (
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => setIsEditTask(!isEditTask)}
+                >
+                  Save
+                </Button>
+              ) : (
+                <>
+                  <Clock className="h-3 w-3 mr-1" />
+                  <span>{formatDate(todo.createdAt)}</span>
+                </>
+              )}
+            </div>
           </div>
+        </motion.div>
 
-          <div className="flex items-center mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-            <Clock className="h-3 w-3 mr-1" />
-            <span>{formatDate(todo.createdAt)}</span>
-          </div>
-        </div>
-      </motion.div>
-
-      <AlertDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Task</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this task? This action cannot be
-              undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  );
-});
+        <AlertDialog
+          open={isDeleteDialogOpen}
+          onOpenChange={setIsDeleteDialogOpen}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Task</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this task? This action cannot be
+                undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </>
+    );
+  }
+);
 
 TodoItem.displayName = "TodoItem";
 
@@ -317,6 +387,12 @@ export const TodoApp = () => {
       e.preventDefault();
       handleAddTodo();
     }
+  };
+
+  const handleUpdate = (id: string, newText: string) => {
+    setTodos((prev) =>
+      prev.map((todo) => (todo.id === id ? { ...todo, text: newText } : todo))
+    );
   };
 
   const handleClearCompleted = () => {
@@ -512,6 +588,7 @@ export const TodoApp = () => {
                 <TodoItem
                   key={todo.id}
                   todo={todo}
+                  onUpdate={handleUpdate}
                   onToggle={handleToggleTodo}
                   onDelete={handleDeleteTodo}
                   index={index}
