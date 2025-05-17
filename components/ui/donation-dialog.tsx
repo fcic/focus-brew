@@ -35,7 +35,7 @@ export function DonationDialog() {
         <Button
           variant="outline"
           size="icon"
-          className="fixed bottom-6 right-6 h-12 w-12 rounded-full shadow-lg z-[10001] bg-white text-primary-foreground hover:bg-white/90 hover:text-white"
+          className="fixed bottom-6 right-6 h-12 w-12 rounded-full shadow-lg z-[10001] bg-primary/80 text-primary-foreground hover:bg-primary/95"
         >
           ❤️
         </Button>
