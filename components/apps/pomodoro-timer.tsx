@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import NumberFlow, { NumberFlowGroup } from "@number-flow/react";
 
 type TimerMode = "pomodoro" | "shortBreak" | "longBreak";
 
@@ -63,6 +64,64 @@ const SPRING_ANIMATION = {
   stiffness: 700,
   damping: 30,
 } as const;
+
+function Countdown({ seconds }: { seconds: number }) {
+  const hh = Math.floor(seconds / 3600);
+  const mm = Math.floor((seconds % 3600) / 60);
+  const ss = seconds % 60;
+
+  return (
+    <NumberFlowGroup>
+      <div
+        style={
+          {
+            fontVariantNumeric: "tabular-nums",
+            "--number-flow-char-height": "0.85em",
+          } as React.CSSProperties
+        }
+        className="flex items-baseline font-semibold text-4xl"
+      >
+        {hh > 0 && (
+          <NumberFlow
+            trend={-1}
+            value={hh}
+            format={{ minimumIntegerDigits: 2 }}
+          />
+        )}
+        <NumberFlow
+          prefix={hh > 0 ? ":" : ""}
+          trend={-1}
+          value={mm}
+          digits={{ 1: { max: 5 } }}
+          format={{ minimumIntegerDigits: 2 }}
+        />
+        <NumberFlow
+          prefix=":"
+          trend={-1}
+          value={ss}
+          digits={{ 1: { max: 5 } }}
+          format={{ minimumIntegerDigits: 2 }}
+        />
+      </div>
+    </NumberFlowGroup>
+  );
+}
+
+// Add an interface for preset durations without keyboard shortcuts
+interface PresetDuration {
+  minutes: number;
+  label: string;
+}
+
+// Define preset durations inside the PomodoroTimer component
+const PRESET_DURATIONS: PresetDuration[] = [
+  { minutes: 5, label: "5m" },
+  { minutes: 10, label: "10m" },
+  { minutes: 15, label: "15m" },
+  { minutes: 20, label: "20m" },
+  { minutes: 25, label: "25m" },
+  { minutes: 30, label: "30m" },
+];
 
 export function PomodoroTimer() {
   // Settings state
@@ -89,6 +148,11 @@ export function PomodoroTimer() {
   const [customTimerDuration, setCustomTimerDuration] = useState(25);
   const [isCustomTimerDialogOpen, setIsCustomTimerDialogOpen] = useState(false);
   const [isUsingCustomTimer, setIsUsingCustomTimer] = useState(false);
+
+  // Add a new state to store the input value as string
+  const [inputValue, setInputValue] = useState<string>(
+    customTimerDuration.toString()
+  );
 
   // Audio setup
   const alarmSound = useMemo(() => {
@@ -229,7 +293,8 @@ export function PomodoroTimer() {
 
   // Set custom timer
   const handleSetCustomTimer = useCallback(() => {
-    if (customTimerDuration <= 0) {
+    const duration = parseInt(inputValue);
+    if (isNaN(duration) || duration < 1) {
       toast.error("Invalid duration", {
         description: "Please enter a valid duration greater than 0.",
       });
@@ -237,16 +302,35 @@ export function PomodoroTimer() {
     }
 
     // Set the custom timer duration
-    setTimeLeft(customTimerDuration * 60); // Convert to seconds
+    const validDuration = Math.min(120, duration);
+    setCustomTimerDuration(validDuration);
+    setTimeLeft(validDuration * 60); // Convert to seconds
     setIsUsingCustomTimer(true);
     setIsRunning(false);
     stopAlarmSound();
     setIsCustomTimerDialogOpen(false);
 
     toast.success("Custom timer set", {
-      description: `Timer set to ${customTimerDuration} minutes`,
+      description: `Timer set to ${validDuration} minutes`,
     });
-  }, [customTimerDuration, stopAlarmSound]);
+  }, [inputValue, stopAlarmSound]);
+
+  // Add a handler for preset durations
+  const handlePresetDuration = useCallback(
+    (minutes: number) => {
+      setCustomTimerDuration(minutes);
+      setTimeLeft(minutes * 60);
+      setIsUsingCustomTimer(true);
+      setIsRunning(false);
+      stopAlarmSound();
+      setIsCustomTimerDialogOpen(false);
+
+      toast.success("Custom timer set", {
+        description: `Timer set to ${minutes} minutes`,
+      });
+    },
+    [stopAlarmSound]
+  );
 
   // Timer effect
   useEffect(() => {
@@ -342,10 +426,88 @@ export function PomodoroTimer() {
     stopAlarmSound,
   ]);
 
-  // Add keyboard shortcuts
+  // Update document title with timer
+  useEffect(() => {
+    if (isRunning) {
+      const modeLabel = isUsingCustomTimer
+        ? "Custom"
+        : mode === "pomodoro"
+        ? "Focus"
+        : mode === "shortBreak"
+        ? "Short Break"
+        : "Long Break";
+      document.title = `${formattedTime} - ${modeLabel}`;
+    } else {
+      // Only reset if we're not showing the timer already
+      if (
+        document.title.includes(" - Focus") ||
+        document.title.includes(" - Short Break") ||
+        document.title.includes(" - Long Break") ||
+        document.title.includes(" - Custom")
+      ) {
+        document.title = originalTitleRef.current;
+      }
+    }
+
+    return () => {
+      document.title = originalTitleRef.current;
+    };
+  }, [isRunning, formattedTime, mode, isUsingCustomTimer]);
+
+  // Update the keydown handler to handle preset duration keys when dialog is open
+  useEffect(() => {
+    const handleDialogKeyDown = (e: KeyboardEvent) => {
+      // Only handle Enter key when dialog is open, but not when typing in the input
+      if (
+        !isCustomTimerDialogOpen ||
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      // Handle Enter key to set the timer when not inside an input
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleSetCustomTimer();
+      }
+    };
+
+    window.addEventListener("keydown", handleDialogKeyDown);
+    return () => window.removeEventListener("keydown", handleDialogKeyDown);
+  }, [isCustomTimerDialogOpen, handleSetCustomTimer]);
+
+  // Add back the crucial notification settings handler that was accidentally removed
+  // Listen for notification settings changes
+  useEffect(() => {
+    const handleNotificationSettingsChange = (
+      e: CustomEvent<NotificationSettings>
+    ) => {
+      setNotificationsEnabled(e.detail.enabled);
+    };
+
+    // Use settings without creating cyclic dependencies
+    const settings = getNotificationSettings();
+
+    // Only check permission if settings indicate notifications are enabled
+    if (settings.enabled) {
+      checkNotificationPermission()
+        .then((hasPermission) => {
+          setNotificationsEnabled(hasPermission);
+        })
+        .catch((error) => {
+          console.error("Error checking notification permission:", error);
+        });
+    } else if (notificationsEnabled) {
+      // Disable notifications only if they are currently enabled
+      setNotificationsEnabled(false);
+    }
+  }, [notificationsEnabled]); // Add notificationsEnabled as a dependency to avoid unnecessary updates
+
+  // Add back the keyboard shortcuts handler for general app controls, but skip when in input fields
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Check if user is typing in an input, textarea, or rich text editor (like TipTap)
+      // Check if user is typing in an input, textarea, or rich text editor
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
@@ -388,59 +550,23 @@ export function PomodoroTimer() {
     handleStopTimer,
   ]);
 
-  // Listen for notification settings changes
+  // Update inputValue when customTimerDuration changes (except when typing)
   useEffect(() => {
-    const handleNotificationSettingsChange = (
-      e: CustomEvent<NotificationSettings>
-    ) => {
-      setNotificationsEnabled(e.detail.enabled);
-    };
+    setInputValue(customTimerDuration.toString());
+  }, [customTimerDuration]);
 
-    // Use settings without creating cyclic dependencies
-    const settings = getNotificationSettings();
-
-    // Only check permission if settings indicate notifications are enabled
-    if (settings.enabled) {
-      checkNotificationPermission()
-        .then((hasPermission) => {
-          setNotificationsEnabled(hasPermission);
-        })
-        .catch((error) => {
-          console.error("Error checking notification permission:", error);
-        });
-    } else if (notificationsEnabled) {
-      // Disable notifications only if they are currently enabled
-      setNotificationsEnabled(false);
-    }
-  }, [notificationsEnabled]); // Add notificationsEnabled as a dependency to avoid unnecessary updates
-
-  // Update document title with timer
+  // Improved input focus handling
   useEffect(() => {
-    if (isRunning) {
-      const modeLabel = isUsingCustomTimer
-        ? "Custom"
-        : mode === "pomodoro"
-        ? "Focus"
-        : mode === "shortBreak"
-        ? "Short Break"
-        : "Long Break";
-      document.title = `${formattedTime} - ${modeLabel}`;
-    } else {
-      // Only reset if we're not showing the timer already
-      if (
-        document.title.includes(" - Focus") ||
-        document.title.includes(" - Short Break") ||
-        document.title.includes(" - Long Break") ||
-        document.title.includes(" - Custom")
-      ) {
-        document.title = originalTitleRef.current;
-      }
+    if (isCustomTimerDialogOpen && inputRef.current) {
+      // Increased timeout to ensure dialog is fully rendered before focusing
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 300);
     }
+  }, [isCustomTimerDialogOpen]);
 
-    return () => {
-      document.title = originalTitleRef.current;
-    };
-  }, [isRunning, formattedTime, mode, isUsingCustomTimer]);
+  // Add useRef
+  const inputRef = useRef<HTMLInputElement>(null);
 
   return (
     <div
@@ -486,7 +612,15 @@ export function PomodoroTimer() {
                   Custom
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
+              <DialogContent
+                className="sm:max-w-[425px]"
+                onOpenAutoFocus={(e) => {
+                  // Prevent the default autofocus behavior
+                  e.preventDefault();
+                  // Focus our input manually
+                  setTimeout(() => inputRef.current?.focus(), 100);
+                }}
+              >
                 <DialogHeader>
                   <DialogTitle>Custom Timer</DialogTitle>
                   <DialogDescription>
@@ -494,25 +628,59 @@ export function PomodoroTimer() {
                   </DialogDescription>
                 </DialogHeader>
 
-                {/* Custom timer duration input - simplified */}
-                <Input
-                  id="duration"
-                  type="number"
-                  min="1"
-                  max="120"
-                  value={customTimerDuration}
-                  onChange={(e) =>
-                    setCustomTimerDuration(
-                      Math.min(120, Math.max(1, parseInt(e.target.value) || 1))
-                    )
-                  }
-                  className="my-4"
-                  placeholder="Minutes"
-                />
+                {/* Quick preset buttons */}
+                <div className="flex justify-center gap-2 my-4">
+                  {PRESET_DURATIONS.map((preset) => (
+                    <Button
+                      key={preset.minutes}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePresetDuration(preset.minutes)}
+                      className="px-3 py-2"
+                    >
+                      {preset.label}
+                    </Button>
+                  ))}
+                </div>
 
-                <Button onClick={handleSetCustomTimer} className="w-full">
-                  Set Timer
-                </Button>
+                {/* Custom timer duration input */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSetCustomTimer();
+                  }}
+                  className="flex flex-col gap-2"
+                >
+                  <Label htmlFor="duration">Custom duration (minutes)</Label>
+                  <Input
+                    id="duration"
+                    ref={inputRef}
+                    autoFocus
+                    type="number"
+                    min="1"
+                    max="120"
+                    value={inputValue}
+                    onChange={(e) => {
+                      // Allow empty field or any number
+                      setInputValue(e.target.value);
+                    }}
+                    // Validate only when focus leaves the field
+                    onBlur={() => {
+                      const num = parseInt(inputValue);
+                      if (isNaN(num) || num < 1) {
+                        setCustomTimerDuration(1);
+                        setInputValue("1");
+                      } else {
+                        setCustomTimerDuration(Math.min(120, num));
+                        setInputValue(Math.min(120, num).toString());
+                      }
+                    }}
+                    placeholder="Minutes"
+                  />
+                  <Button type="submit" className="w-full mt-4">
+                    Set Timer
+                  </Button>
+                </form>
               </DialogContent>
             </Dialog>
           </div>
@@ -535,9 +703,7 @@ export function PomodoroTimer() {
               animate={{ scale: progress / 100 }}
               transition={SPRING_ANIMATION}
             />
-            <span className="relative text-4xl font-bold tabular-nums">
-              {formattedTime}
-            </span>
+            <Countdown seconds={timeLeft} />
           </div>
 
           {/* Timer controls */}
