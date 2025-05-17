@@ -28,6 +28,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
 import YouTube from "react-youtube";
+import { DonationDialog } from "@/components/ui/donation-dialog";
 
 const transitionVariants = {
   item: {
@@ -719,6 +720,7 @@ function FocusBrewLanding() {
 
   return (
     <div className="min-h-screen bg-background">
+      <DonationDialog />
       {/* Hero Section */}
       <HeroSection />
 
