@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { motion } from "framer-motion";
+import { DonationDialog } from "@/components/ui/donation-dialog";
 
 interface DesktopProps {
   children: React.ReactNode;
@@ -27,6 +28,7 @@ export function Desktop({ children }: DesktopProps) {
         />
         <div className="relative z-10">{children}</div>
       </div>
+      <DonationDialog />
     </motion.div>
   );
 }
