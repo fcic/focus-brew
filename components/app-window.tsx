@@ -410,13 +410,17 @@ function AppWindow({
     onClose();
   }, [id, onClose, title]);
 
-  const handleMinimize = useCallback(() => {
-    trackEvent("app_minimize", {
-      app_id: id,
-      app_title: title,
-    });
-    onMinimize();
-  }, [id, onMinimize, title]);
+  const handleMinimize = useCallback(
+    (e?: React.MouseEvent) => {
+      e?.stopPropagation();
+      trackEvent("app_minimize", {
+        app_id: id,
+        app_title: title,
+      });
+      onMinimize();
+    },
+    [id, onMinimize, title]
+  );
 
   const handleFocus = useCallback(() => {
     trackEvent("app_focus", {
