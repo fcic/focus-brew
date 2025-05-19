@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/menubar";
 import { motion } from "framer-motion";
 import { ExchangeRate } from "@/components/exchange-rate";
-import { cn, formatShortcut } from "@/lib/utils";
+import { cn, formatShortcut, trackEvent } from "@/lib/utils";
 import { AppId, SettingsTab, APP_ITEMS, SETTINGS_APP } from "@/lib/constants";
 
 type MenuBarProps = {
@@ -72,6 +72,11 @@ export function MenuBar({
         // Handle settings shortcut
         if (e.key === SETTINGS_APP.shortcutKey) {
           e.preventDefault();
+          trackEvent("app_launch", {
+            app_name: SETTINGS_APP.label,
+            app_id: SETTINGS_APP.id,
+            source: "keyboard_shortcut",
+          });
           openApp(SETTINGS_APP.id);
           return;
         }
@@ -79,6 +84,10 @@ export function MenuBar({
         // Handle About shortcut
         if (e.key === "8") {
           e.preventDefault();
+          trackEvent("open_settings_tab", {
+            tab: "about",
+            source: "keyboard_shortcut",
+          });
           if (openSettingsTab) {
             openSettingsTab("about");
           } else {
@@ -91,6 +100,11 @@ export function MenuBar({
         const appItem = APP_ITEMS.find((item) => item.shortcutKey === e.key);
         if (appItem) {
           e.preventDefault();
+          trackEvent("app_launch", {
+            app_name: appItem.label,
+            app_id: appItem.id,
+            source: "keyboard_shortcut",
+          });
           openApp(appItem.id);
         }
       }
@@ -104,6 +118,10 @@ export function MenuBar({
   }, [handleKeyPress]);
 
   const openGitHub = useCallback(() => {
+    trackEvent("external_link", {
+      destination: "github",
+      url: "https://github.com/birobirobiro/focus-brew",
+    });
     window.open("https://github.com/birobirobiro/focus-brew", "_blank");
   }, []);
 
@@ -141,7 +159,14 @@ export function MenuBar({
               {/* Tasks */}
               <MenubarItem
                 className="text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm"
-                onClick={() => openApp("todo")}
+                onClick={() => {
+                  trackEvent("app_launch", {
+                    app_name: "Tasks",
+                    app_id: "todo",
+                    source: "menu_bar",
+                  });
+                  openApp("todo");
+                }}
               >
                 Tasks
                 <MenubarShortcut>{formatShortcut("1")}</MenubarShortcut>
@@ -150,7 +175,14 @@ export function MenuBar({
               {/* Kanban */}
               <MenubarItem
                 className="text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm"
-                onClick={() => openApp("kanban")}
+                onClick={() => {
+                  trackEvent("app_launch", {
+                    app_name: "Kanban",
+                    app_id: "kanban",
+                    source: "menu_bar",
+                  });
+                  openApp("kanban");
+                }}
               >
                 Kanban
                 <MenubarShortcut>{formatShortcut("2")}</MenubarShortcut>
@@ -159,7 +191,14 @@ export function MenuBar({
               {/* Habit Tracker */}
               <MenubarItem
                 className="text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm"
-                onClick={() => openApp("habit")}
+                onClick={() => {
+                  trackEvent("app_launch", {
+                    app_name: "Habit Tracker",
+                    app_id: "habit",
+                    source: "menu_bar",
+                  });
+                  openApp("habit");
+                }}
               >
                 Habit Tracker
                 <MenubarShortcut>{formatShortcut("3")}</MenubarShortcut>
@@ -168,7 +207,14 @@ export function MenuBar({
               {/* Focus Timer */}
               <MenubarItem
                 className="text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm"
-                onClick={() => openApp("pomodoro")}
+                onClick={() => {
+                  trackEvent("app_launch", {
+                    app_name: "Focus Timer",
+                    app_id: "pomodoro",
+                    source: "menu_bar",
+                  });
+                  openApp("pomodoro");
+                }}
               >
                 Focus Timer
                 <MenubarShortcut>{formatShortcut("4")}</MenubarShortcut>
@@ -177,7 +223,14 @@ export function MenuBar({
               {/* Notes */}
               <MenubarItem
                 className="text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm"
-                onClick={() => openApp("notepad")}
+                onClick={() => {
+                  trackEvent("app_launch", {
+                    app_name: "Notes",
+                    app_id: "notepad",
+                    source: "menu_bar",
+                  });
+                  openApp("notepad");
+                }}
               >
                 Notes
                 <MenubarShortcut>{formatShortcut("5")}</MenubarShortcut>
@@ -186,7 +239,14 @@ export function MenuBar({
               {/* Ambient Sounds */}
               <MenubarItem
                 className="text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm"
-                onClick={() => openApp("ambient")}
+                onClick={() => {
+                  trackEvent("app_launch", {
+                    app_name: "Ambient Sounds",
+                    app_id: "ambient",
+                    source: "menu_bar",
+                  });
+                  openApp("ambient");
+                }}
               >
                 Ambient Sounds
                 <MenubarShortcut>{formatShortcut("6")}</MenubarShortcut>
@@ -195,7 +255,14 @@ export function MenuBar({
               {/* YouTube Player */}
               <MenubarItem
                 className="text-xs focus:bg-accent focus:text-accent-foreground hover:bg-accent/50 px-2 py-1.5 rounded-sm"
-                onClick={() => openApp("youtube")}
+                onClick={() => {
+                  trackEvent("app_launch", {
+                    app_name: "YouTube Player",
+                    app_id: "youtube",
+                    source: "menu_bar",
+                  });
+                  openApp("youtube");
+                }}
               >
                 YouTube Player
                 <MenubarShortcut>{formatShortcut("7")}</MenubarShortcut>
@@ -205,7 +272,14 @@ export function MenuBar({
 
               {/* Settings */}
               <MenubarItem
-                onClick={() => openApp(SETTINGS_APP.id)}
+                onClick={() => {
+                  trackEvent("app_launch", {
+                    app_name: SETTINGS_APP.label,
+                    app_id: SETTINGS_APP.id,
+                    source: "menu_bar",
+                  });
+                  openApp(SETTINGS_APP.id);
+                }}
                 className={cn(
                   "text-xs flex items-center justify-between gap-2 px-2 py-1.5",
                   "cursor-pointer rounded-sm",

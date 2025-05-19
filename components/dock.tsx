@@ -23,6 +23,7 @@ import {
 } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
+import { trackEvent } from "@/lib/utils";
 
 type DockProps = {
   openApp: (appId: AppId) => void;
@@ -160,6 +161,12 @@ const DockItem = memo(
                   shortcutText ? ` (${shortcutText})` : ""
                 }`}
                 onClick={() => {
+                  // Track the app launch event
+                  trackEvent("app_launch", {
+                    app_name: app.label,
+                    app_id: app.id,
+                    source: "dock",
+                  });
                   onClick();
                   setTooltipOpen(false);
                 }}

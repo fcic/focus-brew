@@ -9,7 +9,7 @@ import React, {
 } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn, trackEvent } from "@/lib/utils";
 import { X, Minus, Plus } from "lucide-react";
 import { throttle } from "lodash";
 
@@ -401,9 +401,30 @@ function AppWindow({
   // Add window snapping
   const { snapGuides, checkSnapping } = useWindowSnapping(size);
 
+  // Wrap the onClose and onMinimize handlers to track events
+  const handleClose = useCallback(() => {
+    trackEvent("app_close", {
+      app_id: id,
+      app_title: title,
+    });
+    onClose();
+  }, [id, onClose, title]);
+
+  const handleMinimize = useCallback(() => {
+    trackEvent("app_minimize", {
+      app_id: id,
+      app_title: title,
+    });
+    onMinimize();
+  }, [id, onMinimize, title]);
+
   const handleFocus = useCallback(() => {
+    trackEvent("app_focus", {
+      app_id: id,
+      app_title: title,
+    });
     onFocus();
-  }, [onFocus]);
+  }, [id, onFocus, title]);
 
   // Update handleDragStart to handle both mouse and touch events
   const handleDragStart = useCallback(
@@ -627,15 +648,6 @@ function AppWindow({
     [onClose]
   );
 
-  // Handle window minimize
-  const handleMinimize = useCallback(
-    (e?: React.MouseEvent) => {
-      e?.stopPropagation();
-      onMinimize();
-    },
-    [onMinimize]
-  );
-
   // Double-click on header to maximize
   const handleHeaderDoubleClick = useCallback(() => {
     handleMaximize();
@@ -726,7 +738,7 @@ function AppWindow({
               >
                 <div className="flex-1 flex items-center justify-between px-3 py-1.5">
                   <WindowControlGroup
-                    onClose={onClose}
+                    onClose={handleClose}
                     onMinimize={handleMinimize}
                     onMaximize={handleMaximize}
                     isMaximized={windowState.isMaximized}

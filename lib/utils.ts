@@ -6,6 +6,18 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Tracks an event in Google Analytics
+ */
+export function trackEvent(
+  eventName: string,
+  eventParams?: Record<string, any>
+): void {
+  if (typeof window !== "undefined" && window.gtag) {
+    window.gtag("event", eventName, eventParams);
+  }
+}
+
+/**
  * Debounces a function call with a specified delay.
  */
 export function debounce<T extends (...args: any[]) => void>(
