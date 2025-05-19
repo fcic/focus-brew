@@ -22,6 +22,7 @@ import {
   sendNotification,
   checkNotificationPermission,
   resetNotificationSettings,
+  sendPomodoroNotification,
 } from "@/lib/notification";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -184,6 +185,15 @@ export function NotificationSettings() {
           </Alert>
         )}
 
+        {notificationsSupported && Notification.permission === "denied" && (
+          <Alert className="border bg-red-500/20">
+            <AlertDescription>
+              Notification permission is denied. You need to change this in your
+              browser settings to enable notifications.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <Label>Enable Notifications</Label>
@@ -196,7 +206,11 @@ export function NotificationSettings() {
             size="sm"
             onClick={toggleNotifications}
             className="space-x-2"
-            disabled={!notificationsSupported || loading}
+            disabled={
+              !notificationsSupported ||
+              loading ||
+              Notification.permission === "denied"
+            }
           >
             {settings.enabled ? (
               <>
@@ -250,24 +264,47 @@ export function NotificationSettings() {
           </div>
         </div>
       </CardContent>
-      <CardFooter className="flex flex-wrap gap-2">
-        <Button
-          variant="secondary"
-          onClick={testBrowserNotification}
-          disabled={!settings.enabled || !notificationsSupported || loading}
-          className="flex-1 min-w-[120px]"
-          size="sm"
-        >
-          Test Notification
+      <CardFooter className="flex justify-between">
+        <Button variant="outline" onClick={resetSettings}>
+          Reset to Defaults
         </Button>
-        <Button
-          variant="destructive"
-          onClick={resetSettings}
-          className="flex-1 min-w-[120px]"
-          size="sm"
-        >
-          Reset Notification Settings
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={testBrowserNotification}
+            disabled={!settings.enabled || !notificationsSupported || loading}
+          >
+            Test General Notification
+          </Button>
+          <Button
+            onClick={() => {
+              sendPomodoroNotification("work", 5)
+                .then(() => {
+                  toast.success("Pomodoro test notification sent", {
+                    description:
+                      "Check if you received a pomodoro notification",
+                  });
+                })
+                .catch((error) => {
+                  console.error(
+                    "Error sending test pomodoro notification:",
+                    error
+                  );
+                  toast.error("Error sending test notification", {
+                    description: "Failed to send pomodoro test notification",
+                  });
+                });
+            }}
+            disabled={
+              !settings.enabled ||
+              !settings.pomodoroNotifications ||
+              !notificationsSupported ||
+              loading
+            }
+          >
+            Test Pomodoro Notification
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   );

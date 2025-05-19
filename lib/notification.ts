@@ -276,20 +276,38 @@ export const sendPomodoroNotification = async (
   // Always display toast
   toast.info(title, { description: body });
 
+  // Check if browser supports notifications first
+  if (!isBrowserNotificationSupported()) {
+    console.log("Browser doesn't support notifications");
+    return;
+  }
+
   // If notifications are enabled, also send browser notification
   if (settings.enabled && settings.pomodoroNotifications) {
-    // Don't play notification sound for pomodoro notifications
-    // The alarm sound is already handled by the pomodoro-timer component
+    // First check if we have permission for notifications
+    const hasPermission = await checkNotificationPermission();
+    if (!hasPermission) {
+      console.log("No notification permission for pomodoro notification");
+      return;
+    }
 
-    await sendNotification(
-      title,
-      {
-        body,
-        tag: "pomodoro",
-        requireInteraction: type === "work", // Notificações de trabalho requerem interação
-      },
-      false // Don't play sound in sendNotification
-    );
+    try {
+      // Don't play notification sound for pomodoro notifications
+      // The alarm sound is already handled by the pomodoro-timer component
+      await sendNotification(
+        title,
+        {
+          body,
+          tag: "pomodoro",
+          requireInteraction: type === "work", // Work notifications require interaction
+          icon: "/icon.png", // Ensure icon is set
+        },
+        false // Don't play sound in sendNotification
+      );
+      console.log(`Pomodoro notification (${type}) sent successfully`);
+    } catch (error) {
+      console.error("Error sending pomodoro notification:", error);
+    }
   }
 };
 

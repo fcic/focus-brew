@@ -176,13 +176,27 @@ export function PomodoroTimer() {
   // Check notification permission on mount
   useEffect(() => {
     // Check notification permission on mount
-    checkNotificationPermission()
-      .then((hasPermission) => {
-        setNotificationsEnabled(hasPermission);
-      })
-      .catch((error) => {
-        console.error("Error verifying notification permission:", error);
-      });
+    const settings = getNotificationSettings();
+
+    // Only check permission if notifications are enabled in settings
+    if (settings.enabled && settings.pomodoroNotifications) {
+      checkNotificationPermission()
+        .then((hasPermission) => {
+          setNotificationsEnabled(hasPermission);
+          if (!hasPermission && Notification.permission === "default") {
+            // If permission hasn't been decided yet, show a toast to encourage enabling
+            toast.info("Enable notifications", {
+              description:
+                "Allow notifications to be alerted when your timer ends.",
+            });
+          }
+        })
+        .catch((error) => {
+          console.error("Error verifying notification permission:", error);
+        });
+    } else {
+      setNotificationsEnabled(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -361,7 +375,6 @@ export function PomodoroTimer() {
             }
 
             // Send notification without playing the notification sound
-            // The custom parameter ensures we're not playing the notification sound
             sendPomodoroNotification(
               mode === "pomodoro" || isUsingCustomTimer
                 ? "work"
@@ -377,10 +390,17 @@ export function PomodoroTimer() {
 
             // Update pomodoro count and handle next timer
             if (isUsingCustomTimer) {
-              // For custom timer, just reset the timer and stay in custom mode
+              // For custom timer, reset to the last custom duration and stay in custom mode
               setCompletedPomodoros((count) => count + 1);
-              setTimeLeft(customTimerDuration * 60);
-              stopAlarmSound(); // Ensure sound stops
+              setTimeout(() => {
+                setTimeLeft(customTimerDuration * 60); // Instantly reset to custom duration
+                setIsRunning(false); // Ensure timer is stopped
+                stopAlarmSound(); // Ensure sound stops
+                toast.info("Custom timer finished", {
+                  description: `Ready to start again for ${customTimerDuration} minutes`,
+                });
+              }, 0);
+              return 0; // Prevent timer from staying at zero
             } else if (mode === "pomodoro") {
               // Normal pomodoro flow
               setCompletedPomodoros((count) => count + 1);
@@ -486,6 +506,12 @@ export function PomodoroTimer() {
       setNotificationsEnabled(e.detail.enabled);
     };
 
+    // Register the event listener
+    window.addEventListener(
+      "notification_settings_changed",
+      handleNotificationSettingsChange as EventListener
+    );
+
     // Use settings without creating cyclic dependencies
     const settings = getNotificationSettings();
 
@@ -502,7 +528,15 @@ export function PomodoroTimer() {
       // Disable notifications only if they are currently enabled
       setNotificationsEnabled(false);
     }
-  }, [notificationsEnabled]); // Add notificationsEnabled as a dependency to avoid unnecessary updates
+
+    // Clean up the event listener when component unmounts
+    return () => {
+      window.removeEventListener(
+        "notification_settings_changed",
+        handleNotificationSettingsChange as EventListener
+      );
+    };
+  }, []); // Remove notificationsEnabled as dependency to avoid unnecessary re-registration
 
   // Add back the keyboard shortcuts handler for general app controls, but skip when in input fields
   useEffect(() => {
