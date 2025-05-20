@@ -101,6 +101,7 @@ const LOCALSTORAGE_KEYS = {
   volume: "youtube-volume",
   muted: "youtube-muted",
   playing: "youtube-playing",
+  timestamp: "youtube-timestamp",
 };
 
 export function YouTubePlayer() {
@@ -108,7 +109,10 @@ export function YouTubePlayer() {
     "youtube-playlist",
     DEFAULT_PLAYLIST
   );
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    const stored = localStorage.getItem("youtube-current-index");
+    return stored ? parseInt(stored, 10) : 0;
+  });
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [newUrl, setNewUrl] = useState("");
   const [editingTitle, setEditingTitle] = useState("");
@@ -121,7 +125,10 @@ export function YouTubePlayer() {
   const [progress, setProgress] = useState(0);
   const [showFullTitle, setShowFullTitle] = useState(false);
   const playerRef = useRef<ReactPlayer | null>(null);
-
+  const [startTime, setStartTime] = useState(() => {
+    const stored = localStorage.getItem("youtube-timestamp");
+    return stored ? parseFloat(stored) : 0;
+  });
   // --- Handlers ---
   const handlePlay = useCallback(() => setPlaying(true), []);
   const handlePause = useCallback(() => setPlaying(false), []);
@@ -146,6 +153,7 @@ export function YouTubePlayer() {
   const handleBufferStart = useCallback(() => setLoading(true), []);
   const updateCurrentIndex = useCallback((index: number) => {
     setCurrentIndex(index);
+    setStartTime(0);
     localStorage.setItem("youtube-current-index", index.toString());
     window.dispatchEvent(new Event("youtube-playlist-updated"));
   }, []);
@@ -232,6 +240,7 @@ export function YouTubePlayer() {
     setShowVideo(true);
     setNewUrl("");
     setEditingIndex(null);
+    setStartTime(0);
     setEditingTitle("");
     setLoading(false);
     setError(null);
@@ -307,11 +316,16 @@ export function YouTubePlayer() {
   useEffect(() => {
     const handleMiniplayerChange = () => {
       const storedIndex = localStorage.getItem("youtube-current-index");
+
       if (storedIndex) {
         const index = parseInt(storedIndex, 10);
         if (!isNaN(index) && index >= 0 && index < playlist.length) {
           setCurrentIndex(index);
         }
+      }
+      const storedTimestamp = localStorage.getItem("youtube-timestamp");
+      if (storedTimestamp !== null) {
+        setStartTime(parseFloat(storedTimestamp));
       }
     };
     window.addEventListener(
@@ -375,6 +389,10 @@ export function YouTubePlayer() {
       const storedPlaying = localStorage.getItem(LOCALSTORAGE_KEYS.playing);
       if (storedPlaying !== null && (storedPlaying === "true") !== playing)
         setPlaying(storedPlaying === "true");
+      const storedTimestamp = localStorage.getItem(LOCALSTORAGE_KEYS.timestamp);
+      if (storedTimestamp !== null) {
+        setStartTime(parseFloat(storedTimestamp));
+      }
       // Playlist and index
       const storedIndex = localStorage.getItem(LOCALSTORAGE_KEYS.currentIndex);
       if (storedIndex && Number(storedIndex) !== currentIndex)
@@ -425,6 +443,7 @@ export function YouTubePlayer() {
                   {
                     youtube: {
                       playerVars: {
+                        ...(startTime > 0 && { start: Math.floor(startTime) }),
                         modestbranding: 1,
                         rel: 0,
                         iv_load_policy: 3,
@@ -437,7 +456,14 @@ export function YouTubePlayer() {
                   opacity: showVideo ? 1 : 0,
                   pointerEvents: showVideo ? "auto" : "none",
                 }}
-                onProgress={({ played }) => setProgress(played)}
+                onProgress={({ played, playedSeconds }) => {
+                  setProgress(played);
+                  setStartTime(playedSeconds);
+                  localStorage.setItem(
+                    LOCALSTORAGE_KEYS.timestamp,
+                    playedSeconds.toString()
+                  );
+                }}
               />
               {/* Progress bar */}
               <div className="absolute bottom-0 left-0 w-full h-1 bg-muted-foreground/20">
