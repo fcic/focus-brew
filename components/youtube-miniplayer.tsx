@@ -51,6 +51,7 @@ export function YouTubeMiniPlayer({
   const [playing, setPlaying] = useState(true);
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(DEFAULT_VOLUME);
+  const [startTimestamp, setStartTimestamp] = useState(0);
 
   // Set initial position at bottom right
   useEffect(() => {
@@ -82,7 +83,10 @@ export function YouTubeMiniPlayer({
       const storedPlaylist = localStorage.getItem("youtube-playlist");
       const parsedPlaylist = storedPlaylist ? JSON.parse(storedPlaylist) : [];
       setPlaylist(Array.isArray(parsedPlaylist) ? parsedPlaylist : []);
-
+      const storedTimestamp = localStorage.getItem("youtube-timestamp");
+      if (storedTimestamp !== null) {
+        setStartTimestamp(parseFloat(storedTimestamp));
+      }
       const storedIndex = localStorage.getItem("youtube-current-index");
       let index = storedIndex ? parseInt(storedIndex, 10) : 0;
       if (isNaN(index) || index < 0 || index >= parsedPlaylist.length) {
@@ -179,6 +183,7 @@ export function YouTubeMiniPlayer({
     const newIndex = (currentIndex - 1 + playlist.length) % playlist.length;
     setCurrentIndex(newIndex);
     localStorage.setItem("youtube-current-index", newIndex.toString());
+    localStorage.setItem("youtube-timestamp", "0");
   };
 
   const handleNext = () => {
@@ -186,6 +191,7 @@ export function YouTubeMiniPlayer({
     const newIndex = (currentIndex + 1) % playlist.length;
     setCurrentIndex(newIndex);
     localStorage.setItem("youtube-current-index", newIndex.toString());
+    localStorage.setItem("youtube-timestamp", "0");
   };
 
   // Playback controls
@@ -282,6 +288,17 @@ export function YouTubeMiniPlayer({
             width="100%"
             height="100%"
             style={{ position: "absolute", inset: 0 }}
+            onProgress={({ playedSeconds }) => {
+              localStorage.setItem(
+                "youtube-timestamp",
+                playedSeconds.toString()
+              );
+            }}
+            config={{
+              playerVars: {
+                start: Math.floor(startTimestamp),
+              },
+            }}
           />
         ) : (
           <div className="flex items-center justify-center h-full bg-black text-white text-sm">

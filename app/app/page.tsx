@@ -470,6 +470,10 @@ export default function AppPage() {
 
                     // Bring to front
                     bringToFront("youtube");
+                    // Force main player load timestamp and index
+                    window.dispatchEvent(
+                      new Event("youtube-miniplayer-change")
+                    );
                   }, 100);
                 }}
                 onClose={() => closeApp("youtube")}
