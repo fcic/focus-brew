@@ -77,6 +77,7 @@ const COMMON_CURRENCIES = [
   "nzd",
   "brl",
   "inr",
+  "btc",
 ] as const;
 
 const API_ENDPOINTS = {

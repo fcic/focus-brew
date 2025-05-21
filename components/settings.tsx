@@ -54,6 +54,7 @@ const COMMON_CURRENCIES = [
   "nzd",
   "brl",
   "inr",
+  "btc",
 ];
 
 const DEFAULT_WALLPAPERS = ["/wallpapers/default.webp", "/wallpapers/1.webp"];
