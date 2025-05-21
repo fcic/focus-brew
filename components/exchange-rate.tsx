@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { cn } from "@/lib/utils";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import {
   Loader2Icon,
@@ -9,12 +8,7 @@ import {
   RefreshCwIcon,
   CoinsIcon,
 } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  TooltipProvider,
-} from "./ui/tooltip";
+import { TooltipProvider } from "./ui/tooltip";
 import {
   Popover,
   PopoverContent,
@@ -29,8 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { loadAndCleanCurrency } from "./utils/localStorageUtils";
 
-// Types
 type Currency = string;
 
 interface ExchangeData {
@@ -52,17 +46,9 @@ interface CachedRate {
   pair: string;
 }
 
-// Constants
-const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 5 * 60 * 1000;
 
-// Cache for exchange rates
 const rateCache: Record<string, CachedRate> = {};
-
-const DEFAULT_CURRENCIES = {
-  base: "usd",
-  target: "brl",
-} as const;
 
 const COMMON_CURRENCIES = [
   "usd",
@@ -80,6 +66,16 @@ const COMMON_CURRENCIES = [
   "btc",
 ] as const;
 
+const CURRENCY_KEYS = {
+  base: "currency_base",
+  target: "currency_target",
+} as const;
+
+const CURRENCIES = {
+  base: loadAndCleanCurrency(CURRENCY_KEYS.base, "usd"),
+  target: loadAndCleanCurrency(CURRENCY_KEYS.target, "brl"),
+} as const;
+
 const API_ENDPOINTS = {
   currencies:
     "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json",
@@ -90,7 +86,6 @@ const API_ENDPOINTS = {
 } as const;
 
 export function ExchangeRate() {
-  // State
   const [rate, setRate] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,22 +93,18 @@ export function ExchangeRate() {
   const [mounted, setMounted] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Lock ref to prevent multiple fetches
   const lockRef = useRef(false);
 
-  // Local Storage
   const [base, setBase] = useLocalStorage<Currency>(
-    "currency_base",
-    DEFAULT_CURRENCIES.base
+    CURRENCY_KEYS.base,
+    CURRENCIES.base
   );
   const [target, setTarget] = useLocalStorage<Currency>(
-    "currency_target",
-    DEFAULT_CURRENCIES.target
+    CURRENCY_KEYS.target,
+    CURRENCIES.target
   );
 
-  // Fetch exchange rate data
   const fetchRate = useCallback(async () => {
-    // Skip if already loading or locked
     if (loading || lockRef.current) return;
 
     lockRef.current = true;
@@ -123,7 +114,6 @@ export function ExchangeRate() {
     const currencyPair = `${base}:${target}`;
     const now = Date.now();
 
-    // Check if we have a valid cached value
     const cached = rateCache[currencyPair];
     if (cached && now - cached.timestamp < CACHE_DURATION) {
       setRate(cached.rate);
@@ -134,7 +124,6 @@ export function ExchangeRate() {
     }
 
     try {
-      // Try primary endpoint
       const res = await fetch(API_ENDPOINTS.rates(base));
       if (!res.ok) throw new Error("Primary API failed");
 
@@ -145,7 +134,6 @@ export function ExchangeRate() {
         throw new Error(`Invalid currency pair: ${base}/${target}`);
       }
 
-      // Cache the result
       rateCache[currencyPair] = {
         rate: newRate,
         timestamp: now,
@@ -156,7 +144,6 @@ export function ExchangeRate() {
       setLastUpdated(new Date());
     } catch (primaryError) {
       try {
-        // Try fallback endpoint
         const res = await fetch(API_ENDPOINTS.fallbackRates(base));
         if (!res.ok) throw new Error("Fallback API failed");
 
@@ -167,7 +154,6 @@ export function ExchangeRate() {
           throw new Error(`Invalid currency pair: ${base}/${target}`);
         }
 
-        // Cache the result
         rateCache[currencyPair] = {
           rate: newRate,
           timestamp: now,
@@ -177,13 +163,11 @@ export function ExchangeRate() {
         setRate(newRate);
         setLastUpdated(new Date());
       } catch (fallbackError) {
-        // Just set error message without retrying
         setError(
           fallbackError instanceof Error
             ? fallbackError.message
             : "Failed to load exchange rate"
         );
-        // Keep previous rate if available to avoid blank display
         console.error("Exchange rate error:", fallbackError);
       }
     } finally {
@@ -192,12 +176,10 @@ export function ExchangeRate() {
     }
   }, [base, target]);
 
-  // Listen for currency changes from settings
   useEffect(() => {
     const handleCurrencyChange = (event: CurrencyChangeEvent) => {
       const { base: newBase, target: newTarget } = event.detail;
 
-      // Only update if the values actually changed
       const baseChanged = newBase !== base;
       const targetChanged = newTarget !== target;
 
@@ -209,9 +191,7 @@ export function ExchangeRate() {
         setTarget(newTarget);
       }
 
-      // Only fetch new data if either currency changed
       if (baseChanged || targetChanged) {
-        // Check if we have a cached value first
         const currencyPair = `${newBase}:${newTarget}`;
         const cached = rateCache[currencyPair];
         const now = Date.now();
@@ -220,7 +200,6 @@ export function ExchangeRate() {
           setRate(cached.rate);
           setLastUpdated(new Date(cached.timestamp));
         } else {
-          // Fetch new rate if no valid cache exists
           fetchRate();
         }
       }
@@ -239,7 +218,6 @@ export function ExchangeRate() {
     };
   }, [base, target, setBase, setTarget, fetchRate]);
 
-  // Listen for refresh events from menu bar
   useEffect(() => {
     const handleRefresh = () => {
       fetchRate();
@@ -252,11 +230,9 @@ export function ExchangeRate() {
     };
   }, [fetchRate]);
 
-  // Initial fetch only once on mount
   useEffect(() => {
     setMounted(true);
 
-    // Initial fetch that respects cache
     const initialFetch = () => {
       const currencyPair = `${base}:${target}`;
       const cached = rateCache[currencyPair];
@@ -270,26 +246,20 @@ export function ExchangeRate() {
       }
     };
 
-    // Run initial fetch
     initialFetch();
+  }, []);
 
-    // No interval, only manual refresh
-  }, []); // Empty dependencies to run only once on mount
-
-  // Get time since last update
   const timeSinceUpdate = useMemo(() => {
     if (!lastUpdated || !mounted) return null;
     const minutes = Math.floor((Date.now() - lastUpdated.getTime()) / 60000);
     return minutes < 1 ? "Just now" : `${minutes}m ago`;
   }, [lastUpdated, mounted]);
 
-  // Format display rate
   const formattedRate = useMemo(() => {
     if (!rate) return "--";
     return rate.toFixed(2);
   }, [rate]);
 
-  // Don't render anything until mounted to prevent hydration mismatch
   if (!mounted) {
     return (
       <div className="flex items-center gap-2 text-xs">
@@ -391,7 +361,7 @@ export function ExchangeRate() {
                   <div className="flex items-center gap-2">
                     <span>Target Currency</span>
                   </div>
-                  <Select 
+                  <Select
                     value={target}
                     onValueChange={(value) => {
                       setTarget(value);
@@ -457,3 +427,5 @@ export function ExchangeRate() {
     </TooltipProvider>
   );
 }
+
+export { API_ENDPOINTS, COMMON_CURRENCIES, CURRENCY_KEYS, CURRENCIES };
