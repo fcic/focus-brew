@@ -259,7 +259,6 @@ export function Settings({
         window.dispatchEvent(event);
       }
     } catch (error) {
-      console.error("Failed to save currency settings:", error);
       toast.error("Failed to save currency settings.");
     }
   }, [currencyState]);
