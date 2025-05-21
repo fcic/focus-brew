@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { loadAndCleanCurrency } from "./utils/localStorageUtils";
+import { loadAndCleanCurrency } from "@/utils/localStorageUtils";
 
 type Currency = string;
 

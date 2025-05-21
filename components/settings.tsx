@@ -15,12 +15,12 @@ import { toast } from "@/lib/toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useHotkeys } from "react-hotkeys-hook";
-import { loadAndCleanCurrency } from "./utils/localStorageUtils";
 import {
   API_ENDPOINTS,
   CURRENCY_KEYS,
   COMMON_CURRENCIES as EXCHANGE_RATE_COMMON_CURRENCIES,
 } from "./exchange-rate";
+import { loadAndCleanCurrency } from "@/utils/localStorageUtils";
 
 interface SettingsProps {
   wallpaper: string;
