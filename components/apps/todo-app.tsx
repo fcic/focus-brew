@@ -535,6 +535,8 @@ export const TodoApp = () => {
               onClick={() => setNewTodo("")}
               className="absolute right-12 top-1/2 -translate-y-1/2 h-6 w-6"
               aria-label="Clear input"
+              tabIndex={-1}
+              aria-hidden="true"
             >
               <X className="h-3 w-3" />
             </Button>
