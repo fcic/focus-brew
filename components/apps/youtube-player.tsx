@@ -46,6 +46,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 // Types
 interface PlaylistItem {
@@ -64,6 +67,77 @@ const DEFAULT_PLAYLIST: PlaylistItem[] = [
     addedAt: Date.now(),
   },
 ];
+
+interface DraggablePlaylistItemProps {
+  item: PlaylistItem;
+  idx: number;
+  currentIndex: number;
+  editingIndex: number | null;
+  editingTitle: string;
+  setEditingIndex: React.Dispatch<React.SetStateAction<number | null>>;
+  setEditingTitle: React.Dispatch<React.SetStateAction<string>>;
+  saveEditedTitle: () => void;
+  handleEditTitle: (idx: number) => void;
+  handleRemove: (idx: number) => void;
+  updateCurrentIndex: (index: number) => void;
+  children: React.ReactNode;
+}
+
+function DraggablePlaylistItem({item, idx, currentIndex, editingIndex, editingTitle, setEditingIndex, setEditingTitle, saveEditedTitle, updateCurrentIndex, children,}: DraggablePlaylistItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  return (
+    <li
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        cursor: "grab",
+      }}
+      className={cn(
+        "flex items-center gap-2 rounded p-1 group",
+        idx === currentIndex && "bg-primary/10 border-l-4 border-primary font-bold"
+      )}
+      aria-label={`Play ${item.title}`}
+      onClick={() => updateCurrentIndex(idx)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") updateCurrentIndex(idx);
+      }}
+      {...attributes}
+      {...listeners}
+    >
+      {children}
+      {editingIndex === idx && (
+        <Dialog open={true} onOpenChange={() => setEditingIndex(null)}>
+          <DialogContent className="max-w-sm rounded-xl p-6">
+            <DialogHeader>
+              <DialogTitle>Edit Playlist Item Title</DialogTitle>
+              <DialogDescription>
+                Update the title for this playlist item.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-3 mt-2">
+              <Input
+                value={editingTitle}
+                onChange={(e) => setEditingTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveEditedTitle();
+                  if (e.key === "Escape") setEditingIndex(null);
+                }}
+                className="flex-1"
+                autoFocus
+              />
+              <div className="flex gap-2 justify-end mt-2">
+                <Button size="sm" variant="outline" onClick={() => setEditingIndex(null)} type="button">Cancel</Button>
+                <Button size="sm" variant="default" onClick={saveEditedTitle} type="button">Save</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </li>
+  );
+};
 
 const extractYouTubeId = (url: string): string | null => {
   if (!url) return null;
@@ -622,104 +696,77 @@ export function YouTubePlayer() {
           </div>
           {/* Playlist */}
           <ScrollArea className="flex-1 w-full rounded-md border border-border/50 bg-muted/50">
-            <ul className="space-y-1 p-2">
-              {playlist.map((item, idx) => (
-                <li
-                  key={item.id}
-                  className={cn(
-                    "flex items-center gap-2 rounded p-1 group",
-                    idx === currentIndex &&
-                      "bg-primary/10 border-l-4 border-primary font-bold"
-                  )}
-                  tabIndex={0}
-                  aria-label={`Play ${item.title}`}
-                  onClick={() => updateCurrentIndex(idx)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ")
-                      updateCurrentIndex(idx);
-                  }}
-                >
-                  <span className="text-xs text-muted-foreground w-6 text-center">
-                    {idx + 1}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="truncate overflow-hidden whitespace-nowrap max-w-[180px] block cursor-pointer">
-                          {item.title}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>{item.title}</TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6"
-                        aria-label="More actions"
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEditTitle(idx)}>
-                        <Edit2 className="h-4 w-4 mr-2" /> Edit Title
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleRemove(idx)}>
-                        <Trash2 className="h-4 w-4 mr-2" /> Remove
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  {editingIndex === idx && (
-                    <Dialog
-                      open={true}
-                      onOpenChange={() => setEditingIndex(null)}
+            <DndContext
+              sensors={useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))}
+              collisionDetection={closestCenter}
+              onDragEnd={(event) => {
+                const { active, over } = event;
+                if (active.id !== over?.id) {
+                  const oldIndex = playlist.findIndex((i) => i.id === active.id);
+                  const newIndex = playlist.findIndex((i) => i.id === over?.id);
+                  const newPlaylist = arrayMove(playlist, oldIndex, newIndex);
+                  setPlaylist(newPlaylist);
+                  // Atualiza o índice atual se necessário
+                  if (currentIndex === oldIndex) setCurrentIndex(newIndex);
+                  else if (currentIndex === newIndex) setCurrentIndex(oldIndex);
+                }
+              }}
+            >
+              <SortableContext items={playlist.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+                <ul className="space-y-1 p-2">
+                  {playlist.map((item, idx) => (
+                    <DraggablePlaylistItem
+                      key={item.id}
+                      item={item}
+                      idx={idx}
+                      currentIndex={currentIndex}
+                      editingIndex={editingIndex}
+                      editingTitle={editingTitle}
+                      setEditingIndex={setEditingIndex}
+                      setEditingTitle={setEditingTitle}
+                      saveEditedTitle={saveEditedTitle}
+                      handleEditTitle={handleEditTitle}
+                      handleRemove={handleRemove}
+                      updateCurrentIndex={updateCurrentIndex}
                     >
-                      <DialogContent className="max-w-sm rounded-xl p-6">
-                        <DialogHeader>
-                          <DialogTitle>Edit Playlist Item Title</DialogTitle>
-                          <DialogDescription>
-                            Update the title for this playlist item.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="flex flex-col gap-3 mt-2">
-                          <Input
-                            value={editingTitle}
-                            onChange={(e) => setEditingTitle(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") saveEditedTitle();
-                              if (e.key === "Escape") setEditingIndex(null);
-                            }}
-                            className="flex-1"
-                            autoFocus
-                          />
-                          <div className="flex gap-2 justify-end mt-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setEditingIndex(null)}
-                              type="button"
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="default"
-                              onClick={saveEditedTitle}
-                              type="button"
-                            >
-                              Save
-                            </Button>
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  )}
-                </li>
-              ))}
-            </ul>
+                      <span className="text-xs text-muted-foreground w-6 text-center">
+                        {idx + 1}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="truncate overflow-hidden whitespace-nowrap max-w-[180px] block cursor-pointer">
+                              {item.title}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>{item.title}</TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            aria-label="More actions"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEditTitle(idx)}>
+                            <Edit2 className="h-4 w-4 mr-2" /> Edit Title
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleRemove(idx)}>
+                            <Trash2 className="h-4 w-4 mr-2" /> Remove
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </DraggablePlaylistItem>
+                  ))}
+                </ul>
+              </SortableContext>
+            </DndContext>
           </ScrollArea>
         </div>
       </Card>
