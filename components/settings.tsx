@@ -3,15 +3,9 @@
 import type React from "react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useTheme } from "next-themes";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-  TooltipProvider,
-} from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { SettingsWallpaperTab } from "./settings/SettingsWallpaperTab";
 import { SettingsAppearanceTab } from "./settings/SettingsAppearanceTab";
 import { SettingsAboutTab } from "./settings/SettingsAboutTab";
@@ -21,8 +15,13 @@ import { toast } from "@/lib/toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useHotkeys } from "react-hotkeys-hook";
+import {
+  API_ENDPOINTS,
+  CURRENCY_KEYS,
+  COMMON_CURRENCIES as EXCHANGE_RATE_COMMON_CURRENCIES,
+} from "./exchange-rate";
+import { loadAndCleanCurrency } from "@/utils/localStorageUtils";
 
-// Types
 interface SettingsProps {
   wallpaper: string;
   setWallpaper: (wallpaper: string) => void;
@@ -40,32 +39,11 @@ interface CurrencyState {
 
 type TabValue = "general" | "wallpaper" | "appearance" | "about";
 
-// Constants
-const COMMON_CURRENCIES = [
-  "usd",
-  "eur",
-  "gbp",
-  "jpy",
-  "cny",
-  "aud",
-  "cad",
-  "chf",
-  "sek",
-  "nzd",
-  "brl",
-  "inr",
-];
+const COMMON_CURRENCIES = [...EXCHANGE_RATE_COMMON_CURRENCIES];
 
 const DEFAULT_WALLPAPERS = ["/wallpapers/default.webp", "/wallpapers/1.webp"];
 
-const CURRENCY_API_URL =
-  "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json";
-
-const LOCAL_STORAGE_KEYS = {
-  CUSTOM_WALLPAPERS: "custom_wallpapers",
-  CURRENCY_BASE: "currency_base",
-  CURRENCY_TARGET: "currency_target",
-} as const;
+const CUSTOM_WALLPAPERS_KEY = "custom_wallpapers";
 
 interface SettingsState {
   customWallpapers: string[];
@@ -89,8 +67,8 @@ const useSettingsState = () => {
     selectedWallpaper: DEFAULT_WALLPAPERS[0],
     currencies: COMMON_CURRENCIES,
     currencyState: {
-      base: localStorage.getItem(LOCAL_STORAGE_KEYS.CURRENCY_BASE) || "usd",
-      target: localStorage.getItem(LOCAL_STORAGE_KEYS.CURRENCY_TARGET) || "brl",
+      base: loadAndCleanCurrency(CURRENCY_KEYS.base, "usd"),
+      target: loadAndCleanCurrency(CURRENCY_KEYS.target, "brl"),
     },
     openBase: false,
     openTarget: false,
@@ -165,25 +143,23 @@ export function Settings({
       const file = e.target.files?.[0];
       if (!file) return;
 
-      // Validate file type
       const allowedTypes = [
         "image/jpeg",
         "image/png",
         "image/webp",
-        "image/gif"
+        "image/gif",
       ];
       if (!allowedTypes.includes(file.type)) {
         toast.error("Invalid file type.", {
-          description: "Please upload a JPEG, PNG, WEBP, or GIF image."
+          description: "Please upload a JPEG, PNG, WEBP, or GIF image.",
         });
         return;
       }
 
-      // Validate file size (max 50MB)
-      const maxSize = 50 * 1024 * 1024; // 50MB
+      const maxSize = 50 * 1024 * 1024;
       if (file.size > maxSize) {
         toast.error("File too large.", {
-          description: "Please upload an image smaller than 50MB."
+          description: "Please upload an image smaller than 50MB.",
         });
         return;
       }
@@ -198,7 +174,7 @@ export function Settings({
             customWallpapers: updatedWallpapers,
           }));
           localStorage.setItem(
-            LOCAL_STORAGE_KEYS.CUSTOM_WALLPAPERS,
+            CUSTOM_WALLPAPERS_KEY,
             JSON.stringify(updatedWallpapers)
           );
           setState((prev: SettingsState) => ({
@@ -221,11 +197,10 @@ export function Settings({
     [customWallpapers, setWallpaper, setState]
   );
 
-  // Fetch currencies
   useEffect(() => {
     const fetchCurrencies = async () => {
       try {
-        const res = await fetch(CURRENCY_API_URL);
+        const res = await fetch(API_ENDPOINTS.currencies);
         if (!res.ok) throw new Error("Failed to fetch currencies");
         const data = await res.json();
         setState((prev: SettingsState) => ({
@@ -243,31 +218,38 @@ export function Settings({
     fetchCurrencies();
   }, [setState]);
 
-  // Handle currency changes
   useEffect(() => {
     try {
-      // Store previous values to check for changes
-      const prevBase = localStorage.getItem(LOCAL_STORAGE_KEYS.CURRENCY_BASE);
-      const prevTarget = localStorage.getItem(
-        LOCAL_STORAGE_KEYS.CURRENCY_TARGET
-      );
+      const currentStoredBaseRaw = localStorage.getItem(CURRENCY_KEYS.base);
+      const currentStoredTargetRaw = localStorage.getItem(CURRENCY_KEYS.target);
 
-      // Only proceed if there are actual changes
-      const baseChanged = prevBase !== currencyState.base;
-      const targetChanged = prevTarget !== currencyState.target;
+      const cleanStoredBase =
+        currentStoredBaseRaw !== null
+          ? loadAndCleanCurrency(CURRENCY_KEYS.base, currencyState.base)
+          : currencyState.base;
+
+      const cleanStoredTarget =
+        currentStoredTargetRaw !== null
+          ? loadAndCleanCurrency(CURRENCY_KEYS.target, currencyState.target)
+          : currencyState.target;
+
+      const baseChanged = cleanStoredBase !== currencyState.base;
+      const targetChanged = cleanStoredTarget !== currencyState.target;
 
       if (baseChanged || targetChanged) {
-        // Update local storage
-        localStorage.setItem(
-          LOCAL_STORAGE_KEYS.CURRENCY_BASE,
-          currencyState.base
-        );
-        localStorage.setItem(
-          LOCAL_STORAGE_KEYS.CURRENCY_TARGET,
-          currencyState.target
-        );
+        if (baseChanged) {
+          localStorage.setItem(
+            CURRENCY_KEYS.base,
+            JSON.stringify(currencyState.base)
+          );
+        }
+        if (targetChanged) {
+          localStorage.setItem(
+            CURRENCY_KEYS.target,
+            JSON.stringify(currencyState.target)
+          );
+        }
 
-        // Only dispatch the event if there was an actual change
         const event = new CustomEvent("currency_changed", {
           detail: {
             base: currencyState.base,
@@ -281,7 +263,6 @@ export function Settings({
     }
   }, [currencyState]);
 
-  // Filter currencies based on search
   useEffect(() => {
     if (baseSearch.trim() === "") {
       setState((prev: SettingsState) => ({
@@ -318,7 +299,6 @@ export function Settings({
     }
   }, [targetSearch, currencies, setState]);
 
-  // Handle settings tab events
   useEffect(() => {
     const handler = (e: CustomEvent<TabValue>) => {
       if (e.detail) setTab(e.detail);

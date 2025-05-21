@@ -38,6 +38,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { CURRENCIES, CURRENCY_KEYS } from "@/components/exchange-rate";
 
 interface Props {
   font: string;
@@ -61,6 +62,8 @@ interface Props {
   filteredBase: string[];
   filteredTarget: string[];
 }
+
+type Currency = string;
 
 const fonts = [
   { value: "font-satoshi", label: "Satoshi (Default)" },
@@ -92,7 +95,6 @@ export function SettingsAppearanceTab({
   setFont,
   theme,
   setTheme,
-  setSystemTheme,
   base,
   setBase,
   target,
@@ -109,10 +111,16 @@ export function SettingsAppearanceTab({
   filteredBase,
   filteredTarget,
 }: Props) {
-  // Add state to track temperature unit
+  const [defaultBase, setDefaultBase] = useLocalStorage<Currency>(
+    CURRENCY_KEYS.base,
+    CURRENCIES.base
+  );
+  const [defaultTarget, setDefaultTarget] = useLocalStorage<Currency>(
+    CURRENCY_KEYS.target,
+    CURRENCIES.target
+  );
   const [temperatureUnit, setTemperatureUnit] = useState<TemperatureUnit>(
     () => {
-      // Initialize from localStorage if available
       if (typeof window !== "undefined") {
         const stored = localStorage.getItem("weather_unit");
         if (stored === "C" || stored === "F") {
@@ -123,7 +131,6 @@ export function SettingsAppearanceTab({
     }
   );
 
-  // Effect to handle changes to temperature unit
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("weather_unit", temperatureUnit);
@@ -135,7 +142,6 @@ export function SettingsAppearanceTab({
     }
   }, [temperatureUnit]);
 
-  // RadioGroup onValueChange handler
   const handleTemperatureUnitChange = (value: string) => {
     if (value === "C" || value === "F") {
       setTemperatureUnit(value);
@@ -164,9 +170,7 @@ export function SettingsAppearanceTab({
               value={theme}
               onValueChange={(value) => {
                 setTheme(value);
-                // When theme changes, we need to store it and update DOM
                 if (typeof window !== "undefined") {
-                  // Force theme change to take effect immediately
                   document.documentElement.classList.remove("light", "dark");
                   if (value !== "system") {
                     document.documentElement.classList.add(value);
