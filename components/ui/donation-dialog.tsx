@@ -120,7 +120,7 @@ export function DonationDialog() {
                   className="w-full flex justify-between items-center h-auto py-3"
                   onClick={() =>
                     window.open(
-                      "https://donate.stripe.com/bJeeVeaJa5IX7mOfLi0Jq00",
+                      "https://buy.stripe.com/6oU3cwbNedbpaz02Yw0Jq01",
                       "_blank"
                     )
                   }
