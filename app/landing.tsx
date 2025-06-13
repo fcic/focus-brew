@@ -557,7 +557,7 @@ function HeroSection() {
                 <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden rounded-lg relative">
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent z-10" />
                   <Image
-                    src="/images/preview.png"
+                    src="https://github.com/birobirobiro/focus-brew/blob/main/public/images/preview.png?raw=true"
                     alt="FocusBrew App Preview"
                     width={1200}
                     height={675}
